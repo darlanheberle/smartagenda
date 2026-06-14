@@ -12,6 +12,7 @@ export class ProfessionalRegistryService {
 
   constructor() {
     this.create({
+      id: process.env.DEMO_PROFESSIONAL_ID || "demo-professional",
       name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao SmartAgenda",
       specialty: process.env.DEMO_PROFESSIONAL_SPECIALTY || "Clinica modelo",
       whatsappNumber: process.env.DEMO_PROFESSIONAL_WHATSAPP || "+554896807805",
@@ -26,7 +27,7 @@ export class ProfessionalRegistryService {
   }
 
   create(input: CreateProfessionalInput): Professional {
-    const id = randomUUID();
+    const id = input.id || randomUUID();
     const now = new Date().toISOString();
     const professional: Professional = {
       id,

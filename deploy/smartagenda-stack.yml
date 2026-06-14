@@ -1,6 +1,23 @@
 version: "3.7"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - network_public
+    environment:
+      POSTGRES_DB: smartagenda
+      POSTGRES_USER: smartagenda
+      POSTGRES_PASSWORD: ${SMARTAGENDA_POSTGRES_PASSWORD}
+    volumes:
+      - smartagenda_postgres_data:/var/lib/postgresql/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
   api:
     image: smartagenda-api:latest
     networks:
@@ -8,6 +25,8 @@ services:
     environment:
       API_PORT: "3333"
       NEXT_PUBLIC_APP_URL: https://www.agendasmart.com.br
+      DATABASE_URL: postgresql://smartagenda:${SMARTAGENDA_POSTGRES_PASSWORD}@smartagenda_postgres:5432/smartagenda
+      DEMO_PROFESSIONAL_ID: ${DEMO_PROFESSIONAL_ID:-demo-professional}
       DEMO_PROFESSIONAL_NAME: ${DEMO_PROFESSIONAL_NAME:-Demonstracao SmartAgenda}
       DEMO_PROFESSIONAL_SPECIALTY: ${DEMO_PROFESSIONAL_SPECIALTY:-Clinica modelo}
       DEMO_PROFESSIONAL_WHATSAPP: ${DEMO_PROFESSIONAL_WHATSAPP:-+554896807805}
@@ -72,3 +91,6 @@ networks:
   network_public:
     external: true
     name: network_public
+
+volumes:
+  smartagenda_postgres_data:

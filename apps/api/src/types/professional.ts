@@ -21,6 +21,7 @@ export type Professional = {
 };
 
 export type CreateProfessionalInput = {
+  id?: string;
   name: string;
   specialty?: string;
   whatsappNumber: string;

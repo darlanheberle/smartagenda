@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ProfessionalRegistryService } from "./professional-registry.service";
+import { DatabaseService } from "./database.service";
+import { Professional } from "../types/professional";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -18,7 +20,10 @@ type CalendarSlot = {
 
 @Injectable()
 export class CalendarService {
-  constructor(private readonly professionals: ProfessionalRegistryService) {}
+  constructor(
+    private readonly professionals: ProfessionalRegistryService,
+    private readonly database: DatabaseService
+  ) {}
 
   createGoogleAuthUrl(professionalId: string) {
     const professional = this.professionals.getById(professionalId);
@@ -96,7 +101,7 @@ export class CalendarService {
       expires_in?: number;
     };
 
-    const connected = this.professionals.connectGoogleCalendar(professional.id, {
+    const connection = {
       email: professional.gmail,
       calendarId: "primary",
       accessToken: token.access_token,
@@ -105,7 +110,9 @@ export class CalendarService {
         ? new Date(Date.now() + token.expires_in * 1000).toISOString()
         : undefined,
       connectedAt: new Date().toISOString()
-    });
+    };
+    await this.database.saveGoogleCalendarConnection(professional.id, connection);
+    const connected = this.professionals.connectGoogleCalendar(professional.id, connection);
 
     return {
       status: "connected",
@@ -117,9 +124,11 @@ export class CalendarService {
   }
 
   async getAvailability(professionalId?: string) {
-    const professional = professionalId
+    const professional = await this.loadGoogleCalendarConnection(
+      professionalId
       ? this.professionals.getById(professionalId)
-      : this.professionals.list()[0];
+      : this.professionals.list()[0]
+    );
 
     if (!professional?.googleCalendar?.accessToken) {
       return this.mockAvailability(professional?.id, "mocked_until_google_connected");
@@ -184,7 +193,9 @@ export class CalendarService {
     startsAt: string;
     serviceName: string;
   }) {
-    const professional = this.professionals.getById(input.professionalId);
+    const professional = await this.loadGoogleCalendarConnection(
+      this.professionals.getById(input.professionalId)
+    );
 
     if (!professional.googleCalendar?.accessToken) {
       return {
@@ -297,8 +308,29 @@ export class CalendarService {
         ? new Date(Date.now() + token.expires_in * 1000).toISOString()
         : connection.expiresAt
     });
+    await this.database.saveGoogleCalendarConnection(professional.id, {
+      ...connection,
+      accessToken: token.access_token,
+      expiresAt: token.expires_in
+        ? new Date(Date.now() + token.expires_in * 1000).toISOString()
+        : connection.expiresAt
+    });
 
     return token.access_token;
+  }
+
+  private async loadGoogleCalendarConnection(professional: Professional) {
+    if (professional.googleCalendar?.accessToken) {
+      return professional;
+    }
+
+    const connection = await this.database.getGoogleCalendarConnection(professional.id);
+
+    if (!connection) {
+      return professional;
+    }
+
+    return this.professionals.connectGoogleCalendar(professional.id, connection);
   }
 
   private buildAvailableSlots(input: {

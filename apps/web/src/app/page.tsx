@@ -50,6 +50,9 @@ const setupSteps = [
 ];
 
 export default function Home() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+  const googleConnectUrl = `${apiUrl}/integrations/google/start?professionalId=demo-professional`;
+
   return (
     <main className="min-h-screen">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white/88 px-5 py-6 lg:block">
@@ -94,10 +97,13 @@ export default function Home() {
                 <MessageCircle size={16} />
                 WhatsApp
               </button>
-              <button className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
+              <a
+                className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                href={googleConnectUrl}
+              >
                 <Link2 size={16} />
-                Conectar Google
-              </button>
+                Conectar Google Agenda
+              </a>
             </div>
           </div>
         </header>
