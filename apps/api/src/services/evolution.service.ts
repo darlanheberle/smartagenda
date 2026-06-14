@@ -1,5 +1,15 @@
 import { Injectable } from "@nestjs/common";
 
+type EvolutionInstance = {
+  name?: string;
+  instanceName?: string;
+  connectionStatus?: string;
+  ownerJid?: string;
+  integration?: string;
+  profileName?: string;
+  number?: string | null;
+};
+
 @Injectable()
 export class EvolutionService {
   async fetchInstances() {
@@ -28,10 +38,18 @@ export class EvolutionService {
       };
     }
 
+    const instances = (await response.json()) as EvolutionInstance[];
+
     return {
       provider: "evolution-api",
       status: "connected",
-      instances: await response.json()
+      instances: instances.map((instance) => ({
+        name: instance.name || instance.instanceName,
+        status: instance.connectionStatus,
+        owner: this.maskWhatsappJid(instance.ownerJid),
+        integration: instance.integration,
+        profileName: instance.profileName
+      }))
     };
   }
 
@@ -73,8 +91,15 @@ export class EvolutionService {
     return {
       provider: "evolution-api",
       status: "sent",
-      response: await response.json(),
       ...input
     };
+  }
+
+  private maskWhatsappJid(jid?: string) {
+    if (!jid) {
+      return undefined;
+    }
+
+    return jid.replace(/(\d{4})\d+(\d{2}@.*)/, "$1****$2");
   }
 }
