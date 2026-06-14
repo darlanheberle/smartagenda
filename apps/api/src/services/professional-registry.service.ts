@@ -12,13 +12,16 @@ export class ProfessionalRegistryService {
 
   constructor() {
     this.create({
-      name: "Demonstração SmartAgenda",
-      specialty: "Clínica modelo",
-      whatsappNumber: "+5511999990000",
+      name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao SmartAgenda",
+      specialty: process.env.DEMO_PROFESSIONAL_SPECIALTY || "Clinica modelo",
+      whatsappNumber: process.env.DEMO_PROFESSIONAL_WHATSAPP || "+554896807805",
       evolutionInstanceName: process.env.EVOLUTION_INSTANCE_NAME || "smartagenda-demo",
-      gmail: "agenda.profissional@gmail.com",
-      timezone: "America/Sao_Paulo",
-      appointmentDurationMinutes: 60
+      gmail: process.env.DEMO_PROFESSIONAL_GMAIL || "agenda.profissional@gmail.com",
+      timezone: process.env.DEMO_PROFESSIONAL_TIMEZONE || "America/Sao_Paulo",
+      appointmentDurationMinutes: Number.parseInt(
+        process.env.DEMO_APPOINTMENT_DURATION_MINUTES || "60",
+        10
+      )
     });
   }
 
@@ -49,7 +52,7 @@ export class ProfessionalRegistryService {
   getById(id: string): Professional {
     const professional = this.professionals.get(id);
     if (!professional) {
-      throw new NotFoundException("Profissional não encontrado");
+      throw new NotFoundException("Profissional nao encontrado");
     }
 
     return professional;
