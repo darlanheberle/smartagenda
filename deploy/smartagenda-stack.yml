@@ -10,7 +10,7 @@ services:
       NEXT_PUBLIC_APP_URL: https://www.agendasmart.com.br
       EVOLUTION_API_URL: https://evolutionapi.agendasmart.com.br
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME:-robo_openai}
+      EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME:-smartagenda_teste}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: https://api.agendasmart.com.br/integrations/google/callback

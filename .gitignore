@@ -30,3 +30,6 @@ Thumbs.db
 
 # docker/database
 postgres_data/
+
+# temporary QR codes
+*_qr.png
