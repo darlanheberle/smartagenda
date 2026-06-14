@@ -8,6 +8,8 @@ RUN npm ci
 FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules apps/api/node_modules
+COPY --from=deps /app/apps/web/node_modules apps/web/node_modules
 COPY . .
 RUN npm run build --workspace apps/web
 
@@ -19,5 +21,6 @@ COPY --from=build /app/apps/web/public apps/web/public
 COPY --from=build /app/apps/web/package.json apps/web/package.json
 COPY --from=build /app/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules apps/web/node_modules
 EXPOSE 3000
 CMD ["npm", "run", "start", "--workspace", "apps/web"]
