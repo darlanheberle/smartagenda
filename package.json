@@ -1,0 +1,19 @@
+﻿{
+  "name": "smartagenda-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plataforma SaaS para atendimento por WhatsApp, Google Agenda, IA e controle financeiro.",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}
