@@ -14,6 +14,17 @@ export class AiSchedulingService {
 
   async handleIncomingWhatsAppMessage(payload: EvolutionWebhookPayload) {
     const incoming = this.normalizeIncomingMessage(payload);
+
+    if (!incoming.isCustomerMessage) {
+      return {
+        received: true,
+        ignored: true,
+        reason: incoming.ignoreReason,
+        event: payload.event,
+        instanceName: incoming.instanceName
+      };
+    }
+
     const professional = this.professionals.findByEvolutionInstance(incoming.instanceName);
 
     if (!professional) {
@@ -52,15 +63,34 @@ export class AiSchedulingService {
 
   private normalizeIncomingMessage(payload: EvolutionWebhookPayload): IncomingWhatsAppMessage {
     const remoteJid = payload?.data?.key?.remoteJid || payload.phone || "unknown";
+    const text =
+      payload.data?.message?.conversation ||
+      payload.data?.message?.extendedTextMessage?.text ||
+      "";
+    const isFromMe = Boolean(payload.data?.key?.fromMe);
+    const isMessageEvent = !payload.event || payload.event === "messages.upsert" || payload.event === "MESSAGES_UPSERT";
+    const isCustomerMessage = isMessageEvent && !isFromMe && remoteJid !== "unknown" && text.trim().length > 0;
+
     return {
       instanceName:
-        payload.instance || payload.instanceName || payload.data?.instance || process.env.EVOLUTION_INSTANCE_NAME || "smartagenda-demo",
+        payload.instance ||
+        payload.instanceName ||
+        payload.data?.instance ||
+        process.env.EVOLUTION_INSTANCE_NAME ||
+        "smartagenda_teste",
       customerPhone: remoteJid.replace("@s.whatsapp.net", ""),
       customerName: payload.data?.pushName,
-      text:
-        payload.data?.message?.conversation ||
-        payload.data?.message?.extendedTextMessage?.text ||
-        ""
+      text,
+      isCustomerMessage,
+      ignoreReason: isCustomerMessage
+        ? undefined
+        : !isMessageEvent
+          ? "not_a_message_event"
+          : isFromMe
+            ? "message_from_bot"
+            : text.trim().length === 0
+              ? "empty_message"
+              : "missing_customer_phone"
     };
   }
 }

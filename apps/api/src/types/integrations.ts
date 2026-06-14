@@ -25,4 +25,6 @@ export type IncomingWhatsAppMessage = {
   customerPhone: string;
   customerName?: string;
   text: string;
+  isCustomerMessage?: boolean;
+  ignoreReason?: string;
 };
