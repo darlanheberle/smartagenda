@@ -45,3 +45,16 @@ npm run dev
 ## Observação
 
 Não coloque tokens reais no repositório. Use somente variáveis de ambiente.
+
+## Integração WhatsApp + Google Agenda
+
+O fluxo por profissional está documentado em `docs/whatsapp-google-calendar-flow.md`.
+
+Cada profissional deve cadastrar:
+
+- Número de WhatsApp.
+- Instância Evolution API.
+- Gmail que possui a agenda.
+- Autorização Google Calendar via OAuth.
+
+A API usa a instância do WhatsApp para encontrar o profissional e o Gmail vinculado para consultar/criar eventos na agenda correta.

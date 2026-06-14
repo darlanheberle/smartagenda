@@ -4,7 +4,10 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  Link2,
+  Mail,
   MessageCircle,
+  Smartphone,
   UsersRound
 } from "lucide-react";
 
@@ -16,16 +19,34 @@ const appointments = [
 ];
 
 const messages = [
-  "Cliente pediu horário para semana que vem",
-  "IA sugeriu terça 14h ou quinta 16h",
-  "Evento criado na Google Agenda",
-  "Lembrete de 24h programado"
+  "WhatsApp identifica a instância do profissional",
+  "Sistema localiza o Gmail vinculado ao número",
+  "Agenda Google é consultada antes da resposta",
+  "Confirmação cria evento na agenda correta"
 ];
 
 const clients = [
   { name: "Maria Souza", phone: "+55 11 90000-1111", history: "3 atendimentos" },
   { name: "Carlos Lima", phone: "+55 11 90000-2222", history: "1 falta" },
   { name: "Ana Pereira", phone: "+55 11 90000-3333", history: "5 atendimentos" }
+];
+
+const setupSteps = [
+  {
+    icon: <Smartphone size={17} />,
+    title: "Número WhatsApp",
+    text: "Cada profissional informa o número e a instância Evolution API."
+  },
+  {
+    icon: <Mail size={17} />,
+    title: "Gmail do profissional",
+    text: "O Gmail é usado como login_hint para conectar a agenda certa."
+  },
+  {
+    icon: <CalendarCheck size={17} />,
+    title: "Google Agenda",
+    text: "OAuth libera consulta de disponibilidade e criação de eventos."
+  }
 ];
 
 export default function Home() {
@@ -65,7 +86,7 @@ export default function Home() {
             <div>
               <h1 className="text-2xl font-semibold tracking-normal text-ink">Operação de hoje</h1>
               <p className="text-sm text-slate-500">
-                Agenda sincronizada, atendimento por IA e controle financeiro.
+                Atendimento por WhatsApp conectado ao Gmail e à Google Agenda de cada profissional.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -74,8 +95,8 @@ export default function Home() {
                 WhatsApp
               </button>
               <button className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500">
-                <CalendarCheck size={16} />
-                Novo agendamento
+                <Link2 size={16} />
+                Conectar Google
               </button>
             </div>
           </div>
@@ -88,6 +109,31 @@ export default function Home() {
               <Metric icon={<Clock3 size={18} />} label="Cancelamentos" value="2" />
               <Metric icon={<BadgeDollarSign size={18} />} label="Previsto" value="R$ 1.840" />
               <Metric icon={<UsersRound size={18} />} label="Clientes ativos" value="126" />
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white">
+              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="font-semibold">Vínculo WhatsApp + Gmail</h2>
+                  <p className="text-sm text-slate-500">
+                    Cada número atende usando a agenda Google do Gmail vinculado.
+                  </p>
+                </div>
+                <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  Fluxo implementado na API
+                </span>
+              </div>
+              <div className="grid gap-4 p-4 md:grid-cols-3">
+                {setupSteps.map((step) => (
+                  <div className="rounded-md border border-slate-200 p-4" key={step.title}>
+                    <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-brand-50 text-brand-700">
+                      {step.icon}
+                    </div>
+                    <p className="font-medium">{step.title}</p>
+                    <p className="mt-1 text-sm text-slate-500">{step.text}</p>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white">
@@ -169,6 +215,15 @@ export default function Home() {
               </div>
             </Panel>
 
+            <Panel title="Cadastro obrigatório" subtitle="Para cada usuário/profissional">
+              <div className="space-y-3 text-sm text-slate-600">
+                <RequiredItem label="WhatsApp" value="Número e instância Evolution" />
+                <RequiredItem label="Gmail" value="Conta que possui a agenda" />
+                <RequiredItem label="Agenda" value="Google Calendar via OAuth" />
+                <RequiredItem label="Regras" value="Duração, horários e serviço" />
+              </div>
+            </Panel>
+
             <Panel title="Planos" subtitle="Modelo inicial de assinatura">
               <div className="space-y-3">
                 <Plan name="Básico" price="R$ 29,90" details="1 profissional, WhatsApp e Google Agenda" />
@@ -218,6 +273,15 @@ function FinancialRow({ label, value, tone }: { label: string; value: string; to
     <div className="flex items-center justify-between">
       <span className="text-sm text-slate-600">{label}</span>
       <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${colors[tone]}`}>{value}</span>
+    </div>
+  );
+}
+
+function RequiredItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2.5">
+      <span className="font-medium text-slate-800">{label}</span>
+      <span className="text-right text-slate-500">{value}</span>
     </div>
   );
 }
