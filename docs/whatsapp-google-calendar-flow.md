@@ -41,6 +41,12 @@ Exemplo:
 GET /professionals
 ```
 
+### Testar conexão Evolution
+
+```http
+GET /integrations/evolution/status
+```
+
 ### Gerar link de conexão Google
 
 ```http
@@ -99,7 +105,7 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:3333/integrations/google/callback
 GOOGLE_SCOPES=https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy
 
-EVOLUTION_API_URL=
+EVOLUTION_API_URL=https://evolutionapi.agendasmart.com.br
 EVOLUTION_API_KEY=
 EVOLUTION_INSTANCE_NAME=smartagenda-demo
 ```

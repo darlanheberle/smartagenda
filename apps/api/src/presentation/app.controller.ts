@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { CalendarService } from "../services/calendar.service";
+import { EvolutionService } from "../services/evolution.service";
 import { ProfessionalRegistryService } from "../services/professional-registry.service";
 import { EvolutionWebhookPayload } from "../types/integrations";
 import { CreateProfessionalInput } from "../types/professional";
@@ -10,6 +11,7 @@ export class AppController {
   constructor(
     private readonly aiScheduling: AiSchedulingService,
     private readonly calendar: CalendarService,
+    private readonly evolution: EvolutionService,
     private readonly professionals: ProfessionalRegistryService
   ) {}
 
@@ -49,6 +51,11 @@ export class AppController {
   @Get("professionals/:id/google/auth-url")
   googleAuthUrl(@Param("id") id: string) {
     return this.calendar.createGoogleAuthUrl(id);
+  }
+
+  @Get("integrations/evolution/status")
+  evolutionStatus() {
+    return this.evolution.fetchInstances();
   }
 
   @Get("integrations/google/callback")
