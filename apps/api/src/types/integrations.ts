@@ -1,4 +1,4 @@
-﻿export type EvolutionWebhookPayload = {
+export type EvolutionWebhookPayload = {
   phone?: string;
   event?: string;
   data?: {

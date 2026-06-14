@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { CalendarService } from "../services/calendar.service";
 import { EvolutionWebhookPayload } from "../types/integrations";

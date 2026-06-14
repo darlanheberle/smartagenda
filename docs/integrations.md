@@ -1,4 +1,4 @@
-﻿# Integrações
+# Integrações
 
 ## WhatsApp
 

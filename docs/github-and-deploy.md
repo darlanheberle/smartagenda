@@ -1,4 +1,4 @@
-﻿# GitHub e Deploy
+# GitHub e Deploy
 
 ## Repositório
 

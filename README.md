@@ -1,4 +1,4 @@
-﻿# SmartAgenda
+# SmartAgenda
 
 Protótipo SaaS para profissionais que atendem com horário marcado. A plataforma centraliza WhatsApp, Google Agenda, lembretes, clientes, equipe e financeiro.
 

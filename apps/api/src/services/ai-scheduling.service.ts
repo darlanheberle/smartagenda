@@ -1,4 +1,4 @@
-﻿import { Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { CalendarService } from "./calendar.service";
 import { EvolutionService } from "./evolution.service";
 import { EvolutionWebhookPayload } from "../types/integrations";

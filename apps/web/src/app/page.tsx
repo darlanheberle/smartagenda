@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadgeDollarSign,
   Bot,
   CalendarCheck,
