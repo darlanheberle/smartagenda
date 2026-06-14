@@ -77,6 +77,26 @@ export class ProfessionalRegistryService {
     return updated;
   }
 
+  updateGoogleCalendar(id: string, connection: Partial<GoogleCalendarConnection>): Professional {
+    const professional = this.getById(id);
+    const updated = {
+      ...professional,
+      googleCalendar: {
+        ...professional.googleCalendar,
+        ...connection,
+        email: connection.email || professional.googleCalendar?.email || professional.gmail,
+        calendarId: connection.calendarId || professional.googleCalendar?.calendarId || "primary",
+        connectedAt:
+          connection.connectedAt ||
+          professional.googleCalendar?.connectedAt ||
+          new Date().toISOString()
+      }
+    };
+
+    this.professionals.set(id, updated);
+    return updated;
+  }
+
   normalizePhone(phone: string): string {
     const digits = phone.replace(/\D/g, "");
     return digits.startsWith("+") ? digits : `+${digits}`;

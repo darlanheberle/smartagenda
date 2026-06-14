@@ -15,6 +15,11 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: https://api.agendasmart.com.br/integrations/google/callback
       GOOGLE_SCOPES: https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy
+      GOOGLE_AVAILABILITY_DAYS: ${GOOGLE_AVAILABILITY_DAYS:-14}
+      WORK_START_HOUR: ${WORK_START_HOUR:-9}
+      WORK_END_HOUR: ${WORK_END_HOUR:-18}
+      SLOT_STEP_MINUTES: ${SLOT_STEP_MINUTES:-60}
+      MAX_AVAILABILITY_SLOTS: ${MAX_AVAILABILITY_SLOTS:-6}
       JWT_SECRET: ${JWT_SECRET:-change-me-before-production}
     deploy:
       mode: replicated

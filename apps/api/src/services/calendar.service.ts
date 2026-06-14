@@ -5,6 +5,17 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
+type BusyInterval = {
+  start: string;
+  end: string;
+};
+
+type CalendarSlot = {
+  startsAt: string;
+  endsAt: string;
+  label: string;
+};
+
 @Injectable()
 export class CalendarService {
   constructor(private readonly professionals: ProfessionalRegistryService) {}
@@ -33,7 +44,8 @@ export class CalendarService {
       prompt: "consent",
       scope: scopes,
       state: professional.id,
-      login_hint: professional.gmail
+      login_hint: professional.gmail,
+      include_granted_scopes: "true"
     });
 
     return {
@@ -99,7 +111,8 @@ export class CalendarService {
       status: "connected",
       professionalId: connected.id,
       gmail: connected.gmail,
-      calendarId: connected.googleCalendar?.calendarId
+      calendarId: connected.googleCalendar?.calendarId,
+      nextStep: "Agora a agenda ja pode consultar disponibilidade e criar eventos."
     };
   }
 
@@ -112,14 +125,18 @@ export class CalendarService {
       return this.mockAvailability(professional?.id, "mocked_until_google_connected");
     }
 
+    const accessToken = await this.getValidAccessToken(professional.id);
     const now = new Date();
+    const daysAhead = Number.parseInt(process.env.GOOGLE_AVAILABILITY_DAYS || "14", 10);
     const timeMin = now.toISOString();
-    const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const timeMax = new Date(
+      now.getTime() + daysAhead * 24 * 60 * 60 * 1000
+    ).toISOString();
 
     const response = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${professional.googleCalendar.accessToken}`,
+        authorization: `Bearer ${accessToken}`,
         "content-type": "application/json"
       },
       body: JSON.stringify({
@@ -137,12 +154,26 @@ export class CalendarService {
       };
     }
 
+    const freeBusy = (await response.json()) as {
+      calendars?: Record<string, { busy?: BusyInterval[] }>;
+    };
+    const busy = freeBusy.calendars?.[professional.googleCalendar.calendarId]?.busy || [];
+    const slots = this.buildAvailableSlots({
+      busy,
+      durationMinutes: professional.appointmentDurationMinutes,
+      timezone: professional.timezone,
+      daysAhead
+    });
+
     return {
       provider: "google-calendar",
       status: "connected",
       professionalId: professional.id,
       calendarId: professional.googleCalendar.calendarId,
-      busy: await response.json()
+      timezone: professional.timezone,
+      durationMinutes: professional.appointmentDurationMinutes,
+      slots,
+      busy
     };
   }
 
@@ -164,6 +195,7 @@ export class CalendarService {
       };
     }
 
+    const accessToken = await this.getValidAccessToken(professional.id);
     const start = new Date(input.startsAt);
     const end = new Date(
       start.getTime() + professional.appointmentDurationMinutes * 60 * 1000
@@ -176,7 +208,7 @@ export class CalendarService {
       {
         method: "POST",
         headers: {
-          authorization: `Bearer ${professional.googleCalendar.accessToken}`,
+          authorization: `Bearer ${accessToken}`,
           "content-type": "application/json"
         },
         body: JSON.stringify({
@@ -185,7 +217,14 @@ export class CalendarService {
             ? `Agendamento recebido via WhatsApp: ${input.clientPhone}`
             : "Agendamento recebido via SmartAgenda",
           start: { dateTime: input.startsAt, timeZone: professional.timezone },
-          end: { dateTime: end.toISOString(), timeZone: professional.timezone }
+          end: { dateTime: end.toISOString(), timeZone: professional.timezone },
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: "popup", minutes: 120 },
+              { method: "popup", minutes: 24 * 60 }
+            ]
+          }
         })
       }
     );
@@ -210,6 +249,179 @@ export class CalendarService {
     };
   }
 
+  private async getValidAccessToken(professionalId: string): Promise<string> {
+    const professional = this.professionals.getById(professionalId);
+    const connection = professional.googleCalendar;
+
+    if (!connection?.accessToken) {
+      throw new Error("Google Calendar nao conectado.");
+    }
+
+    const expiresAt = connection.expiresAt ? new Date(connection.expiresAt).getTime() : 0;
+    const hasTimeLeft = expiresAt > Date.now() + 2 * 60 * 1000;
+
+    if (hasTimeLeft || !connection.refreshToken) {
+      return connection.accessToken;
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return connection.accessToken;
+    }
+
+    const response = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: connection.refreshToken,
+        grant_type: "refresh_token"
+      })
+    });
+
+    if (!response.ok) {
+      return connection.accessToken;
+    }
+
+    const token = (await response.json()) as {
+      access_token: string;
+      expires_in?: number;
+    };
+
+    this.professionals.updateGoogleCalendar(professional.id, {
+      accessToken: token.access_token,
+      expiresAt: token.expires_in
+        ? new Date(Date.now() + token.expires_in * 1000).toISOString()
+        : connection.expiresAt
+    });
+
+    return token.access_token;
+  }
+
+  private buildAvailableSlots(input: {
+    busy: BusyInterval[];
+    durationMinutes: number;
+    timezone: string;
+    daysAhead: number;
+  }): CalendarSlot[] {
+    const workStartHour = Number.parseInt(process.env.WORK_START_HOUR || "9", 10);
+    const workEndHour = Number.parseInt(process.env.WORK_END_HOUR || "18", 10);
+    const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "6", 10);
+    const slotStepMinutes = Number.parseInt(
+      process.env.SLOT_STEP_MINUTES || `${input.durationMinutes}`,
+      10
+    );
+    const slots: CalendarSlot[] = [];
+    const now = new Date();
+
+    for (
+      let dayOffset = 0;
+      dayOffset < input.daysAhead && slots.length < maxSlots;
+      dayOffset += 1
+    ) {
+      const date = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+      const parts = this.getDateParts(date, input.timezone);
+      const dayOfWeek = this.getDayOfWeek(parts);
+
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        continue;
+      }
+
+      for (
+        let minuteOfDay = workStartHour * 60;
+        minuteOfDay + input.durationMinutes <= workEndHour * 60 &&
+        slots.length < maxSlots;
+        minuteOfDay += slotStepMinutes
+      ) {
+        const hour = Math.floor(minuteOfDay / 60);
+        const minute = minuteOfDay % 60;
+        const start = this.zonedDateTimeToUtcDate(parts, hour, minute, input.timezone);
+        const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
+
+        if (start <= now || this.isSlotBusy(start, end, input.busy)) {
+          continue;
+        }
+
+        slots.push({
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          label: this.formatSlotLabel(start, input.timezone)
+        });
+      }
+    }
+
+    return slots;
+  }
+
+  private isSlotBusy(start: Date, end: Date, busy: BusyInterval[]) {
+    return busy.some((interval) => {
+      const busyStart = new Date(interval.start);
+      const busyEnd = new Date(interval.end);
+      return start < busyEnd && end > busyStart;
+    });
+  }
+
+  private getDateParts(date: Date, timezone: string) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(date);
+
+    return {
+      year: Number(parts.find((part) => part.type === "year")?.value),
+      month: Number(parts.find((part) => part.type === "month")?.value),
+      day: Number(parts.find((part) => part.type === "day")?.value)
+    };
+  }
+
+  private getDayOfWeek(parts: { year: number; month: number; day: number }) {
+    return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  }
+
+  private zonedDateTimeToUtcDate(
+    parts: { year: number; month: number; day: number },
+    hour: number,
+    minute: number,
+    timezone: string
+  ) {
+    const utcGuess = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute));
+    const zonedParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).formatToParts(utcGuess);
+    const actualAsUtc = Date.UTC(
+      Number(zonedParts.find((part) => part.type === "year")?.value),
+      Number(zonedParts.find((part) => part.type === "month")?.value) - 1,
+      Number(zonedParts.find((part) => part.type === "day")?.value),
+      Number(zonedParts.find((part) => part.type === "hour")?.value),
+      Number(zonedParts.find((part) => part.type === "minute")?.value)
+    );
+    const desiredAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute);
+
+    return new Date(utcGuess.getTime() + (desiredAsUtc - actualAsUtc));
+  }
+
+  private formatSlotLabel(date: Date, timezone: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      timeZone: timezone,
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  }
+
   private mockAvailability(professionalId?: string, status = "mocked") {
     return {
       provider: "google-calendar",
@@ -218,7 +430,7 @@ export class CalendarService {
       slots: [
         { startsAt: "2026-06-15T14:00:00-03:00", label: "Segunda 14h" },
         { startsAt: "2026-06-15T15:00:00-03:00", label: "Segunda 15h" },
-        { startsAt: "2026-06-16T09:00:00-03:00", label: "Terça 09h" }
+        { startsAt: "2026-06-16T09:00:00-03:00", label: "Terca 09h" }
       ]
     };
   }
