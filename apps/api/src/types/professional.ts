@@ -30,3 +30,19 @@ export type CreateProfessionalInput = {
   timezone?: string;
   appointmentDurationMinutes?: number;
 };
+
+export type ProfessionalRecord = {
+  id: string;
+  name: string;
+  specialty?: string | null;
+  whatsapp_number: string;
+  evolution_instance_name: string;
+  gmail: string;
+  timezone: string;
+  appointment_duration_minutes: number;
+  whatsapp_status: string;
+  whatsapp_connected_at?: string | null;
+  onboarding_completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};

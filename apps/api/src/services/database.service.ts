@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
-import { GoogleCalendarConnection } from "../types/professional";
+import {
+  CreateProfessionalInput,
+  GoogleCalendarConnection,
+  ProfessionalRecord
+} from "../types/professional";
 
 type SaveAppointmentInput = {
   professionalId: string;
@@ -93,6 +97,23 @@ export class DatabaseService implements OnModuleInit {
     }
 
     await this.pool.query(`
+      create table if not exists professionals (
+        id text primary key,
+        name text not null,
+        specialty text,
+        whatsapp_number text not null,
+        evolution_instance_name text not null unique,
+        gmail text not null,
+        timezone text not null default 'America/Sao_Paulo',
+        appointment_duration_minutes integer not null default 60,
+        whatsapp_status text not null default 'pending',
+        whatsapp_connected_at timestamptz,
+        onboarding_completed_at timestamptz,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await this.pool.query(`
       create table if not exists google_calendar_connections (
         professional_id text primary key,
         email text not null,
@@ -168,6 +189,170 @@ export class DatabaseService implements OnModuleInit {
     `);
     this.ready = true;
     await this.ensureDefaultSchedulingData();
+  }
+
+  async upsertProfessional(input: CreateProfessionalInput & { id: string }) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        insert into professionals (
+          id,
+          name,
+          specialty,
+          whatsapp_number,
+          evolution_instance_name,
+          gmail,
+          timezone,
+          appointment_duration_minutes,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+        on conflict (id)
+        do update set
+          name = excluded.name,
+          specialty = excluded.specialty,
+          whatsapp_number = excluded.whatsapp_number,
+          evolution_instance_name = excluded.evolution_instance_name,
+          gmail = excluded.gmail,
+          timezone = excluded.timezone,
+          appointment_duration_minutes = excluded.appointment_duration_minutes,
+          updated_at = now()
+        returning *
+      `,
+      [
+        input.id,
+        input.name.trim(),
+        input.specialty || null,
+        this.normalizePhone(input.whatsappNumber),
+        input.evolutionInstanceName || this.buildInstanceName(input.whatsappNumber),
+        input.gmail.toLowerCase().trim(),
+        input.timezone || "America/Sao_Paulo",
+        input.appointmentDurationMinutes || 60
+      ]
+    );
+
+    return result.rows[0] as ProfessionalRecord;
+  }
+
+  async listProfessionals(): Promise<ProfessionalRecord[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from professionals
+        order by created_at desc
+      `
+    );
+
+    return result.rows;
+  }
+
+  async getProfessional(id: string): Promise<ProfessionalRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query("select * from professionals where id = $1", [id]);
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async markProfessionalWhatsappStatus(
+    professionalId: string,
+    status: "pending" | "instance_created" | "connected" | "error"
+  ) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals
+        set
+          whatsapp_status = $2,
+          whatsapp_connected_at = case when $2 = 'connected' then now() else whatsapp_connected_at end,
+          updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [professionalId, status]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async getOnboardingStatus(professionalId: string) {
+    if (!this.pool || !this.ready) {
+      return {
+        professionalId,
+        googleConnected: false,
+        whatsappConnected: false,
+        servicesConfigured: false,
+        availabilityConfigured: false,
+        ready: false
+      };
+    }
+
+    const result = await this.pool.query(
+      `
+        select
+          p.*,
+          (gcc.professional_id is not null) as google_connected,
+          (p.whatsapp_status = 'connected') as whatsapp_connected,
+          (select count(*)::int from services s where s.professional_id = p.id and s.active = true) as services_count,
+          (select count(*)::int from professional_availability pa where pa.professional_id = p.id and pa.active = true) as availability_rules_count
+        from professionals p
+        left join google_calendar_connections gcc on gcc.professional_id = p.id
+        where p.id = $1
+      `,
+      [professionalId]
+    );
+    const row = result.rows[0];
+
+    if (!row) {
+      return undefined;
+    }
+
+    const servicesConfigured = row.services_count > 0;
+    const availabilityConfigured = row.availability_rules_count > 0;
+    const ready =
+      Boolean(row.google_connected) &&
+      Boolean(row.whatsapp_connected) &&
+      servicesConfigured &&
+      availabilityConfigured;
+
+    if (ready && !row.onboarding_completed_at) {
+      await this.pool.query(
+        "update professionals set onboarding_completed_at = now(), updated_at = now() where id = $1",
+        [professionalId]
+      );
+    }
+
+    return {
+      professional: {
+        id: row.id,
+        name: row.name,
+        specialty: row.specialty,
+        whatsappNumber: row.whatsapp_number,
+        evolutionInstanceName: row.evolution_instance_name,
+        gmail: row.gmail,
+        timezone: row.timezone,
+        appointmentDurationMinutes: row.appointment_duration_minutes,
+        whatsappStatus: row.whatsapp_status
+      },
+      googleConnected: Boolean(row.google_connected),
+      whatsappConnected: Boolean(row.whatsapp_connected),
+      servicesConfigured,
+      availabilityConfigured,
+      servicesCount: row.services_count,
+      availabilityRulesCount: row.availability_rules_count,
+      ready
+    };
   }
 
   isEnabled() {
@@ -684,6 +869,20 @@ export class DatabaseService implements OnModuleInit {
     }
 
     const professionalId = process.env.DEMO_PROFESSIONAL_ID || "demo-professional";
+    await this.upsertProfessional({
+      id: professionalId,
+      name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao SmartAgenda",
+      specialty: process.env.DEMO_PROFESSIONAL_SPECIALTY || "Clinica modelo",
+      whatsappNumber: process.env.DEMO_PROFESSIONAL_WHATSAPP || "+554896807805",
+      evolutionInstanceName: process.env.EVOLUTION_INSTANCE_NAME || "smartagenda-demo",
+      gmail: process.env.DEMO_PROFESSIONAL_GMAIL || "agenda.profissional@gmail.com",
+      timezone: process.env.DEMO_PROFESSIONAL_TIMEZONE || "America/Sao_Paulo",
+      appointmentDurationMinutes: Number.parseInt(
+        process.env.DEMO_APPOINTMENT_DURATION_MINUTES || "60",
+        10
+      )
+    });
+
     const servicesResult = await this.pool.query(
       "select count(*)::int as count from services where professional_id = $1",
       [professionalId]
@@ -721,5 +920,14 @@ export class DatabaseService implements OnModuleInit {
         });
       }
     }
+  }
+
+  private normalizePhone(phone: string): string {
+    const digits = phone.replace(/\D/g, "");
+    return digits.startsWith("+") ? digits : `+${digits}`;
+  }
+
+  private buildInstanceName(phone: string): string {
+    return `smartagenda-${phone.replace(/\D/g, "")}`;
   }
 }

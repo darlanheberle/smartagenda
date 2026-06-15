@@ -1,16 +1,18 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import {
   CreateProfessionalInput,
   GoogleCalendarConnection,
-  Professional
+  Professional,
+  ProfessionalRecord
 } from "../types/professional";
+import { DatabaseService } from "./database.service";
 
 @Injectable()
-export class ProfessionalRegistryService {
+export class ProfessionalRegistryService implements OnModuleInit {
   private readonly professionals = new Map<string, Professional>();
 
-  constructor() {
+  constructor(private readonly database: DatabaseService) {
     this.create({
       id: process.env.DEMO_PROFESSIONAL_ID || "demo-professional",
       name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao SmartAgenda",
@@ -24,6 +26,14 @@ export class ProfessionalRegistryService {
         10
       )
     });
+  }
+
+  async onModuleInit() {
+    const storedProfessionals = await this.database.listProfessionals();
+
+    for (const stored of storedProfessionals) {
+      this.remember(this.fromRecord(stored));
+    }
   }
 
   create(input: CreateProfessionalInput): Professional {
@@ -43,6 +53,11 @@ export class ProfessionalRegistryService {
     };
 
     this.professionals.set(id, professional);
+    return professional;
+  }
+
+  remember(professional: Professional) {
+    this.professionals.set(professional.id, professional);
     return professional;
   }
 
@@ -108,5 +123,19 @@ export class ProfessionalRegistryService {
 
   private buildInstanceName(phone: string): string {
     return `smartagenda-${phone.replace(/\D/g, "")}`;
+  }
+
+  private fromRecord(record: ProfessionalRecord): Professional {
+    return {
+      id: record.id,
+      name: record.name,
+      specialty: record.specialty || undefined,
+      whatsappNumber: record.whatsapp_number,
+      evolutionInstanceName: record.evolution_instance_name,
+      gmail: record.gmail,
+      timezone: record.timezone,
+      appointmentDurationMinutes: record.appointment_duration_minutes,
+      createdAt: new Date(record.created_at).toISOString()
+    };
   }
 }

@@ -12,6 +12,28 @@ type EvolutionInstance = {
 
 @Injectable()
 export class EvolutionService {
+  async prepareProfessionalInstance(input: {
+    instanceName: string;
+    webhookUrl: string;
+    phone?: string;
+  }) {
+    const created = await this.createInstance(input.instanceName);
+    const webhook = await this.setWebhook({
+      instanceName: input.instanceName,
+      webhookUrl: input.webhookUrl
+    });
+    const connection = await this.connectInstance(input.instanceName);
+
+    return {
+      provider: "evolution-api",
+      instanceName: input.instanceName,
+      phone: input.phone,
+      created,
+      webhook,
+      connection
+    };
+  }
+
   async fetchInstances() {
     const baseUrl = process.env.EVOLUTION_API_URL;
     const apiKey = process.env.EVOLUTION_API_KEY;
@@ -92,6 +114,116 @@ export class EvolutionService {
       provider: "evolution-api",
       status: "sent",
       ...input
+    };
+  }
+
+  async createInstance(instanceName: string) {
+    const config = this.getConfig();
+
+    if (!config) {
+      return this.missingConfig();
+    }
+
+    const response = await fetch(`${config.baseUrl}/instance/create`, {
+      method: "POST",
+      headers: {
+        apikey: config.apiKey,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        instanceName,
+        qrcode: true,
+        integration: "WHATSAPP-BAILEYS"
+      })
+    });
+
+    return this.parseEvolutionResponse(response, "instance_create_error");
+  }
+
+  async connectInstance(instanceName: string) {
+    const config = this.getConfig();
+
+    if (!config) {
+      return this.missingConfig();
+    }
+
+    const response = await fetch(`${config.baseUrl}/instance/connect/${instanceName}`, {
+      method: "GET",
+      headers: { apikey: config.apiKey }
+    });
+
+    return this.parseEvolutionResponse(response, "instance_connect_error");
+  }
+
+  async setWebhook(input: { instanceName: string; webhookUrl: string }) {
+    const config = this.getConfig();
+
+    if (!config) {
+      return this.missingConfig();
+    }
+
+    const response = await fetch(`${config.baseUrl}/webhook/set/${input.instanceName}`, {
+      method: "POST",
+      headers: {
+        apikey: config.apiKey,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        webhook: {
+          enabled: true,
+          url: input.webhookUrl,
+          byEvents: false,
+          base64: false,
+          events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
+        }
+      })
+    });
+
+    return this.parseEvolutionResponse(response, "webhook_set_error");
+  }
+
+  private getConfig() {
+    const baseUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
+    const apiKey = process.env.EVOLUTION_API_KEY;
+
+    if (!baseUrl || !apiKey) {
+      return undefined;
+    }
+
+    return { baseUrl, apiKey };
+  }
+
+  private missingConfig() {
+    return {
+      provider: "evolution-api",
+      status: "missing_evolution_config",
+      message: "Configure EVOLUTION_API_URL e EVOLUTION_API_KEY no ambiente."
+    };
+  }
+
+  private async parseEvolutionResponse(response: Response, errorStatus: string) {
+    const text = await response.text();
+    let body: unknown = text;
+
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = text;
+    }
+
+    if (!response.ok) {
+      return {
+        provider: "evolution-api",
+        status: errorStatus,
+        statusCode: response.status,
+        error: body
+      };
+    }
+
+    return {
+      provider: "evolution-api",
+      status: "ok",
+      data: body
     };
   }
 

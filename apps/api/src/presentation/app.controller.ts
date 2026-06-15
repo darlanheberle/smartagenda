@@ -44,8 +44,16 @@ export class AppController {
   }
 
   @Post("professionals")
-  createProfessional(@Body() input: CreateProfessionalInput) {
-    return this.sanitizeProfessional(this.professionals.create(input));
+  async createProfessional(@Body() input: CreateProfessionalInput) {
+    this.validateProfessionalInput(input);
+    const professional = this.professionals.create(input);
+    const stored = await this.database.upsertProfessional({
+      ...input,
+      id: professional.id,
+      evolutionInstanceName: professional.evolutionInstanceName
+    });
+
+    return stored || this.sanitizeProfessional(professional);
   }
 
   @Get("professionals")
@@ -56,6 +64,72 @@ export class AppController {
   @Get("professionals/:id")
   getProfessional(@Param("id") id: string) {
     return this.sanitizeProfessional(this.professionals.getById(id));
+  }
+
+  @Post("onboarding/professionals")
+  async onboardingCreateProfessional(@Body() input: CreateProfessionalInput) {
+    const professional = await this.createProfessional(input);
+    await this.createDefaultScheduling(professional.id || input.id || "demo-professional");
+
+    return {
+      professional,
+      status: await this.database.getOnboardingStatus(professional.id || input.id || "demo-professional")
+    };
+  }
+
+  @Get("onboarding/:professionalId/status")
+  async onboardingStatus(@Param("professionalId") professionalId: string) {
+    return this.database.getOnboardingStatus(professionalId);
+  }
+
+  @Post("onboarding/:professionalId/defaults")
+  async onboardingDefaults(@Param("professionalId") professionalId: string) {
+    await this.createDefaultScheduling(professionalId);
+
+    return {
+      status: "defaults_created",
+      professionalId,
+      onboarding: await this.database.getOnboardingStatus(professionalId)
+    };
+  }
+
+  @Post("onboarding/:professionalId/whatsapp/prepare")
+  async onboardingWhatsappPrepare(@Param("professionalId") professionalId: string) {
+    const professional = this.professionals.getById(professionalId);
+    const webhookUrl = `${
+      process.env.PUBLIC_API_URL || "https://api.agendasmart.com.br"
+    }/webhooks/evolution`;
+    const result = await this.evolution.prepareProfessionalInstance({
+      instanceName: professional.evolutionInstanceName,
+      webhookUrl,
+      phone: professional.whatsappNumber
+    });
+    const hasError = [result.created, result.webhook, result.connection].some(
+      (step) => "status" in step && typeof step.status === "string" && step.status.includes("error")
+    );
+
+    await this.database.markProfessionalWhatsappStatus(
+      professional.id,
+      hasError ? "error" : "instance_created"
+    );
+
+    return {
+      ...result,
+      onboarding: await this.database.getOnboardingStatus(professional.id)
+    };
+  }
+
+  @Get("onboarding/:professionalId/whatsapp/connect")
+  async onboardingWhatsappConnect(@Param("professionalId") professionalId: string) {
+    const professional = this.professionals.getById(professionalId);
+    const connection = await this.evolution.connectInstance(professional.evolutionInstanceName);
+
+    return {
+      provider: "evolution-api",
+      professionalId: professional.id,
+      instanceName: professional.evolutionInstanceName,
+      connection
+    };
   }
 
   @Get("professionals/:id/google/auth-url")
@@ -249,6 +323,7 @@ export class AppController {
 
   @Post("webhooks/evolution")
   async evolutionWebhook(@Body() payload: EvolutionWebhookPayload) {
+    await this.updateWhatsappStatusFromWebhook(payload);
     return this.aiScheduling.handleIncomingWhatsAppMessage(payload);
   }
 
@@ -277,6 +352,20 @@ export class AppController {
     }
   }
 
+  private validateProfessionalInput(input: CreateProfessionalInput) {
+    if (!input.name?.trim()) {
+      throw new BadRequestException("name e obrigatorio.");
+    }
+
+    if (!input.whatsappNumber?.trim()) {
+      throw new BadRequestException("whatsappNumber e obrigatorio.");
+    }
+
+    if (!input.gmail?.trim()) {
+      throw new BadRequestException("gmail e obrigatorio.");
+    }
+  }
+
   private validateAvailabilityInput(input: {
     weekday?: number;
     startTime?: string;
@@ -288,6 +377,58 @@ export class AppController {
 
     if (!input.startTime || !input.endTime) {
       throw new BadRequestException("startTime e endTime sao obrigatorios.");
+    }
+  }
+
+  private async createDefaultScheduling(professionalId: string) {
+    const services = await this.database.listServices(professionalId, true);
+    if (services.length === 0) {
+      await this.database.createService({
+        professionalId,
+        name: "Consulta",
+        durationMinutes: 60,
+        priceCents: 0,
+        active: true
+      });
+    }
+
+    const rules = await this.database.listAvailabilityRules(professionalId);
+    if (rules.length === 0) {
+      for (const weekday of [1, 2, 3, 4, 5]) {
+        await this.database.createAvailabilityRule({
+          professionalId,
+          weekday,
+          startTime: "09:00",
+          endTime: "18:00",
+          lunchStart: "12:00",
+          lunchEnd: "13:00",
+          bufferMinutes: 0,
+          minimumNoticeMinutes: 120,
+          active: true
+        });
+      }
+    }
+  }
+
+  private async updateWhatsappStatusFromWebhook(payload: EvolutionWebhookPayload) {
+    const event = payload.event?.toUpperCase();
+    if (event !== "CONNECTION_UPDATE") {
+      return;
+    }
+
+    const instanceName =
+      payload.instance || payload.instanceName || payload.data?.instance || process.env.EVOLUTION_INSTANCE_NAME;
+    const state = JSON.stringify(payload.data || {}).toLowerCase();
+    const professional = instanceName
+      ? this.professionals.findByEvolutionInstance(instanceName)
+      : undefined;
+
+    if (!professional) {
+      return;
+    }
+
+    if (state.includes("open") || state.includes("connected")) {
+      await this.database.markProfessionalWhatsappStatus(professional.id, "connected");
     }
   }
 }
