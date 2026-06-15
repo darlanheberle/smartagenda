@@ -79,6 +79,7 @@ export class AppController {
 
   @Get("onboarding/:professionalId/status")
   async onboardingStatus(@Param("professionalId") professionalId: string) {
+    await this.syncWhatsappStatus(professionalId);
     return this.database.getOnboardingStatus(professionalId);
   }
 
@@ -428,6 +429,15 @@ export class AppController {
     }
 
     if (state.includes("open") || state.includes("connected")) {
+      await this.database.markProfessionalWhatsappStatus(professional.id, "connected");
+    }
+  }
+
+  private async syncWhatsappStatus(professionalId: string) {
+    const professional = this.professionals.getById(professionalId);
+    const instance = await this.evolution.getInstanceSummary(professional.evolutionInstanceName);
+
+    if (instance?.connected) {
       await this.database.markProfessionalWhatsappStatus(professional.id, "connected");
     }
   }

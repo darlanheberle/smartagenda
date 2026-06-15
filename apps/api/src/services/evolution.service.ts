@@ -75,6 +75,44 @@ export class EvolutionService {
     };
   }
 
+  async getInstanceSummary(instanceName: string) {
+    const baseUrl = process.env.EVOLUTION_API_URL;
+    const apiKey = process.env.EVOLUTION_API_KEY;
+
+    if (!baseUrl || !apiKey) {
+      return undefined;
+    }
+
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/instance/fetchInstances`, {
+      method: "GET",
+      headers: { apikey: apiKey }
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const instances = (await response.json()) as EvolutionInstance[];
+    const instance = instances.find(
+      (item) => item.name === instanceName || item.instanceName === instanceName
+    );
+
+    if (!instance) {
+      return undefined;
+    }
+
+    return {
+      name: instance.name || instance.instanceName,
+      status: instance.connectionStatus,
+      connected:
+        instance.connectionStatus?.toLowerCase() === "open" ||
+        instance.connectionStatus?.toLowerCase() === "connected",
+      owner: this.maskWhatsappJid(instance.ownerJid),
+      integration: instance.integration,
+      profileName: instance.profileName
+    };
+  }
+
   async sendTextMessage(input: { instanceName: string; phone: string; message: string }) {
     const baseUrl = process.env.EVOLUTION_API_URL;
     const apiKey = process.env.EVOLUTION_API_KEY;
