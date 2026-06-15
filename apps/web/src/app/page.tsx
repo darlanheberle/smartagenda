@@ -6,7 +6,9 @@ import {
   ExternalLink,
   Link2,
   MessageCircle,
+  PlayCircle,
   Settings2,
+  Smartphone,
   UsersRound
 } from "lucide-react";
 
@@ -50,6 +52,24 @@ type Service = {
   active: boolean;
 };
 
+type OnboardingStatus = {
+  professional?: {
+    id: string;
+    name: string;
+    whatsappNumber: string;
+    evolutionInstanceName: string;
+    gmail: string;
+    whatsappStatus: string;
+  };
+  googleConnected: boolean;
+  whatsappConnected: boolean;
+  servicesConfigured: boolean;
+  availabilityConfigured: boolean;
+  servicesCount: number;
+  availabilityRulesCount: number;
+  ready: boolean;
+};
+
 const professionalId = "demo-professional";
 
 async function fetchJson<T>(path: string, fallback: T): Promise<T> {
@@ -71,7 +91,10 @@ async function fetchJson<T>(path: string, fallback: T): Promise<T> {
 export default async function Home() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
   const googleConnectUrl = `${apiUrl}/integrations/google/start?professionalId=${professionalId}`;
-  const [dashboard, clients, appointments, services] = await Promise.all([
+  const whatsappPrepareUrl = `${apiUrl}/onboarding/${professionalId}/whatsapp/prepare`;
+  const whatsappConnectUrl = `${apiUrl}/onboarding/${professionalId}/whatsapp/connect`;
+  const defaultsUrl = `${apiUrl}/onboarding/${professionalId}/defaults`;
+  const [dashboard, clients, appointments, services, onboarding] = await Promise.all([
     fetchJson<Dashboard>(`/dashboard/today?professionalId=${professionalId}`, {
       appointments: 0,
       pending: 0,
@@ -82,8 +105,55 @@ export default async function Home() {
     }),
     fetchJson<Client[]>(`/clients?professionalId=${professionalId}`, []),
     fetchJson<Appointment[]>(`/appointments/upcoming?professionalId=${professionalId}&limit=10`, []),
-    fetchJson<Service[]>(`/services?professionalId=${professionalId}`, [])
+    fetchJson<Service[]>(`/services?professionalId=${professionalId}`, []),
+    fetchJson<OnboardingStatus>(`/onboarding/${professionalId}/status`, {
+      googleConnected: false,
+      whatsappConnected: false,
+      servicesConfigured: false,
+      availabilityConfigured: false,
+      servicesCount: 0,
+      availabilityRulesCount: 0,
+      ready: false
+    })
   ]);
+  const onboardingSteps = [
+    {
+      icon: <Link2 size={16} />,
+      title: "Google Agenda",
+      detail: onboarding.professional?.gmail || "Gmail do profissional",
+      done: onboarding.googleConnected,
+      actionLabel: onboarding.googleConnected ? "Reconectar" : "Conectar",
+      href: googleConnectUrl
+    },
+    {
+      icon: <Smartphone size={16} />,
+      title: "WhatsApp",
+      detail: onboarding.professional?.evolutionInstanceName || "Instancia Evolution",
+      done: onboarding.whatsappConnected,
+      actionLabel: onboarding.whatsappConnected ? "Abrir conexao" : "Preparar",
+      href: whatsappConnectUrl,
+      postHref: whatsappPrepareUrl
+    },
+    {
+      icon: <Settings2 size={16} />,
+      title: "Servicos",
+      detail: `${onboarding.servicesCount || services.length} servicos ativos`,
+      done: onboarding.servicesConfigured,
+      actionLabel: "Criar padrao",
+      href: defaultsUrl,
+      postHref: defaultsUrl
+    },
+    {
+      icon: <Clock3 size={16} />,
+      title: "Horarios",
+      detail: `${onboarding.availabilityRulesCount || 0} regras ativas`,
+      done: onboarding.availabilityConfigured,
+      actionLabel: "Criar padrao",
+      href: defaultsUrl,
+      postHref: defaultsUrl
+    }
+  ];
+  const completedSteps = onboardingSteps.filter((step) => step.done).length;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -121,13 +191,13 @@ export default async function Home() {
             <div>
               <h1 className="text-2xl font-semibold tracking-normal text-ink">Painel do profissional</h1>
               <p className="text-sm text-slate-500">
-                Operacao do dia, clientes e agenda sincronizada com Google Calendar.
+                Operacao do dia, onboarding e agenda sincronizada com Google Calendar.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 <MessageCircle size={16} />
-                WhatsApp ativo
+                {onboarding.whatsappConnected ? "WhatsApp ativo" : "WhatsApp pendente"}
               </button>
               <a
                 className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
@@ -142,6 +212,65 @@ export default async function Home() {
 
         <div className="grid gap-6 px-4 py-6 md:px-8 xl:grid-cols-[1fr_360px]">
           <div className="space-y-6">
+            <section className="rounded-lg border border-slate-200 bg-white">
+              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="font-semibold">Bem-vindo ao SmartAgenda</h2>
+                  <p className="text-sm text-slate-500">
+                    Complete as conexoes iniciais para liberar o atendimento automatico.
+                  </p>
+                </div>
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${onboarding.ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                  {onboarding.ready ? "Atendimento liberado" : `${completedSteps}/4 etapas completas`}
+                </span>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+                {onboardingSteps.map((step) => (
+                  <div className="rounded-md border border-slate-200 p-3" key={step.title}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-8 place-items-center rounded-md bg-brand-50 text-brand-700">
+                          {step.icon}
+                        </span>
+                        <div>
+                          <p className="font-medium">{step.title}</p>
+                          <p className="text-xs text-slate-500">{step.detail}</p>
+                        </div>
+                      </div>
+                      <StepState done={step.done} />
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      {step.postHref ? (
+                        <form action={step.postHref} method="post">
+                          <button className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <PlayCircle size={13} />
+                            {step.actionLabel}
+                          </button>
+                        </form>
+                      ) : (
+                        <a
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          href={step.href}
+                        >
+                          <PlayCircle size={13} />
+                          {step.actionLabel}
+                        </a>
+                      )}
+                      {step.title === "WhatsApp" ? (
+                        <a
+                          className="inline-flex items-center rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          href={whatsappConnectUrl}
+                          target="_blank"
+                        >
+                          QR
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="grid gap-4 md:grid-cols-4">
               <Metric icon={<CalendarCheck size={18} />} label="Atendimentos hoje" value={`${dashboard.appointments}`} />
               <Metric icon={<Clock3 size={18} />} label="Pendentes" value={`${dashboard.pending}`} />
@@ -252,7 +381,7 @@ export default async function Home() {
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">
-                        {service.duration_minutes} min · {formatCurrency(service.price_cents / 100)}
+                        {service.duration_minutes} min - {formatCurrency(service.price_cents / 100)}
                       </p>
                     </div>
                   ))}
@@ -273,8 +402,8 @@ export default async function Home() {
             <Panel title="Regras ativas" subtitle="Agenda consultada antes da resposta">
               <div className="space-y-3 text-sm text-slate-600">
                 <RequiredItem label="Profissional" value="demo-professional" />
-                <RequiredItem label="Agenda" value="Google Calendar" />
-                <RequiredItem label="WhatsApp" value="Evolution API" />
+                <RequiredItem label="Agenda" value={onboarding.googleConnected ? "Google conectado" : "Pendente"} />
+                <RequiredItem label="WhatsApp" value={onboarding.whatsappConnected ? "Evolution conectado" : onboarding.professional?.whatsappStatus || "Pendente"} />
                 <RequiredItem label="Servicos" value={`${services.filter((service) => service.active).length} ativos`} />
               </div>
             </Panel>
@@ -338,6 +467,14 @@ function RequiredItem({ label, value }: { label: string; value: string }) {
       <span className="font-medium text-slate-800">{label}</span>
       <span className="text-right text-slate-500">{value}</span>
     </div>
+  );
+}
+
+function StepState({ done }: { done: boolean }) {
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${done ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+      {done ? "Pronto" : "Pendente"}
+    </span>
   );
 }
 
