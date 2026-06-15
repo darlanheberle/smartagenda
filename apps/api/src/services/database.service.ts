@@ -22,6 +22,56 @@ type UpsertClientInput = {
   email?: string;
 };
 
+export type ServiceRecord = {
+  id: string;
+  professional_id: string;
+  name: string;
+  duration_minutes: number;
+  price_cents: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AvailabilityRule = {
+  id: string;
+  professional_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+  lunch_start: string | null;
+  lunch_end: string | null;
+  buffer_minutes: number;
+  minimum_notice_minutes: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateServiceInput = {
+  professionalId: string;
+  name: string;
+  durationMinutes: number;
+  priceCents?: number;
+  active?: boolean;
+};
+
+export type UpdateServiceInput = Partial<Omit<CreateServiceInput, "professionalId">>;
+
+export type CreateAvailabilityInput = {
+  professionalId: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  lunchStart?: string;
+  lunchEnd?: string;
+  bufferMinutes?: number;
+  minimumNoticeMinutes?: number;
+  active?: boolean;
+};
+
+export type UpdateAvailabilityInput = Partial<Omit<CreateAvailabilityInput, "professionalId">>;
+
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
@@ -87,7 +137,37 @@ export class DatabaseService implements OnModuleInit {
         unique (professional_id, google_event_id)
       )
     `);
+    await this.pool.query(`
+      create table if not exists services (
+        id text primary key,
+        professional_id text not null,
+        name text not null,
+        duration_minutes integer not null,
+        price_cents integer not null default 0,
+        active boolean not null default true,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await this.pool.query(`
+      create table if not exists professional_availability (
+        id text primary key,
+        professional_id text not null,
+        weekday integer not null check (weekday between 0 and 6),
+        start_time time not null,
+        end_time time not null,
+        lunch_start time,
+        lunch_end time,
+        buffer_minutes integer not null default 0,
+        minimum_notice_minutes integer not null default 120,
+        active boolean not null default true,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now(),
+        unique (professional_id, weekday)
+      )
+    `);
     this.ready = true;
+    await this.ensureDefaultSchedulingData();
   }
 
   isEnabled() {
@@ -296,6 +376,43 @@ export class DatabaseService implements OnModuleInit {
     return result.rows;
   }
 
+  async listUpcomingAppointments(professionalId: string, limit = 20) {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select
+          a.id,
+          a.professional_id,
+          a.google_event_id,
+          a.google_event_link,
+          a.service_name,
+          a.starts_at,
+          a.ends_at,
+          a.status,
+          a.value_cents,
+          a.payment_status,
+          a.payment_method,
+          a.source,
+          a.created_at,
+          c.name as client_name,
+          c.phone as client_phone,
+          c.email as client_email
+        from appointments a
+        left join clients c on c.id = a.client_id
+        where a.professional_id = $1
+          and a.starts_at >= now()
+        order by a.starts_at asc
+        limit $2
+      `,
+      [professionalId, limit]
+    );
+
+    return result.rows;
+  }
+
   async getTodayDashboard(professionalId: string, timezone: string) {
     if (!this.pool || !this.ready) {
       return {
@@ -311,6 +428,8 @@ export class DatabaseService implements OnModuleInit {
         select
           count(*) filter (where status <> 'cancelled')::int as appointments,
           count(*) filter (where status = 'cancelled')::int as cancellations,
+          count(*) filter (where status = 'scheduled' and payment_status = 'pending')::int as pending,
+          count(*) filter (where status = 'completed')::int as completed,
           coalesce(sum(value_cents) filter (where status <> 'cancelled'), 0)::int as expected_revenue_cents,
           coalesce(sum(value_cents) filter (where status <> 'cancelled' and payment_status = 'pending'), 0)::int as pending_revenue_cents
         from appointments
@@ -324,8 +443,283 @@ export class DatabaseService implements OnModuleInit {
     return {
       appointments: row.appointments || 0,
       cancellations: row.cancellations || 0,
+      pending: row.pending || 0,
+      completed: row.completed || 0,
       expectedRevenue: (row.expected_revenue_cents || 0) / 100,
       pendingRevenue: (row.pending_revenue_cents || 0) / 100
     };
+  }
+
+  async listServices(professionalId: string, onlyActive = false): Promise<ServiceRecord[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from services
+        where professional_id = $1
+          and ($2::boolean = false or active = true)
+        order by active desc, name asc
+      `,
+      [professionalId, onlyActive]
+    );
+
+    return result.rows;
+  }
+
+  async getService(professionalId: string, serviceId: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from services
+        where professional_id = $1 and id = $2
+      `,
+      [professionalId, serviceId]
+    );
+
+    return result.rows[0] as ServiceRecord | undefined;
+  }
+
+  async createService(input: CreateServiceInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        insert into services (
+          id,
+          professional_id,
+          name,
+          duration_minutes,
+          price_cents,
+          active,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, now())
+        returning *
+      `,
+      [
+        randomUUID(),
+        input.professionalId,
+        input.name.trim(),
+        input.durationMinutes,
+        input.priceCents || 0,
+        input.active ?? true
+      ]
+    );
+
+    return result.rows[0] as ServiceRecord;
+  }
+
+  async updateService(professionalId: string, serviceId: string, input: UpdateServiceInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const current = await this.getService(professionalId, serviceId);
+    if (!current) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update services set
+          name = $3,
+          duration_minutes = $4,
+          price_cents = $5,
+          active = $6,
+          updated_at = now()
+        where professional_id = $1 and id = $2
+        returning *
+      `,
+      [
+        professionalId,
+        serviceId,
+        input.name?.trim() || current.name,
+        input.durationMinutes ?? current.duration_minutes,
+        input.priceCents ?? current.price_cents,
+        input.active ?? current.active
+      ]
+    );
+
+    return result.rows[0] as ServiceRecord;
+  }
+
+  async deleteService(professionalId: string, serviceId: string) {
+    if (!this.pool || !this.ready) {
+      return { deleted: false };
+    }
+
+    const result = await this.pool.query(
+      `
+        update services
+        set active = false, updated_at = now()
+        where professional_id = $1 and id = $2
+        returning id
+      `,
+      [professionalId, serviceId]
+    );
+
+    return { deleted: (result.rowCount || 0) > 0 };
+  }
+
+  async listAvailabilityRules(professionalId: string): Promise<AvailabilityRule[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from professional_availability
+        where professional_id = $1
+        order by weekday asc
+      `,
+      [professionalId]
+    );
+
+    return result.rows;
+  }
+
+  async getAvailabilityRule(professionalId: string, weekday: number) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from professional_availability
+        where professional_id = $1 and weekday = $2
+      `,
+      [professionalId, weekday]
+    );
+
+    return result.rows[0] as AvailabilityRule | undefined;
+  }
+
+  async createAvailabilityRule(input: CreateAvailabilityInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        insert into professional_availability (
+          id,
+          professional_id,
+          weekday,
+          start_time,
+          end_time,
+          lunch_start,
+          lunch_end,
+          buffer_minutes,
+          minimum_notice_minutes,
+          active,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+        on conflict (professional_id, weekday)
+        do update set
+          start_time = excluded.start_time,
+          end_time = excluded.end_time,
+          lunch_start = excluded.lunch_start,
+          lunch_end = excluded.lunch_end,
+          buffer_minutes = excluded.buffer_minutes,
+          minimum_notice_minutes = excluded.minimum_notice_minutes,
+          active = excluded.active,
+          updated_at = now()
+        returning *
+      `,
+      [
+        randomUUID(),
+        input.professionalId,
+        input.weekday,
+        input.startTime,
+        input.endTime,
+        input.lunchStart || null,
+        input.lunchEnd || null,
+        input.bufferMinutes || 0,
+        input.minimumNoticeMinutes || 120,
+        input.active ?? true
+      ]
+    );
+
+    return result.rows[0] as AvailabilityRule;
+  }
+
+  async updateAvailabilityRule(
+    professionalId: string,
+    weekday: number,
+    input: UpdateAvailabilityInput
+  ) {
+    const current = await this.getAvailabilityRule(professionalId, weekday);
+    if (!current) {
+      return undefined;
+    }
+
+    return this.createAvailabilityRule({
+      professionalId,
+      weekday,
+      startTime: input.startTime || current.start_time,
+      endTime: input.endTime || current.end_time,
+      lunchStart: input.lunchStart ?? current.lunch_start ?? undefined,
+      lunchEnd: input.lunchEnd ?? current.lunch_end ?? undefined,
+      bufferMinutes: input.bufferMinutes ?? current.buffer_minutes,
+      minimumNoticeMinutes: input.minimumNoticeMinutes ?? current.minimum_notice_minutes,
+      active: input.active ?? current.active
+    });
+  }
+
+  private async ensureDefaultSchedulingData() {
+    if (!this.pool) {
+      return;
+    }
+
+    const professionalId = process.env.DEMO_PROFESSIONAL_ID || "demo-professional";
+    const servicesResult = await this.pool.query(
+      "select count(*)::int as count from services where professional_id = $1",
+      [professionalId]
+    );
+
+    if (servicesResult.rows[0].count === 0) {
+      await this.pool.query(
+        `
+          insert into services (id, professional_id, name, duration_minutes, price_cents, active)
+          values
+            ($1, $2, 'Consulta', 60, 0, true),
+            ($3, $2, 'Retorno', 30, 0, true)
+        `,
+        [randomUUID(), professionalId, randomUUID()]
+      );
+    }
+
+    const availabilityResult = await this.pool.query(
+      "select count(*)::int as count from professional_availability where professional_id = $1",
+      [professionalId]
+    );
+
+    if (availabilityResult.rows[0].count === 0) {
+      for (const weekday of [1, 2, 3, 4, 5]) {
+        await this.createAvailabilityRule({
+          professionalId,
+          weekday,
+          startTime: "09:00",
+          endTime: "18:00",
+          lunchStart: "12:00",
+          lunchEnd: "13:00",
+          bufferMinutes: 0,
+          minimumNoticeMinutes: 120,
+          active: true
+        });
+      }
+    }
   }
 }

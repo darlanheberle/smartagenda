@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ProfessionalRegistryService } from "./professional-registry.service";
-import { DatabaseService } from "./database.service";
+import { AvailabilityRule, DatabaseService } from "./database.service";
 import { Professional } from "../types/professional";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -134,6 +134,24 @@ export class CalendarService {
       return this.mockAvailability(professional?.id, "mocked_until_google_connected");
     }
 
+    return this.getAvailabilityForService({ professionalId: professional.id });
+  }
+
+  async getAvailabilityForService(input: { professionalId: string; serviceId?: string }) {
+    const professional = await this.loadGoogleCalendarConnection(
+      this.professionals.getById(input.professionalId)
+    );
+
+    const service = input.serviceId
+      ? await this.database.getService(professional.id, input.serviceId)
+      : (await this.database.listServices(professional.id, true))[0];
+    const durationMinutes =
+      service?.duration_minutes || professional.appointmentDurationMinutes;
+
+    if (!professional?.googleCalendar?.accessToken) {
+      return this.mockAvailability(professional?.id, "mocked_until_google_connected");
+    }
+
     const accessToken = await this.getValidAccessToken(professional.id);
     const now = new Date();
     const daysAhead = Number.parseInt(process.env.GOOGLE_AVAILABILITY_DAYS || "14", 10);
@@ -169,9 +187,10 @@ export class CalendarService {
     const busy = freeBusy.calendars?.[professional.googleCalendar.calendarId]?.busy || [];
     const slots = this.buildAvailableSlots({
       busy,
-      durationMinutes: professional.appointmentDurationMinutes,
+      durationMinutes,
       timezone: professional.timezone,
-      daysAhead
+      daysAhead,
+      rules: await this.database.listAvailabilityRules(professional.id)
     });
 
     return {
@@ -180,7 +199,8 @@ export class CalendarService {
       professionalId: professional.id,
       calendarId: professional.googleCalendar.calendarId,
       timezone: professional.timezone,
-      durationMinutes: professional.appointmentDurationMinutes,
+      service,
+      durationMinutes,
       slots,
       busy
     };
@@ -192,6 +212,7 @@ export class CalendarService {
     clientPhone?: string;
     startsAt: string;
     serviceName: string;
+    serviceId?: string;
   }) {
     const professional = await this.loadGoogleCalendarConnection(
       this.professionals.getById(input.professionalId)
@@ -206,10 +227,17 @@ export class CalendarService {
       };
     }
 
+    const service = input.serviceId
+      ? await this.database.getService(professional.id, input.serviceId)
+      : undefined;
+    const durationMinutes = service?.duration_minutes || professional.appointmentDurationMinutes;
+    const serviceName = service?.name || input.serviceName;
+    const valueCents =
+      service?.price_cents ?? Number.parseInt(process.env.DEFAULT_APPOINTMENT_VALUE_CENTS || "0", 10);
     const accessToken = await this.getValidAccessToken(professional.id);
     const start = new Date(input.startsAt);
     const end = new Date(
-      start.getTime() + professional.appointmentDurationMinutes * 60 * 1000
+      start.getTime() + durationMinutes * 60 * 1000
     );
 
     const response = await fetch(
@@ -223,7 +251,7 @@ export class CalendarService {
           "content-type": "application/json"
         },
         body: JSON.stringify({
-          summary: `${input.serviceName} - ${input.clientName}`,
+          summary: `${serviceName} - ${input.clientName}`,
           description: input.clientPhone
             ? `Agendamento recebido via WhatsApp: ${input.clientPhone}`
             : "Agendamento recebido via SmartAgenda",
@@ -261,10 +289,10 @@ export class CalendarService {
           clientId: client.id,
           googleEventId: event.id,
           googleEventLink: event.htmlLink,
-          serviceName: input.serviceName,
+          serviceName,
           startsAt: input.startsAt,
           endsAt: end.toISOString(),
-          valueCents: Number.parseInt(process.env.DEFAULT_APPOINTMENT_VALUE_CENTS || "0", 10),
+          valueCents,
           source: "whatsapp"
         })
       : undefined;
@@ -275,7 +303,11 @@ export class CalendarService {
       eventId: event.id,
       htmlLink: event.htmlLink,
       savedAppointmentId: appointment?.id,
-      ...input
+      serviceId: service?.id,
+      durationMinutes,
+      priceCents: valueCents,
+      ...input,
+      serviceName
     };
   }
 
@@ -357,12 +389,11 @@ export class CalendarService {
     durationMinutes: number;
     timezone: string;
     daysAhead: number;
+    rules: AvailabilityRule[];
   }): CalendarSlot[] {
-    const workStartHour = Number.parseInt(process.env.WORK_START_HOUR || "9", 10);
-    const workEndHour = Number.parseInt(process.env.WORK_END_HOUR || "18", 10);
     const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "6", 10);
     const slotStepMinutes = Number.parseInt(
-      process.env.SLOT_STEP_MINUTES || `${input.durationMinutes}`,
+      process.env.SLOT_STEP_MINUTES || "15",
       10
     );
     const slots: CalendarSlot[] = [];
@@ -376,35 +407,81 @@ export class CalendarService {
       const date = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
       const parts = this.getDateParts(date, input.timezone);
       const dayOfWeek = this.getDayOfWeek(parts);
+      const rule = this.getRuleForWeekday(input.rules, dayOfWeek);
 
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
+      if (!rule) {
         continue;
       }
 
+      const startMinute = this.timeToMinutes(rule.start_time);
+      const endMinute = this.timeToMinutes(rule.end_time);
+      const lunchStart = rule.lunch_start ? this.timeToMinutes(rule.lunch_start) : undefined;
+      const lunchEnd = rule.lunch_end ? this.timeToMinutes(rule.lunch_end) : undefined;
+      const minimumStart = new Date(now.getTime() + rule.minimum_notice_minutes * 60 * 1000);
+
       for (
-        let minuteOfDay = workStartHour * 60;
-        minuteOfDay + input.durationMinutes <= workEndHour * 60 &&
+        let minuteOfDay = startMinute;
+        minuteOfDay + input.durationMinutes <= endMinute &&
         slots.length < maxSlots;
         minuteOfDay += slotStepMinutes
       ) {
+        const appointmentEndMinute = minuteOfDay + input.durationMinutes;
+        if (
+          lunchStart !== undefined &&
+          lunchEnd !== undefined &&
+          minuteOfDay < lunchEnd &&
+          appointmentEndMinute > lunchStart
+        ) {
+          continue;
+        }
+
         const hour = Math.floor(minuteOfDay / 60);
         const minute = minuteOfDay % 60;
         const start = this.zonedDateTimeToUtcDate(parts, hour, minute, input.timezone);
-        const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
+        const end = new Date(
+          start.getTime() + (input.durationMinutes + rule.buffer_minutes) * 60 * 1000
+        );
+        const displayEnd = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
 
-        if (start <= now || this.isSlotBusy(start, end, input.busy)) {
+        if (start <= minimumStart || this.isSlotBusy(start, end, input.busy)) {
           continue;
         }
 
         slots.push({
           startsAt: start.toISOString(),
-          endsAt: end.toISOString(),
+          endsAt: displayEnd.toISOString(),
           label: this.formatSlotLabel(start, input.timezone)
         });
       }
     }
 
     return slots;
+  }
+
+  private getRuleForWeekday(rules: AvailabilityRule[], weekday: number) {
+    if (rules.length > 0) {
+      return rules.find((rule) => rule.weekday === weekday && rule.active);
+    }
+
+    if (weekday === 0 || weekday === 6) {
+      return undefined;
+    }
+
+    return {
+      weekday,
+      start_time: `${process.env.WORK_START_HOUR || "9"}:00`,
+      end_time: `${process.env.WORK_END_HOUR || "18"}:00`,
+      lunch_start: null,
+      lunch_end: null,
+      buffer_minutes: 0,
+      minimum_notice_minutes: 120,
+      active: true
+    } as AvailabilityRule;
+  }
+
+  private timeToMinutes(time: string) {
+    const [hour, minute] = time.split(":").map(Number);
+    return hour * 60 + (minute || 0);
   }
 
   private isSlotBusy(start: Date, end: Date, busy: BusyInterval[]) {
