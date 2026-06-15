@@ -250,12 +250,31 @@ export class CalendarService {
     }
 
     const event = (await response.json()) as { id: string; htmlLink?: string };
+    const client = await this.database.upsertClient({
+      professionalId: professional.id,
+      name: input.clientName,
+      phone: input.clientPhone
+    });
+    const appointment = client
+      ? await this.database.saveAppointment({
+          professionalId: professional.id,
+          clientId: client.id,
+          googleEventId: event.id,
+          googleEventLink: event.htmlLink,
+          serviceName: input.serviceName,
+          startsAt: input.startsAt,
+          endsAt: end.toISOString(),
+          valueCents: Number.parseInt(process.env.DEFAULT_APPOINTMENT_VALUE_CENTS || "0", 10),
+          source: "whatsapp"
+        })
+      : undefined;
 
     return {
       provider: "google-calendar",
       status: "created",
       eventId: event.id,
       htmlLink: event.htmlLink,
+      savedAppointmentId: appointment?.id,
       ...input
     };
   }

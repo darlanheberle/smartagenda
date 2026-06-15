@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Res } from "@nestjs/common";
 import { Response } from "express";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { CalendarService } from "../services/calendar.service";
+import { DatabaseService } from "../services/database.service";
 import { EvolutionService } from "../services/evolution.service";
 import { ProfessionalRegistryService } from "../services/professional-registry.service";
 import { EvolutionWebhookPayload } from "../types/integrations";
@@ -12,6 +13,7 @@ export class AppController {
   constructor(
     private readonly aiScheduling: AiSchedulingService,
     private readonly calendar: CalendarService,
+    private readonly database: DatabaseService,
     private readonly evolution: EvolutionService,
     private readonly professionals: ProfessionalRegistryService
   ) {}
@@ -25,13 +27,9 @@ export class AppController {
   }
 
   @Get("dashboard/today")
-  today() {
-    return {
-      appointments: 8,
-      cancellations: 2,
-      expectedRevenue: 1840,
-      pendingRevenue: 860
-    };
+  today(@Query("professionalId") professionalId = "demo-professional") {
+    const professional = this.professionals.getById(professionalId);
+    return this.database.getTodayDashboard(professional.id, professional.timezone);
   }
 
   @Post("professionals")
@@ -81,6 +79,22 @@ export class AppController {
   @Get("calendar/availability")
   availability(@Query("professionalId") professionalId?: string) {
     return this.calendar.getAvailability(professionalId);
+  }
+
+  @Get("clients")
+  clients(@Query("professionalId") professionalId = "demo-professional") {
+    return this.database.listClients(professionalId);
+  }
+
+  @Get("appointments")
+  appointments(
+    @Query("professionalId") professionalId = "demo-professional",
+    @Query("limit") limit?: string
+  ) {
+    return this.database.listAppointments(
+      professionalId,
+      limit ? Number.parseInt(limit, 10) : 100
+    );
   }
 
   @Post("calendar/events")
