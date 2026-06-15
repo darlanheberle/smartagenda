@@ -1,73 +1,105 @@
 import {
   BadgeDollarSign,
-  Bot,
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Link2,
-  Mail,
   MessageCircle,
-  Smartphone,
+  Settings2,
   UsersRound
 } from "lucide-react";
 
-const appointments = [
-  { time: "09:00", client: "Maria Souza", service: "Consulta", status: "Confirmado" },
-  { time: "10:30", client: "Carlos Lima", service: "Retorno", status: "Aguardando" },
-  { time: "14:00", client: "Ana Pereira", service: "Avaliação", status: "Confirmado" },
-  { time: "16:00", client: "Pedro Rocha", service: "Sessão", status: "Pendente" }
-];
+export const dynamic = "force-dynamic";
 
-const messages = [
-  "WhatsApp identifica a instância do profissional",
-  "Sistema localiza o Gmail vinculado ao número",
-  "Agenda Google é consultada antes da resposta",
-  "Confirmação cria evento na agenda correta"
-];
+type Dashboard = {
+  appointments: number;
+  pending: number;
+  completed: number;
+  cancellations: number;
+  expectedRevenue: number;
+  pendingRevenue: number;
+};
 
-const clients = [
-  { name: "Maria Souza", phone: "+55 11 90000-1111", history: "3 atendimentos" },
-  { name: "Carlos Lima", phone: "+55 11 90000-2222", history: "1 falta" },
-  { name: "Ana Pereira", phone: "+55 11 90000-3333", history: "5 atendimentos" }
-];
+type Client = {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  updated_at: string;
+};
 
-const setupSteps = [
-  {
-    icon: <Smartphone size={17} />,
-    title: "Número WhatsApp",
-    text: "Cada profissional informa o número e a instância Evolution API."
-  },
-  {
-    icon: <Mail size={17} />,
-    title: "Gmail do profissional",
-    text: "O Gmail é usado como login_hint para conectar a agenda certa."
-  },
-  {
-    icon: <CalendarCheck size={17} />,
-    title: "Google Agenda",
-    text: "OAuth libera consulta de disponibilidade e criação de eventos."
-  }
-];
+type Appointment = {
+  id: string;
+  service_name: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  value_cents: number;
+  payment_status: string;
+  google_event_link?: string;
+  client_name?: string;
+  client_phone?: string;
+};
 
-export default function Home() {
+type Service = {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  price_cents: number;
+  active: boolean;
+};
+
+const professionalId = "demo-professional";
+
+async function fetchJson<T>(path: string, fallback: T): Promise<T> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
-  const googleConnectUrl = `${apiUrl}/integrations/google/start?professionalId=demo-professional`;
+
+  try {
+    const response = await fetch(`${apiUrl}${path}`, { cache: "no-store" });
+
+    if (!response.ok) {
+      return fallback;
+    }
+
+    return (await response.json()) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function Home() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+  const googleConnectUrl = `${apiUrl}/integrations/google/start?professionalId=${professionalId}`;
+  const [dashboard, clients, appointments, services] = await Promise.all([
+    fetchJson<Dashboard>(`/dashboard/today?professionalId=${professionalId}`, {
+      appointments: 0,
+      pending: 0,
+      completed: 0,
+      cancellations: 0,
+      expectedRevenue: 0,
+      pendingRevenue: 0
+    }),
+    fetchJson<Client[]>(`/clients?professionalId=${professionalId}`, []),
+    fetchJson<Appointment[]>(`/appointments/upcoming?professionalId=${professionalId}&limit=10`, []),
+    fetchJson<Service[]>(`/services?professionalId=${professionalId}`, [])
+  ]);
 
   return (
-    <main className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white/88 px-5 py-6 lg:block">
+    <main className="min-h-screen bg-slate-50">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white px-5 py-6 lg:block">
         <div className="flex items-center gap-3">
           <div className="grid size-10 place-items-center rounded-lg bg-brand-600 text-white">
             <CalendarCheck size={22} />
           </div>
           <div>
             <p className="text-lg font-semibold">SmartAgenda</p>
-            <p className="text-xs text-slate-500">WhatsApp + Agenda + IA</p>
+            <p className="text-xs text-slate-500">WhatsApp + Agenda</p>
           </div>
         </div>
 
         <nav className="mt-8 space-y-1 text-sm">
-          {["Dashboard", "Agenda", "Clientes", "Financeiro", "Equipe", "Integrações"].map(
+          {["Dashboard", "Agenda", "Clientes", "Servicos", "Financeiro", "Integracoes"].map(
             (item, index) => (
               <a
                 className={`flex items-center rounded-md px-3 py-2 ${
@@ -84,18 +116,18 @@ export default function Home() {
       </aside>
 
       <section className="lg:pl-64">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/82 px-4 py-4 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur md:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-normal text-ink">Operação de hoje</h1>
+              <h1 className="text-2xl font-semibold tracking-normal text-ink">Painel do profissional</h1>
               <p className="text-sm text-slate-500">
-                Atendimento por WhatsApp conectado ao Gmail e à Google Agenda de cada profissional.
+                Operacao do dia, clientes e agenda sincronizada com Google Calendar.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 <MessageCircle size={16} />
-                WhatsApp
+                WhatsApp ativo
               </button>
               <a
                 className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
@@ -111,130 +143,147 @@ export default function Home() {
         <div className="grid gap-6 px-4 py-6 md:px-8 xl:grid-cols-[1fr_360px]">
           <div className="space-y-6">
             <section className="grid gap-4 md:grid-cols-4">
-              <Metric icon={<CalendarCheck size={18} />} label="Atendimentos" value="8" />
-              <Metric icon={<Clock3 size={18} />} label="Cancelamentos" value="2" />
-              <Metric icon={<BadgeDollarSign size={18} />} label="Previsto" value="R$ 1.840" />
-              <Metric icon={<UsersRound size={18} />} label="Clientes ativos" value="126" />
+              <Metric icon={<CalendarCheck size={18} />} label="Atendimentos hoje" value={`${dashboard.appointments}`} />
+              <Metric icon={<Clock3 size={18} />} label="Pendentes" value={`${dashboard.pending}`} />
+              <Metric icon={<CheckCircle2 size={18} />} label="Concluidos" value={`${dashboard.completed}`} />
+              <Metric
+                icon={<BadgeDollarSign size={18} />}
+                label="Financeiro pendente"
+                value={formatCurrency(dashboard.pendingRevenue)}
+              />
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white">
-              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="font-semibold">Vínculo WhatsApp + Gmail</h2>
-                  <p className="text-sm text-slate-500">
-                    Cada número atende usando a agenda Google do Gmail vinculado.
-                  </p>
+                  <h2 className="font-semibold">Proximos atendimentos</h2>
+                  <p className="text-sm text-slate-500">Eventos salvos pelo fluxo WhatsApp e vinculados ao Google Calendar.</p>
                 </div>
                 <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                  Fluxo implementado na API
+                  {appointments.length} proximos
                 </span>
               </div>
-              <div className="grid gap-4 p-4 md:grid-cols-3">
-                {setupSteps.map((step) => (
-                  <div className="rounded-md border border-slate-200 p-4" key={step.title}>
-                    <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-brand-50 text-brand-700">
-                      {step.icon}
-                    </div>
-                    <p className="font-medium">{step.title}</p>
-                    <p className="mt-1 text-sm text-slate-500">{step.text}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div>
-                  <h2 className="font-semibold">Agenda</h2>
-                  <p className="text-sm text-slate-500">Visualização do dia sincronizada com Google.</p>
-                </div>
-                <div className="flex rounded-md border border-slate-200 p-1 text-xs">
-                  {["Dia", "Semana", "Mês"].map((item, index) => (
-                    <button
-                      className={`rounded px-3 py-1.5 ${index === 0 ? "bg-slate-900 text-white" : "text-slate-600"}`}
-                      key={item}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {appointments.map((item) => (
-                  <div className="grid gap-3 px-4 py-4 md:grid-cols-[84px_1fr_120px]" key={item.time}>
-                    <span className="font-semibold text-brand-700">{item.time}</span>
-                    <div>
-                      <p className="font-medium">{item.client}</p>
-                      <p className="text-sm text-slate-500">{item.service}</p>
-                    </div>
-                    <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
-                      {item.status}
-                    </span>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Horario</th>
+                      <th className="px-4 py-3 font-medium">Cliente</th>
+                      <th className="px-4 py-3 font-medium">Servico</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Valor</th>
+                      <th className="px-4 py-3 font-medium">Google</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {appointments.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-8 text-center text-slate-500" colSpan={6}>
+                          Nenhum atendimento futuro encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      appointments.map((appointment) => (
+                        <tr className="align-middle" key={appointment.id}>
+                          <td className="px-4 py-3 font-medium text-slate-900">
+                            {formatDateTime(appointment.starts_at)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-900">{appointment.client_name || "Cliente"}</p>
+                            <p className="text-xs text-slate-500">{appointment.client_phone || "-"}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{appointment.service_name}</td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={appointment.status} />
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{formatCurrency(appointment.value_cents / 100)}</td>
+                          <td className="px-4 py-3">
+                            {appointment.google_event_link ? (
+                              <a
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                href={appointment.google_event_link}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                Abrir
+                                <ExternalLink size={13} />
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-400">Sem link</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
 
             <section className="grid gap-6 xl:grid-cols-2">
-              <Panel title="Clientes" subtitle="Cadastro e histórico">
+              <Panel title="Clientes recentes" subtitle="Identificados pelo telefone do WhatsApp">
                 <div className="space-y-3">
-                  {clients.map((client) => (
-                    <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-3" key={client.phone}>
-                      <div>
-                        <p className="font-medium">{client.name}</p>
-                        <p className="text-sm text-slate-500">{client.phone}</p>
+                  {clients.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
+                      Nenhum cliente salvo ainda.
+                    </p>
+                  ) : (
+                    clients.slice(0, 6).map((client) => (
+                      <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-3" key={client.id}>
+                        <div>
+                          <p className="font-medium">{client.name}</p>
+                          <p className="text-sm text-slate-500">{client.phone || client.email || "-"}</p>
+                        </div>
+                        <span className="text-xs text-slate-500">{formatShortDate(client.updated_at)}</span>
                       </div>
-                      <span className="text-xs text-slate-500">{client.history}</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </Panel>
 
-              <Panel title="Financeiro" subtitle="Recebidos e pendentes">
-                <div className="space-y-4">
-                  <FinancialRow label="Recebido" value="R$ 980,00" tone="green" />
-                  <FinancialRow label="Pendente" value="R$ 860,00" tone="amber" />
-                  <FinancialRow label="PIX" value="62%" tone="slate" />
-                  <FinancialRow label="Cartão" value="28%" tone="slate" />
-                  <FinancialRow label="Dinheiro" value="10%" tone="slate" />
+              <Panel title="Servicos" subtitle="Usados pelo fluxo de agendamento">
+                <div className="space-y-3">
+                  {services.map((service) => (
+                    <div className="rounded-md border border-slate-200 px-3 py-3" key={service.id}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">{service.name}</p>
+                        <span className={`rounded-full px-2.5 py-1 text-xs ${service.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {service.active ? "Ativo" : "Inativo"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {service.duration_minutes} min · {formatCurrency(service.price_cents / 100)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </Panel>
             </section>
           </div>
 
           <aside className="space-y-6">
-            <Panel title="Assistente IA" subtitle="Fluxo WhatsApp em execução">
-              <div className="rounded-md bg-slate-950 p-4 text-sm text-slate-100">
-                <div className="mb-3 flex items-center gap-2 text-brand-100">
-                  <Bot size={16} />
-                  Atendimento automatizado
-                </div>
-                <p>Tenho disponível terça às 14h ou quinta às 16h. Qual prefere?</p>
-              </div>
-              <div className="mt-4 space-y-3">
-                {messages.map((message) => (
-                  <div className="flex items-start gap-2 text-sm text-slate-600" key={message}>
-                    <CheckCircle2 className="mt-0.5 text-brand-600" size={16} />
-                    <span>{message}</span>
-                  </div>
-                ))}
+            <Panel title="Resumo financeiro" subtitle="Baseado nos atendimentos salvos">
+              <div className="space-y-4">
+                <FinancialRow label="Previsto hoje" value={formatCurrency(dashboard.expectedRevenue)} tone="green" />
+                <FinancialRow label="Pendente hoje" value={formatCurrency(dashboard.pendingRevenue)} tone="amber" />
+                <FinancialRow label="Cancelamentos" value={`${dashboard.cancellations}`} tone="slate" />
               </div>
             </Panel>
 
-            <Panel title="Cadastro obrigatório" subtitle="Para cada usuário/profissional">
+            <Panel title="Regras ativas" subtitle="Agenda consultada antes da resposta">
               <div className="space-y-3 text-sm text-slate-600">
-                <RequiredItem label="WhatsApp" value="Número e instância Evolution" />
-                <RequiredItem label="Gmail" value="Conta que possui a agenda" />
-                <RequiredItem label="Agenda" value="Google Calendar via OAuth" />
-                <RequiredItem label="Regras" value="Duração, horários e serviço" />
+                <RequiredItem label="Profissional" value="demo-professional" />
+                <RequiredItem label="Agenda" value="Google Calendar" />
+                <RequiredItem label="WhatsApp" value="Evolution API" />
+                <RequiredItem label="Servicos" value={`${services.filter((service) => service.active).length} ativos`} />
               </div>
             </Panel>
 
-            <Panel title="Planos" subtitle="Modelo inicial de assinatura">
-              <div className="space-y-3">
-                <Plan name="Básico" price="R$ 29,90" details="1 profissional, WhatsApp e Google Agenda" />
-                <Plan name="Profissional" price="R$ 59,90" details="IA, lembretes e financeiro" />
-                <Plan name="Equipe" price="R$ 99,90" details="Múltiplos profissionais e agendas" />
+            <Panel title="Proximas configuracoes" subtitle="Base para operar como SaaS">
+              <div className="space-y-3 text-sm text-slate-600">
+                <NextItem text="Cadastrar servicos e valores por profissional" />
+                <NextItem text="Definir disponibilidade semanal e pausas" />
+                <NextItem text="Marcar pagamento recebido ou pendente" />
               </div>
             </Panel>
           </aside>
@@ -292,14 +341,45 @@ function RequiredItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Plan({ name, price, details }: { name: string; price: string; details: string }) {
+function NextItem({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-slate-200 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium">{name}</p>
-        <p className="font-semibold text-brand-700">{price}</p>
-      </div>
-      <p className="mt-1 text-sm text-slate-500">{details}</p>
+    <div className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2.5">
+      <Settings2 className="mt-0.5 text-brand-600" size={15} />
+      <span>{text}</span>
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const colors =
+    status === "completed"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "cancelled"
+        ? "bg-rose-50 text-rose-700"
+        : "bg-slate-100 text-slate-700";
+
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${colors}`}>{status}</span>;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(value);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo"
+  }).format(new Date(value));
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "America/Sao_Paulo"
+  }).format(new Date(value));
 }
