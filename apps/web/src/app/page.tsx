@@ -169,13 +169,13 @@ export default async function Home() {
         </div>
 
         <nav className="mt-8 space-y-1 text-sm">
-          {["Dashboard", "Agenda", "Clientes", "Servicos", "Financeiro", "Integracoes"].map(
+          {["Dashboard", "Primeiro acesso", "Agenda", "Clientes", "Servicos", "Financeiro", "Integracoes"].map(
             (item, index) => (
               <a
                 className={`flex items-center rounded-md px-3 py-2 ${
                   index === 0 ? "bg-brand-50 text-brand-900" : "text-slate-600 hover:bg-slate-100"
                 }`}
-                href="#"
+                href={item === "Primeiro acesso" ? "/onboarding" : "#"}
                 key={item}
               >
                 {item}
