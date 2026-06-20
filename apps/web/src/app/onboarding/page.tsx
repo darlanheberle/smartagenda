@@ -308,6 +308,15 @@ export default function OnboardingPage() {
               </div>
             )}
           </section>
+
+          <footer className="flex flex-wrap gap-3 px-1 text-xs text-slate-500">
+            <a className="hover:text-brand-700" href="/privacy">
+              Politica de Privacidade
+            </a>
+            <a className="hover:text-brand-700" href="/terms">
+              Termos de Uso
+            </a>
+          </footer>
         </section>
       </section>
     </main>
