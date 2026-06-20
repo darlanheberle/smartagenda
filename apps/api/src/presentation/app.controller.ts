@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -68,6 +69,21 @@ export class AppController {
 
   @Post("onboarding/professionals")
   async onboardingCreateProfessional(@Body() input: CreateProfessionalInput) {
+    const existingProfessional = await this.database.findProfessionalByWhatsappNumber(
+      input.whatsappNumber
+    );
+
+    if (existingProfessional) {
+      throw new ConflictException({
+        status: "whatsapp_already_registered",
+        message: "Este numero de WhatsApp ja esta cadastrado.",
+        whatsappNumber: existingProfessional.whatsapp_number,
+        gmail: existingProfessional.gmail,
+        professionalId: existingProfessional.id,
+        professionalName: existingProfessional.name
+      });
+    }
+
     const professional = await this.createProfessional(input);
     await this.createDefaultScheduling(professional.id || input.id || "demo-professional");
 

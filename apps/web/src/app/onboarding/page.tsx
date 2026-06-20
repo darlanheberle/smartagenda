@@ -53,6 +53,15 @@ type WhatsappPrepareResult = {
   connection?: EvolutionStep;
 };
 
+type OnboardingConflict = {
+  status?: string;
+  message?: string;
+  gmail?: string;
+  whatsappNumber?: string;
+  professionalId?: string;
+  professionalName?: string;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 
 export default function OnboardingPage() {
@@ -65,6 +74,7 @@ export default function OnboardingPage() {
   const [whatsappPrepared, setWhatsappPrepared] = useState(false);
   const [whatsappResult, setWhatsappResult] = useState<WhatsappPrepareResult | undefined>();
   const [error, setError] = useState("");
+  const [conflict, setConflict] = useState<OnboardingConflict | undefined>();
   const [created, setCreated] = useState<CreatedProfessional | undefined>();
 
   const professionalId = created?.professional?.id;
@@ -114,6 +124,7 @@ export default function OnboardingPage() {
     event.preventDefault();
     setLoading(true);
     setError("");
+    setConflict(undefined);
 
     try {
       const response = await fetch(`${apiUrl}/onboarding/professionals`, {
@@ -130,7 +141,15 @@ export default function OnboardingPage() {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const responseText = await response.text();
+        const payload = parseJson(responseText);
+
+        if (response.status === 409 && payload) {
+          setConflict(normalizeConflict(payload));
+          return;
+        }
+
+        throw new Error(responseText || "Nao foi possivel criar o onboarding.");
       }
 
       setCreated((await response.json()) as CreatedProfessional);
@@ -273,6 +292,8 @@ export default function OnboardingPage() {
               </p>
             ) : null}
 
+            {conflict ? <ConflictNotice conflict={conflict} /> : null}
+
             <button
               className="mt-5 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={loading}
@@ -354,6 +375,45 @@ export default function OnboardingPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function parseJson(value: string): unknown {
+  try {
+    return value ? JSON.parse(value) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeConflict(payload: unknown): OnboardingConflict {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const response = payload as { message?: unknown };
+
+  if (response.message && typeof response.message === "object") {
+    return response.message as OnboardingConflict;
+  }
+
+  return payload as OnboardingConflict;
+}
+
+function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
+  return (
+    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+      <p className="font-medium">Numero ja cadastrado</p>
+      <p className="mt-1">
+        Este WhatsApp ja esta vinculado ao email{" "}
+        <span className="font-semibold">{conflict.gmail || "cadastrado anteriormente"}</span>.
+      </p>
+      {conflict.professionalId ? (
+        <p className="mt-1 text-amber-800">
+          Professional ID: <span className="font-medium">{conflict.professionalId}</span>
+        </p>
+      ) : null}
+    </div>
   );
 }
 

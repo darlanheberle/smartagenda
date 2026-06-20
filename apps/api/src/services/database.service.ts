@@ -262,6 +262,24 @@ export class DatabaseService implements OnModuleInit {
     return result.rows[0] as ProfessionalRecord | undefined;
   }
 
+  async findProfessionalByWhatsappNumber(phone: string): Promise<ProfessionalRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from professionals
+        where whatsapp_number = $1
+        limit 1
+      `,
+      [this.normalizePhone(phone)]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
   async markProfessionalWhatsappStatus(
     professionalId: string,
     status: "pending" | "instance_created" | "connected" | "error"
