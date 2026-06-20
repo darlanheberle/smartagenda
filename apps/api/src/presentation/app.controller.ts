@@ -105,7 +105,7 @@ export class AppController {
       webhookUrl,
       phone: professional.whatsappNumber
     });
-    const hasError = [result.created, result.webhook, result.connection].some(
+    const hasError = [result.webhook, result.connection].some(
       (step) => "status" in step && typeof step.status === "string" && step.status.includes("error")
     );
 

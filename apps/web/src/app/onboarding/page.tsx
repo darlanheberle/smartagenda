@@ -30,6 +30,29 @@ type CreatedProfessional = {
   };
 };
 
+type EvolutionStep = {
+  status?: string;
+  statusCode?: number;
+  data?: {
+    pairingCode?: string | null;
+    code?: string;
+    base64?: string;
+    qrcode?: {
+      pairingCode?: string | null;
+      code?: string;
+      base64?: string;
+    };
+  };
+  error?: unknown;
+};
+
+type WhatsappPrepareResult = {
+  instanceName?: string;
+  created?: EvolutionStep;
+  webhook?: EvolutionStep;
+  connection?: EvolutionStep;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 
 export default function OnboardingPage() {
@@ -40,6 +63,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [preparingWhatsapp, setPreparingWhatsapp] = useState(false);
   const [whatsappPrepared, setWhatsappPrepared] = useState(false);
+  const [whatsappResult, setWhatsappResult] = useState<WhatsappPrepareResult | undefined>();
   const [error, setError] = useState("");
   const [created, setCreated] = useState<CreatedProfessional | undefined>();
 
@@ -111,6 +135,7 @@ export default function OnboardingPage() {
 
       setCreated((await response.json()) as CreatedProfessional);
       setWhatsappPrepared(false);
+      setWhatsappResult(undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel criar o onboarding.");
     } finally {
@@ -133,6 +158,8 @@ export default function OnboardingPage() {
         throw new Error(await response.text());
       }
 
+      const result = (await response.json()) as WhatsappPrepareResult;
+      setWhatsappResult(result);
       setWhatsappPrepared(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel preparar o WhatsApp.");
@@ -297,6 +324,13 @@ export default function OnboardingPage() {
                     text="Confirme se Google, WhatsApp, servicos e horarios estao prontos."
                   />
                 </div>
+
+                {whatsappResult ? (
+                  <WhatsappResult
+                    connectUrl={whatsappConnectUrl}
+                    result={whatsappResult}
+                  />
+                ) : null}
               </div>
             ) : (
               <div className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center">
@@ -320,6 +354,74 @@ export default function OnboardingPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function WhatsappResult({
+  connectUrl,
+  result
+}: {
+  connectUrl: string;
+  result: WhatsappPrepareResult;
+}) {
+  const qrBase64 =
+    result.connection?.data?.base64 ||
+    result.connection?.data?.qrcode?.base64 ||
+    result.created?.data?.qrcode?.base64 ||
+    result.created?.data?.base64;
+  const pairingCode =
+    result.connection?.data?.pairingCode ||
+    result.connection?.data?.qrcode?.pairingCode ||
+    result.created?.data?.qrcode?.pairingCode ||
+    result.created?.data?.pairingCode;
+
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="font-medium text-emerald-900">WhatsApp preparado</p>
+          <p className="mt-1 text-sm text-emerald-800">
+            A instancia foi preparada e o webhook do SmartAgenda foi configurado.
+          </p>
+        </div>
+        <a
+          className="inline-flex w-fit items-center rounded-md bg-white px-3 py-2 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
+          href={connectUrl}
+          target="_blank"
+        >
+          Abrir conexao
+        </a>
+      </div>
+
+      {pairingCode ? (
+        <div className="mt-4 rounded-md border border-emerald-200 bg-white px-3 py-3">
+          <p className="text-xs font-medium uppercase text-emerald-700">Codigo de pareamento</p>
+          <p className="mt-1 text-2xl font-semibold tracking-normal text-emerald-950">{pairingCode}</p>
+        </div>
+      ) : null}
+
+      {qrBase64 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
+          <img
+            alt="QR Code para conectar WhatsApp"
+            className="h-44 w-44 rounded-md border border-emerald-200 bg-white p-2"
+            src={qrBase64}
+          />
+          <div className="text-sm leading-6 text-emerald-900">
+            <p className="font-medium">Como conectar</p>
+            <p className="mt-1">
+              Abra o WhatsApp no celular, acesse aparelhos conectados e leia este QR Code. Quando
+              conectar, volte em Ver status para confirmar.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-emerald-800">
+          Se o QR nao aparecer aqui, use o botao Abrir conexao para visualizar a resposta completa
+          da Evolution.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -400,7 +502,8 @@ function ActionButton({
 }) {
   return (
     <button
-      className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-3 text-left text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+      className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-3 text-left text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={label === "Preparando..."}
       onClick={onClick}
       type="button"
     >
