@@ -11,6 +11,7 @@ import {
   Smartphone,
   UserRound
 } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 type CreatedProfessional = {
@@ -344,6 +345,12 @@ export default function OnboardingPage() {
                     label="Ver status"
                     text="Confirme se Google, WhatsApp, servicos e horarios estao prontos."
                   />
+                  <ActionLink
+                    href={`/admin?professionalId=${professionalId}`}
+                    icon={<Settings2 size={16} />}
+                    label="Configurar servicos e horarios"
+                    text="Cadastre servicos, precos e regras de atendimento do profissional."
+                  />
                 </div>
 
                 {whatsappResult ? (
@@ -409,9 +416,17 @@ function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
         <span className="font-semibold">{conflict.gmail || "cadastrado anteriormente"}</span>.
       </p>
       {conflict.professionalId ? (
-        <p className="mt-1 text-amber-800">
-          Professional ID: <span className="font-medium">{conflict.professionalId}</span>
-        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-amber-800">
+            Professional ID: <span className="font-medium">{conflict.professionalId}</span>
+          </p>
+          <Link
+            className="inline-flex w-fit items-center rounded-md bg-white px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
+            href={`/admin?professionalId=${conflict.professionalId}`}
+          >
+            Abrir configuracao
+          </Link>
+        </div>
       ) : null}
     </div>
   );
@@ -530,11 +545,13 @@ function ActionLink({
   label: string;
   text: string;
 }) {
+  const isExternal = href.startsWith("http");
+
   return (
     <a
       className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-3 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
       href={href}
-      target="_blank"
+      target={isExternal ? "_blank" : undefined}
     >
       <span className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-50 text-brand-700">
         {icon}
