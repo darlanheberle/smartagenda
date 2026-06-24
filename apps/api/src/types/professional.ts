@@ -43,6 +43,7 @@ export type ProfessionalRecord = {
   whatsapp_status: string;
   whatsapp_connected_at?: string | null;
   onboarding_completed_at?: string | null;
+  password_hash?: string | null;
   created_at: string;
   updated_at: string;
 };

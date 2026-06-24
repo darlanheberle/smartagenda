@@ -9,21 +9,28 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   Res
 } from "@nestjs/common";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
+import { AuthService } from "../services/auth.service";
 import { CalendarService } from "../services/calendar.service";
 import { DatabaseService } from "../services/database.service";
 import { EvolutionService } from "../services/evolution.service";
 import { ProfessionalRegistryService } from "../services/professional-registry.service";
 import { EvolutionWebhookPayload } from "../types/integrations";
-import { CreateProfessionalInput, Professional } from "../types/professional";
+import {
+  CreateProfessionalInput,
+  Professional,
+  ProfessionalRecord
+} from "../types/professional";
 
 @Controller()
 export class AppController {
   constructor(
     private readonly aiScheduling: AiSchedulingService,
+    private readonly auth: AuthService,
     private readonly calendar: CalendarService,
     private readonly database: DatabaseService,
     private readonly evolution: EvolutionService,
@@ -38,37 +45,128 @@ export class AppController {
     };
   }
 
+  @Post("auth/login")
+  async login(
+    @Body() input: { email?: string; password?: string },
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!input.email?.trim() || !input.password) {
+      throw new BadRequestException("Email e senha sao obrigatorios.");
+    }
+
+    const professional = await this.auth.authenticate(input.email, input.password);
+    this.auth.createSession(response, professional.id);
+
+    return {
+      status: "authenticated",
+      professional: this.toAccountProfessional(professional)
+    };
+  }
+
+  @Post("auth/activate")
+  async activateAccount(
+    @Body() input: { email?: string; whatsappNumber?: string; password?: string },
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!input.email?.trim() || !input.whatsappNumber?.trim() || !input.password) {
+      throw new BadRequestException("Email, WhatsApp e nova senha sao obrigatorios.");
+    }
+
+    this.validatePassword(input.password);
+    const professional = await this.database.findProfessionalByGmail(input.email);
+
+    if (!professional || this.normalizePhone(input.whatsappNumber) !== professional.whatsapp_number) {
+      throw new BadRequestException("Nao encontramos uma conta com este Gmail e WhatsApp.");
+    }
+
+    if (professional.password_hash) {
+      throw new ConflictException("Esta conta ja possui senha. Use a tela de login.");
+    }
+
+    const passwordHash = await this.auth.hashPassword(input.password);
+    const updated = await this.database.setProfessionalPassword(professional.id, passwordHash);
+    this.auth.createSession(response, professional.id);
+
+    return {
+      status: "activated",
+      professional: this.toAccountProfessional(updated || professional)
+    };
+  }
+
+  @Get("auth/me")
+  async authenticatedProfessional(@Req() request: Request) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    const professional = await this.database.getProfessional(professionalId);
+
+    if (!professional) {
+      throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    return {
+      professional: this.toAccountProfessional(professional)
+    };
+  }
+
+  @Post("auth/logout")
+  logout(@Res({ passthrough: true }) response: Response) {
+    this.auth.clearSession(response);
+    return { status: "logged_out" };
+  }
+
   @Get("dashboard/today")
-  today(@Query("professionalId") professionalId = "demo-professional") {
+  today(
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     const professional = this.professionals.getById(professionalId);
     return this.database.getTodayDashboard(professional.id, professional.timezone);
   }
 
   @Post("professionals")
-  async createProfessional(@Body() input: CreateProfessionalInput) {
-    this.validateProfessionalInput(input);
-    const professional = this.professionals.create(input);
-    const stored = await this.database.upsertProfessional({
-      ...input,
-      id: professional.id,
-      evolutionInstanceName: professional.evolutionInstanceName
-    });
-
-    return stored || this.sanitizeProfessional(professional);
+  async updateAuthenticatedProfessional(
+    @Req() request: Request,
+    @Body() input: CreateProfessionalInput
+  ) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    return this.persistProfessional({ ...input, id: professionalId });
   }
 
   @Get("professionals")
-  listProfessionals() {
-    return this.professionals.list().map((professional) => this.sanitizeProfessional(professional));
+  listProfessionals(@Req() request: Request) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    return [this.sanitizeProfessional(this.professionals.getById(professionalId))];
   }
 
   @Get("professionals/:id")
-  getProfessional(@Param("id") id: string) {
-    return this.sanitizeProfessional(this.professionals.getById(id));
+  getProfessional(@Req() request: Request, @Param("id") requestedProfessionalId: string) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    return this.sanitizeProfessional(this.professionals.getById(professionalId));
   }
 
   @Post("onboarding/professionals")
-  async onboardingCreateProfessional(@Body() input: CreateProfessionalInput) {
+  async onboardingCreateProfessional(
+    @Body() input: CreateProfessionalInput & { password?: string },
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!input.password) {
+      throw new BadRequestException("password e obrigatoria.");
+    }
+
+    this.validatePassword(input.password);
+    const existingGmail = await this.database.findProfessionalByGmail(input.gmail);
+
+    if (existingGmail) {
+      throw new ConflictException({
+        status: "gmail_already_registered",
+        message: "Este Gmail ja esta cadastrado.",
+        whatsappNumber: existingGmail.whatsapp_number,
+        gmail: existingGmail.gmail,
+        professionalId: existingGmail.id,
+        professionalName: existingGmail.name
+      });
+    }
+
     const existingProfessional = await this.database.findProfessionalByWhatsappNumber(
       input.whatsappNumber
     );
@@ -84,8 +182,14 @@ export class AppController {
       });
     }
 
-    const professional = await this.createProfessional(input);
+    const professional = await this.persistProfessional(input);
+    const passwordHash = await this.auth.hashPassword(input.password);
+    await this.database.setProfessionalPassword(
+      professional.id || input.id || "demo-professional",
+      passwordHash
+    );
     await this.createDefaultScheduling(professional.id || input.id || "demo-professional");
+    this.auth.createSession(response, professional.id || input.id || "demo-professional");
 
     return {
       professional,
@@ -94,13 +198,21 @@ export class AppController {
   }
 
   @Get("onboarding/:professionalId/status")
-  async onboardingStatus(@Param("professionalId") professionalId: string) {
+  async onboardingStatus(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     await this.syncWhatsappStatus(professionalId);
     return this.database.getOnboardingStatus(professionalId);
   }
 
   @Post("onboarding/:professionalId/defaults")
-  async onboardingDefaults(@Param("professionalId") professionalId: string) {
+  async onboardingDefaults(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     await this.createDefaultScheduling(professionalId);
 
     return {
@@ -111,7 +223,11 @@ export class AppController {
   }
 
   @Post("onboarding/:professionalId/whatsapp/prepare")
-  async onboardingWhatsappPrepare(@Param("professionalId") professionalId: string) {
+  async onboardingWhatsappPrepare(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     const professional = this.professionals.getById(professionalId);
     const webhookUrl = `${
       process.env.PUBLIC_API_URL || "https://api.agendasmart.com.br"
@@ -137,7 +253,11 @@ export class AppController {
   }
 
   @Get("onboarding/:professionalId/whatsapp/connect")
-  async onboardingWhatsappConnect(@Param("professionalId") professionalId: string) {
+  async onboardingWhatsappConnect(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     const professional = this.professionals.getById(professionalId);
     const connection = await this.evolution.connectInstance(professional.evolutionInstanceName);
 
@@ -150,15 +270,18 @@ export class AppController {
   }
 
   @Get("professionals/:id/google/auth-url")
-  googleAuthUrl(@Param("id") id: string) {
-    return this.calendar.createGoogleAuthUrl(id);
+  googleAuthUrl(@Req() request: Request, @Param("id") requestedProfessionalId: string) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    return this.calendar.createGoogleAuthUrl(professionalId);
   }
 
   @Get("integrations/google/start")
   googleStart(
+    @Req() request: Request,
     @Query("professionalId") professionalId = "demo-professional",
     @Res() response: Response
   ) {
+    this.auth.requireOwnProfessional(request, professionalId);
     const auth = this.calendar.createGoogleAuthUrl(professionalId);
 
     if (auth.status !== "ready" || !("authUrl" in auth) || !auth.authUrl) {
@@ -169,7 +292,8 @@ export class AppController {
   }
 
   @Get("integrations/evolution/status")
-  evolutionStatus() {
+  evolutionStatus(@Req() request: Request) {
+    this.auth.requireProfessionalId(request);
     return this.evolution.fetchInstances();
   }
 
@@ -180,31 +304,41 @@ export class AppController {
 
   @Get("calendar/availability")
   availability(
-    @Query("professionalId") professionalId = "demo-professional",
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string,
     @Query("serviceId") serviceId?: string
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.calendar.getAvailabilityForService({ professionalId, serviceId });
   }
 
   @Get("clients")
-  clients(@Query("professionalId") professionalId = "demo-professional") {
+  clients(
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.listClients(professionalId);
   }
 
   @Get("appointments")
   appointments(
-    @Query("professionalId") professionalId = "demo-professional",
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string,
     @Query("limit") limit?: string
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
     return this.database.listAppointments(professionalId, parsedLimit);
   }
 
   @Get("appointments/upcoming")
   upcomingAppointments(
-    @Query("professionalId") professionalId = "demo-professional",
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string,
     @Query("limit") limit?: string
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.listUpcomingAppointments(
       professionalId,
       limit ? Number.parseInt(limit, 10) : 20
@@ -213,14 +347,17 @@ export class AppController {
 
   @Get("services")
   services(
-    @Query("professionalId") professionalId = "demo-professional",
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string,
     @Query("active") active?: string
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.listServices(professionalId, active === "true");
   }
 
   @Post("services")
   createService(
+    @Req() request: Request,
     @Body()
     input: {
       professionalId?: string;
@@ -230,9 +367,10 @@ export class AppController {
       active?: boolean;
     }
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
     this.validateServiceInput(input);
     return this.database.createService({
-      professionalId: input.professionalId || "demo-professional",
+      professionalId,
       name: input.name,
       durationMinutes: input.durationMinutes,
       priceCents: input.priceCents,
@@ -242,8 +380,9 @@ export class AppController {
 
   @Patch("services/:id")
   updateService(
+    @Req() request: Request,
     @Param("id") id: string,
-    @Query("professionalId") professionalId = "demo-professional",
+    @Query("professionalId") requestedProfessionalId: string | undefined,
     @Body()
     input: {
       name?: string;
@@ -252,6 +391,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     if (input.durationMinutes !== undefined && input.durationMinutes <= 0) {
       return { status: "validation_error", message: "durationMinutes deve ser maior que zero." };
     }
@@ -261,19 +401,26 @@ export class AppController {
 
   @Delete("services/:id")
   deleteService(
+    @Req() request: Request,
     @Param("id") id: string,
-    @Query("professionalId") professionalId = "demo-professional"
+    @Query("professionalId") requestedProfessionalId?: string
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.deleteService(professionalId, id);
   }
 
   @Get("availability-rules")
-  availabilityRules(@Query("professionalId") professionalId = "demo-professional") {
+  availabilityRules(
+    @Req() request: Request,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.listAvailabilityRules(professionalId);
   }
 
   @Post("availability-rules")
   createAvailabilityRule(
+    @Req() request: Request,
     @Body()
     input: {
       professionalId?: string;
@@ -287,9 +434,10 @@ export class AppController {
       active?: boolean;
     }
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
     this.validateAvailabilityInput(input);
     return this.database.createAvailabilityRule({
-      professionalId: input.professionalId || "demo-professional",
+      professionalId,
       weekday: input.weekday,
       startTime: input.startTime,
       endTime: input.endTime,
@@ -303,8 +451,9 @@ export class AppController {
 
   @Patch("availability-rules/:weekday")
   updateAvailabilityRule(
+    @Req() request: Request,
     @Param("weekday") weekday: string,
-    @Query("professionalId") professionalId = "demo-professional",
+    @Query("professionalId") requestedProfessionalId: string | undefined,
     @Body()
     input: {
       startTime?: string;
@@ -316,6 +465,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     return this.database.updateAvailabilityRule(
       professionalId,
       Number.parseInt(weekday, 10),
@@ -325,6 +475,7 @@ export class AppController {
 
   @Post("calendar/events")
   createEvent(
+    @Req() request: Request,
     @Body()
     input: {
       professionalId: string;
@@ -335,7 +486,8 @@ export class AppController {
       serviceId?: string;
     }
   ) {
-    return this.calendar.createEvent(input);
+    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    return this.calendar.createEvent({ ...input, professionalId });
   }
 
   @Post("webhooks/evolution")
@@ -357,6 +509,23 @@ export class AppController {
           }
         : undefined
     };
+  }
+
+  private async persistProfessional(input: CreateProfessionalInput) {
+    this.validateProfessionalInput(input);
+    const professional = this.professionals.create(input);
+    const stored = await this.database.upsertProfessional({
+      ...input,
+      id: professional.id,
+      evolutionInstanceName: professional.evolutionInstanceName
+    });
+
+    if (stored) {
+      const { password_hash: _passwordHash, ...safeProfessional } = stored;
+      return safeProfessional;
+    }
+
+    return this.sanitizeProfessional(professional);
   }
 
   private validateServiceInput(input: { name?: string; durationMinutes?: number }) {
@@ -381,6 +550,27 @@ export class AppController {
     if (!input.gmail?.trim()) {
       throw new BadRequestException("gmail e obrigatorio.");
     }
+  }
+
+  private validatePassword(password: string) {
+    if (password.length < 8) {
+      throw new BadRequestException("A senha deve possuir pelo menos 8 caracteres.");
+    }
+  }
+
+  private toAccountProfessional(professional: ProfessionalRecord) {
+    return {
+      id: professional.id,
+      name: professional.name,
+      specialty: professional.specialty,
+      gmail: professional.gmail,
+      whatsappNumber: professional.whatsapp_number,
+      timezone: professional.timezone
+    };
+  }
+
+  private normalizePhone(phone: string) {
+    return `+${phone.replace(/\D/g, "")}`;
   }
 
   private validateAvailabilityInput(input: {

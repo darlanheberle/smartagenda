@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
+  LogOut,
   Plus,
   RefreshCcw,
   Save,
@@ -15,8 +16,8 @@ import {
   Trash2
 } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 type Service = {
   id: string;
@@ -60,6 +61,14 @@ type ServiceForm = {
   active: boolean;
 };
 
+type AccountProfessional = {
+  id: string;
+  name: string;
+  specialty?: string;
+  gmail: string;
+  whatsappNumber: string;
+};
+
 type AvailabilityForm = {
   weekday: number;
   startTime: string;
@@ -84,16 +93,13 @@ const weekdays = [
 ];
 
 export default function AdminPage() {
-  return (
-    <Suspense fallback={<AdminShellFallback />}>
-      <AdminSettings />
-    </Suspense>
-  );
+  return <AdminSettings />;
 }
 
 function AdminSettings() {
-  const searchParams = useSearchParams();
-  const professionalId = searchParams.get("professionalId") || "demo-professional";
+  const router = useRouter();
+  const [professional, setProfessional] = useState<AccountProfessional | undefined>();
+  const professionalId = professional?.id || "";
   const [services, setServices] = useState<Service[]>([]);
   const [availability, setAvailability] = useState<AvailabilityForm[]>(() => defaultAvailabilityForms([]));
   const [status, setStatus] = useState<OnboardingStatus | undefined>();
@@ -114,8 +120,33 @@ function AdminSettings() {
   const activeRules = useMemo(() => availability.filter((rule) => rule.active), [availability]);
 
   useEffect(() => {
-    void loadAdminData(professionalId);
-  }, [professionalId]);
+    void loadSession();
+  }, []);
+
+  async function loadSession() {
+    try {
+      const response = await fetch(`${apiUrl}/auth/me`, {
+        cache: "no-store",
+        credentials: "include"
+      });
+
+      if (response.status === 401) {
+        router.replace("/login?next=/admin");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const account = (await response.json()) as { professional: AccountProfessional };
+      setProfessional(account.professional);
+      await loadAdminData(account.professional.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel validar sua sessao.");
+      setLoading(false);
+    }
+  }
 
   async function loadAdminData(id: string) {
     setLoading(true);
@@ -123,10 +154,15 @@ function AdminSettings() {
 
     try {
       const [servicesResponse, availabilityResponse, statusResponse] = await Promise.all([
-        fetch(`${apiUrl}/services?professionalId=${id}`, { cache: "no-store" }),
-        fetch(`${apiUrl}/availability-rules?professionalId=${id}`, { cache: "no-store" }),
-        fetch(`${apiUrl}/onboarding/${id}/status`, { cache: "no-store" })
+        fetch(`${apiUrl}/services`, { cache: "no-store", credentials: "include" }),
+        fetch(`${apiUrl}/availability-rules`, { cache: "no-store", credentials: "include" }),
+        fetch(`${apiUrl}/onboarding/${id}/status`, { cache: "no-store", credentials: "include" })
       ]);
+
+      if ([servicesResponse, availabilityResponse, statusResponse].some((response) => response.status === 401)) {
+        router.replace("/login?next=/admin");
+        return;
+      }
 
       const loadedServices = servicesResponse.ok ? ((await servicesResponse.json()) as Service[]) : [];
       const loadedAvailability = availabilityResponse.ok
@@ -151,7 +187,6 @@ function AdminSettings() {
 
     try {
       const payload = {
-        professionalId,
         name: serviceForm.name.trim(),
         durationMinutes: Number.parseInt(serviceForm.durationMinutes, 10),
         priceCents: currencyToCents(serviceForm.price),
@@ -168,11 +203,12 @@ function AdminSettings() {
 
       const response = await fetch(
         editingServiceId
-          ? `${apiUrl}/services/${editingServiceId}?professionalId=${professionalId}`
+          ? `${apiUrl}/services/${editingServiceId}`
           : `${apiUrl}/services`,
         {
           method: editingServiceId ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload)
         }
       );
@@ -207,9 +243,10 @@ function AdminSettings() {
     setMessage("");
 
     try {
-      const response = await fetch(`${apiUrl}/services/${service.id}?professionalId=${professionalId}`, {
+      const response = await fetch(`${apiUrl}/services/${service.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ active: !service.active })
       });
 
@@ -231,7 +268,6 @@ function AdminSettings() {
 
     try {
       const payload = {
-        professionalId,
         weekday: rule.weekday,
         startTime: rule.startTime,
         endTime: rule.endTime,
@@ -243,11 +279,12 @@ function AdminSettings() {
       };
       const response = await fetch(
         rule.exists
-          ? `${apiUrl}/availability-rules/${rule.weekday}?professionalId=${professionalId}`
+          ? `${apiUrl}/availability-rules/${rule.weekday}`
           : `${apiUrl}/availability-rules`,
         {
           method: rule.exists ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload)
         }
       );
@@ -271,6 +308,14 @@ function AdminSettings() {
     );
   }
 
+  async function logout() {
+    await fetch(`${apiUrl}/auth/logout`, {
+      method: "POST",
+      credentials: "include"
+    });
+    router.replace("/login");
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-ink md:px-8">
       <section className="mx-auto max-w-7xl space-y-6">
@@ -279,14 +324,16 @@ function AdminSettings() {
             <div className="min-w-0">
               <Link
                 className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-brand-700"
-                href="/onboarding"
+                href="/"
               >
                 <ArrowLeft size={16} />
-                Voltar ao primeiro acesso
+                Voltar ao dashboard
               </Link>
               <h1 className="text-2xl font-semibold tracking-normal">Painel administrativo</h1>
               <p className="mt-1 text-sm text-slate-500">
-                Configure os servicos, precos e horarios que a IA usa para agendar no WhatsApp.
+                {professional
+                  ? `${professional.name} - ${professional.gmail}`
+                  : "Carregando dados da conta..."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -301,11 +348,19 @@ function AdminSettings() {
               </button>
               <Link
                 className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500"
-                href={`/?professionalId=${professionalId}`}
+                href="/"
               >
                 <CalendarClock size={16} />
                 Abrir dashboard
               </Link>
+              <button
+                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => void logout()}
+                type="button"
+              >
+                <LogOut size={16} />
+                Sair
+              </button>
             </div>
           </div>
         </header>
@@ -569,16 +624,6 @@ function AdminSettings() {
             ))}
           </div>
         </Panel>
-      </section>
-    </main>
-  );
-}
-
-function AdminShellFallback() {
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-ink md:px-8">
-      <section className="mx-auto max-w-7xl rounded-lg border border-slate-200 bg-white p-6">
-        <p className="text-sm text-slate-500">Carregando painel administrativo...</p>
       </section>
     </main>
   );

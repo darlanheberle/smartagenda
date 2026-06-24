@@ -11,6 +11,9 @@ import {
   Smartphone,
   UsersRound
 } from "lucide-react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { LogoutButton } from "./components/logout-button";
 
 export const dynamic = "force-dynamic";
 
@@ -70,13 +73,22 @@ type OnboardingStatus = {
   ready: boolean;
 };
 
-const professionalId = "demo-professional";
+type AccountProfessional = {
+  id: string;
+  name: string;
+  specialty?: string;
+  gmail: string;
+  whatsappNumber: string;
+};
 
-async function fetchJson<T>(path: string, fallback: T): Promise<T> {
+async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Promise<T> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
 
   try {
-    const response = await fetch(`${apiUrl}${path}`, { cache: "no-store" });
+    const response = await fetch(`${apiUrl}${path}`, {
+      cache: "no-store",
+      headers: { cookie: cookieHeader }
+    });
 
     if (!response.ok) {
       return fallback;
@@ -90,22 +102,34 @@ async function fetchJson<T>(path: string, fallback: T): Promise<T> {
 
 export default async function Home() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+  const cookieHeader = (await cookies()).toString();
+  const sessionResponse = await fetch(`${apiUrl}/auth/me`, {
+    cache: "no-store",
+    headers: { cookie: cookieHeader }
+  }).catch(() => undefined);
+
+  if (!sessionResponse?.ok) {
+    redirect("/login");
+  }
+
+  const account = (await sessionResponse.json()) as { professional: AccountProfessional };
+  const professionalId = account.professional.id;
   const googleConnectUrl = `${apiUrl}/integrations/google/start?professionalId=${professionalId}`;
   const whatsappPrepareUrl = `${apiUrl}/onboarding/${professionalId}/whatsapp/prepare`;
   const whatsappConnectUrl = `${apiUrl}/onboarding/${professionalId}/whatsapp/connect`;
   const defaultsUrl = `${apiUrl}/onboarding/${professionalId}/defaults`;
   const [dashboard, clients, appointments, services, onboarding] = await Promise.all([
-    fetchJson<Dashboard>(`/dashboard/today?professionalId=${professionalId}`, {
+    fetchJson<Dashboard>(`/dashboard/today`, {
       appointments: 0,
       pending: 0,
       completed: 0,
       cancellations: 0,
       expectedRevenue: 0,
       pendingRevenue: 0
-    }),
-    fetchJson<Client[]>(`/clients?professionalId=${professionalId}`, []),
-    fetchJson<Appointment[]>(`/appointments/upcoming?professionalId=${professionalId}&limit=10`, []),
-    fetchJson<Service[]>(`/services?professionalId=${professionalId}`, []),
+    }, cookieHeader),
+    fetchJson<Client[]>(`/clients`, [], cookieHeader),
+    fetchJson<Appointment[]>(`/appointments/upcoming?limit=10`, [], cookieHeader),
+    fetchJson<Service[]>(`/services`, [], cookieHeader),
     fetchJson<OnboardingStatus>(`/onboarding/${professionalId}/status`, {
       googleConnected: false,
       whatsappConnected: false,
@@ -114,7 +138,7 @@ export default async function Home() {
       servicesCount: 0,
       availabilityRulesCount: 0,
       ready: false
-    })
+    }, cookieHeader)
   ]);
   const onboardingSteps = [
     {
@@ -169,13 +193,13 @@ export default async function Home() {
         </div>
 
         <nav className="mt-8 space-y-1 text-sm">
-          {["Dashboard", "Primeiro acesso", "Agenda", "Clientes", "Servicos", "Financeiro", "Integracoes"].map(
+          {["Dashboard", "Configuracoes", "Agenda", "Clientes", "Servicos", "Financeiro", "Integracoes"].map(
             (item, index) => (
               <a
                 className={`flex items-center rounded-md px-3 py-2 ${
                   index === 0 ? "bg-brand-50 text-brand-900" : "text-slate-600 hover:bg-slate-100"
                 }`}
-                href={item === "Primeiro acesso" ? "/onboarding" : "#"}
+                href={item === "Configuracoes" || item === "Servicos" ? "/admin" : item === "Dashboard" ? "/" : "#"}
                 key={item}
               >
                 {item}
@@ -191,7 +215,7 @@ export default async function Home() {
             <div>
               <h1 className="text-2xl font-semibold tracking-normal text-ink">Painel do profissional</h1>
               <p className="text-sm text-slate-500">
-                Operacao do dia, onboarding e agenda sincronizada com Google Calendar.
+                {account.professional.name} - {account.professional.gmail}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -206,6 +230,7 @@ export default async function Home() {
                 <Link2 size={16} />
                 Conectar Google Agenda
               </a>
+              <LogoutButton />
             </div>
           </div>
         </header>
@@ -401,7 +426,7 @@ export default async function Home() {
 
             <Panel title="Regras ativas" subtitle="Agenda consultada antes da resposta">
               <div className="space-y-3 text-sm text-slate-600">
-                <RequiredItem label="Profissional" value="demo-professional" />
+                <RequiredItem label="Profissional" value={account.professional.name} />
                 <RequiredItem label="Agenda" value={onboarding.googleConnected ? "Google conectado" : "Pendente"} />
                 <RequiredItem label="WhatsApp" value={onboarding.whatsappConnected ? "Evolution conectado" : onboarding.professional?.whatsappStatus || "Pendente"} />
                 <RequiredItem label="Servicos" value={`${services.filter((service) => service.active).length} ativos`} />

@@ -114,6 +114,10 @@ export class DatabaseService implements OnModuleInit {
       )
     `);
     await this.pool.query(`
+      alter table professionals
+      add column if not exists password_hash text
+    `);
+    await this.pool.query(`
       create table if not exists google_calendar_connections (
         professional_id text primary key,
         email text not null,
@@ -275,6 +279,43 @@ export class DatabaseService implements OnModuleInit {
         limit 1
       `,
       [this.normalizePhone(phone)]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async findProfessionalByGmail(gmail: string): Promise<ProfessionalRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from professionals
+        where lower(gmail) = $1
+        order by updated_at desc
+        limit 1
+      `,
+      [gmail.toLowerCase().trim()]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async setProfessionalPassword(professionalId: string, passwordHash: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals
+        set password_hash = $2, updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [professionalId, passwordHash]
     );
 
     return result.rows[0] as ProfessionalRecord | undefined;

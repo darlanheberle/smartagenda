@@ -5,7 +5,10 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  Eye,
+  EyeOff,
   Link2,
+  LockKeyhole,
   MessageCircle,
   Settings2,
   Smartphone,
@@ -70,6 +73,9 @@ export default function OnboardingPage() {
   const [specialty, setSpecialty] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [gmail, setGmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preparingWhatsapp, setPreparingWhatsapp] = useState(false);
   const [whatsappPrepared, setWhatsappPrepared] = useState(false);
@@ -128,14 +134,20 @@ export default function OnboardingPage() {
     setConflict(undefined);
 
     try {
+      if (password !== passwordConfirmation) {
+        throw new Error("As senhas informadas nao conferem.");
+      }
+
       const response = await fetch(`${apiUrl}/onboarding/professionals`, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name,
           specialty,
           whatsappNumber,
           gmail,
+          password,
           timezone: "America/Sao_Paulo",
           appointmentDurationMinutes: 60
         })
@@ -172,7 +184,10 @@ export default function OnboardingPage() {
     setError("");
 
     try {
-      const response = await fetch(whatsappPrepareUrl, { method: "POST" });
+      const response = await fetch(whatsappPrepareUrl, {
+        method: "POST",
+        credentials: "include"
+      });
 
       if (!response.ok) {
         throw new Error(await response.text());
@@ -285,6 +300,40 @@ export default function OnboardingPage() {
                   value={gmail}
                 />
               </Field>
+              <Field label="Criar senha" htmlFor="password">
+                <div className="relative">
+                  <input
+                    autoComplete="new-password"
+                    className="input pr-11"
+                    id="password"
+                    minLength={8}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                  />
+                  <button
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 hover:text-slate-700"
+                    onClick={() => setShowPassword((current) => !current)}
+                    type="button"
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Confirmar senha" htmlFor="password-confirmation">
+                <input
+                  autoComplete="new-password"
+                  className="input"
+                  id="password-confirmation"
+                  minLength={8}
+                  onChange={(event) => setPasswordConfirmation(event.target.value)}
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={passwordConfirmation}
+                />
+              </Field>
             </div>
 
             {error ? (
@@ -301,7 +350,7 @@ export default function OnboardingPage() {
               type="submit"
             >
               {loading ? "Criando..." : "Criar configuracao inicial"}
-              <ArrowRight size={16} />
+              {loading ? <LockKeyhole size={16} /> : <ArrowRight size={16} />}
             </button>
           </form>
 
@@ -346,7 +395,7 @@ export default function OnboardingPage() {
                     text="Confirme se Google, WhatsApp, servicos e horarios estao prontos."
                   />
                   <ActionLink
-                    href={`/admin?professionalId=${professionalId}`}
+                    href="/admin"
                     icon={<Settings2 size={16} />}
                     label="Configurar servicos e horarios"
                     text="Cadastre servicos, precos e regras de atendimento do profissional."
@@ -408,12 +457,16 @@ function normalizeConflict(payload: unknown): OnboardingConflict {
 }
 
 function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
+  const gmailConflict = conflict.status === "gmail_already_registered";
+
   return (
     <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-      <p className="font-medium">Numero ja cadastrado</p>
+      <p className="font-medium">{gmailConflict ? "Gmail ja cadastrado" : "Numero ja cadastrado"}</p>
       <p className="mt-1">
-        Este WhatsApp ja esta vinculado ao email{" "}
-        <span className="font-semibold">{conflict.gmail || "cadastrado anteriormente"}</span>.
+        {gmailConflict ? "Este Gmail ja pertence a uma conta SmartAgenda." : "Este WhatsApp ja esta vinculado ao email"}{" "}
+        {!gmailConflict ? (
+          <span className="font-semibold">{conflict.gmail || "cadastrado anteriormente"}</span>
+        ) : null}
       </p>
       {conflict.professionalId ? (
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -422,9 +475,9 @@ function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
           </p>
           <Link
             className="inline-flex w-fit items-center rounded-md bg-white px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50"
-            href={`/admin?professionalId=${conflict.professionalId}`}
+            href={`/login?email=${encodeURIComponent(conflict.gmail || "")}`}
           >
-            Abrir configuracao
+            Entrar na conta
           </Link>
         </div>
       ) : null}

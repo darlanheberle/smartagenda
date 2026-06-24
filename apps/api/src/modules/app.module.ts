@@ -5,11 +5,13 @@ import { EvolutionService } from "../services/evolution.service";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { ProfessionalRegistryService } from "../services/professional-registry.service";
 import { DatabaseService } from "../services/database.service";
+import { AuthService } from "../services/auth.service";
 
 @Module({
   controllers: [AppController],
   providers: [
     DatabaseService,
+    AuthService,
     ProfessionalRegistryService,
     CalendarService,
     EvolutionService,
