@@ -93,9 +93,6 @@ export default function OnboardingPage() {
   const whatsappPrepareUrl = professionalId
     ? `${apiUrl}/onboarding/${professionalId}/whatsapp/prepare`
     : "";
-  const whatsappConnectUrl = professionalId
-    ? `${apiUrl}/onboarding/${professionalId}/whatsapp/connect`
-    : "";
   const statusUrl = professionalId ? `${apiUrl}/onboarding/${professionalId}/status` : "";
   const checklist = useMemo(
     () => [
@@ -382,15 +379,9 @@ export default function OnboardingPage() {
                   <ActionButton
                     done={whatsappPrepared}
                     icon={<MessageCircle size={16} />}
-                    label={preparingWhatsapp ? "Preparando..." : "Preparar WhatsApp"}
+                    label={preparingWhatsapp ? "Gerando QR..." : "Preparar e gerar QR"}
                     onClick={prepareWhatsapp}
-                    text="Cria/atualiza a instancia Evolution e configura o webhook."
-                  />
-                  <ActionLink
-                    href={whatsappConnectUrl}
-                    icon={<Smartphone size={16} />}
-                    label="Abrir QR do WhatsApp"
-                    text="Use o telefone do profissional para conectar a instancia."
+                    text="Prepara a instancia Evolution e mostra o QR nesta pagina."
                   />
                   <ActionLink
                     href={statusUrl}
@@ -406,12 +397,7 @@ export default function OnboardingPage() {
                   />
                 </div>
 
-                {whatsappResult ? (
-                  <WhatsappResult
-                    connectUrl={whatsappConnectUrl}
-                    result={whatsappResult}
-                  />
-                ) : null}
+                {whatsappResult ? <WhatsappResult result={whatsappResult} /> : null}
               </div>
             ) : (
               <div className="rounded-md bg-[var(--surface-subtle)] px-4 py-9 text-center">
@@ -489,13 +475,7 @@ function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
   );
 }
 
-function WhatsappResult({
-  connectUrl,
-  result
-}: {
-  connectUrl: string;
-  result: WhatsappPrepareResult;
-}) {
+function WhatsappResult({ result }: { result: WhatsappPrepareResult }) {
   const qrBase64 =
     result.connection?.data?.base64 ||
     result.connection?.data?.qrcode?.base64 ||
@@ -509,20 +489,13 @@ function WhatsappResult({
 
   return (
     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div>
         <div>
           <p className="font-medium text-emerald-900">WhatsApp preparado</p>
           <p className="mt-1 text-sm text-emerald-800">
             A instancia foi preparada e o webhook do SmartAgenda foi configurado.
           </p>
         </div>
-        <a
-          className="inline-flex w-fit items-center rounded-md bg-white px-3 py-2 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50"
-          href={connectUrl}
-          target="_blank"
-        >
-          Abrir conexao
-        </a>
       </div>
 
       {pairingCode ? (
@@ -549,8 +522,8 @@ function WhatsappResult({
         </div>
       ) : (
         <p className="mt-4 text-sm text-emerald-800">
-          Se o QR nao aparecer aqui, use o botao Abrir conexao para visualizar a resposta completa
-          da Evolution.
+          A Evolution ainda nao devolveu um QR valido. Aguarde alguns segundos e clique novamente
+          em Preparar e gerar QR.
         </p>
       )}
     </div>
@@ -637,7 +610,7 @@ function ActionButton({
   return (
     <button
       className="flex min-h-20 items-start gap-3 rounded-md bg-[var(--surface-subtle)] px-3 py-3 text-left text-[var(--ink-secondary)] hover:bg-[var(--surface-inset)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={label === "Preparando..."}
+      disabled={label === "Gerando QR..."}
       onClick={onClick}
       type="button"
     >

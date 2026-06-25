@@ -189,7 +189,6 @@ export default async function Home() {
       googleConnectUrl={googleConnectUrl}
       onboarding={onboarding}
       services={services}
-      whatsappConnectUrl={whatsappConnectUrl}
     />
   );
 

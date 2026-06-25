@@ -62,7 +62,6 @@ type DashboardViewProps = {
     ready: boolean;
   };
   googleConnectUrl: string;
-  whatsappConnectUrl: string;
 };
 
 export function DashboardView({
@@ -72,8 +71,7 @@ export function DashboardView({
   dashboard,
   googleConnectUrl,
   onboarding,
-  services,
-  whatsappConnectUrl
+  services
 }: DashboardViewProps) {
   const activeServices = services.filter((service) => service.active);
   const setupSteps = [
@@ -352,7 +350,7 @@ export function DashboardView({
                 label="Google Agenda"
               />
               <IntegrationRow
-                action={whatsappConnectUrl}
+                action="/admin"
                 active={onboarding.whatsappConnected}
                 icon={<Smartphone size={17} />}
                 label="WhatsApp Evolution"
