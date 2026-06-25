@@ -392,10 +392,6 @@ export class CalendarService {
     rules: AvailabilityRule[];
   }): CalendarSlot[] {
     const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "6", 10);
-    const slotStepMinutes = Number.parseInt(
-      process.env.SLOT_STEP_MINUTES || "15",
-      10
-    );
     const slots: CalendarSlot[] = [];
     const now = new Date();
 
@@ -418,12 +414,15 @@ export class CalendarService {
       const lunchStart = rule.lunch_start ? this.timeToMinutes(rule.lunch_start) : undefined;
       const lunchEnd = rule.lunch_end ? this.timeToMinutes(rule.lunch_end) : undefined;
       const minimumStart = new Date(now.getTime() + rule.minimum_notice_minutes * 60 * 1000);
+      const slotStepMinutes =
+        rule.slot_interval_minutes && rule.slot_interval_minutes > 0
+          ? rule.slot_interval_minutes
+          : input.durationMinutes + rule.buffer_minutes;
 
-      for (
-        let minuteOfDay = startMinute;
+      let minuteOfDay = startMinute;
+      while (
         minuteOfDay + input.durationMinutes <= endMinute &&
-        slots.length < maxSlots;
-        minuteOfDay += slotStepMinutes
+        slots.length < maxSlots
       ) {
         const appointmentEndMinute = minuteOfDay + input.durationMinutes;
         if (
@@ -432,6 +431,7 @@ export class CalendarService {
           minuteOfDay < lunchEnd &&
           appointmentEndMinute > lunchStart
         ) {
+          minuteOfDay = lunchEnd;
           continue;
         }
 
@@ -444,6 +444,7 @@ export class CalendarService {
         const displayEnd = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
 
         if (start <= minimumStart || this.isSlotBusy(start, end, input.busy)) {
+          minuteOfDay += slotStepMinutes;
           continue;
         }
 
@@ -452,6 +453,7 @@ export class CalendarService {
           endsAt: displayEnd.toISOString(),
           label: this.formatSlotLabel(start, input.timezone)
         });
+        minuteOfDay += slotStepMinutes;
       }
     }
 
@@ -473,6 +475,7 @@ export class CalendarService {
       end_time: `${process.env.WORK_END_HOUR || "18"}:00`,
       lunch_start: null,
       lunch_end: null,
+      slot_interval_minutes: null,
       buffer_minutes: 0,
       minimum_notice_minutes: 120,
       active: true

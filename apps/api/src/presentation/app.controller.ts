@@ -429,6 +429,7 @@ export class AppController {
       endTime: string;
       lunchStart?: string;
       lunchEnd?: string;
+      slotIntervalMinutes?: number | null;
       bufferMinutes?: number;
       minimumNoticeMinutes?: number;
       active?: boolean;
@@ -443,6 +444,7 @@ export class AppController {
       endTime: input.endTime,
       lunchStart: input.lunchStart,
       lunchEnd: input.lunchEnd,
+      slotIntervalMinutes: input.slotIntervalMinutes,
       bufferMinutes: input.bufferMinutes,
       minimumNoticeMinutes: input.minimumNoticeMinutes,
       active: input.active
@@ -460,12 +462,14 @@ export class AppController {
       endTime?: string;
       lunchStart?: string;
       lunchEnd?: string;
+      slotIntervalMinutes?: number | null;
       bufferMinutes?: number;
       minimumNoticeMinutes?: number;
       active?: boolean;
     }
   ) {
     const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    this.validateAvailabilitySettings(input);
     return this.database.updateAvailabilityRule(
       professionalId,
       Number.parseInt(weekday, 10),
@@ -577,6 +581,9 @@ export class AppController {
     weekday?: number;
     startTime?: string;
     endTime?: string;
+    slotIntervalMinutes?: number | null;
+    bufferMinutes?: number;
+    minimumNoticeMinutes?: number;
   }) {
     if (input.weekday === undefined || input.weekday < 0 || input.weekday > 6) {
       throw new BadRequestException("weekday deve estar entre 0 e 6.");
@@ -584,6 +591,30 @@ export class AppController {
 
     if (!input.startTime || !input.endTime) {
       throw new BadRequestException("startTime e endTime sao obrigatorios.");
+    }
+
+    this.validateAvailabilitySettings(input);
+  }
+
+  private validateAvailabilitySettings(input: {
+    slotIntervalMinutes?: number | null;
+    bufferMinutes?: number;
+    minimumNoticeMinutes?: number;
+  }) {
+    if (
+      input.slotIntervalMinutes !== undefined &&
+      input.slotIntervalMinutes !== null &&
+      input.slotIntervalMinutes <= 0
+    ) {
+      throw new BadRequestException("slotIntervalMinutes deve ser maior que zero ou null.");
+    }
+
+    if (input.bufferMinutes !== undefined && input.bufferMinutes < 0) {
+      throw new BadRequestException("bufferMinutes nao pode ser negativo.");
+    }
+
+    if (input.minimumNoticeMinutes !== undefined && input.minimumNoticeMinutes < 0) {
+      throw new BadRequestException("minimumNoticeMinutes nao pode ser negativo.");
     }
   }
 

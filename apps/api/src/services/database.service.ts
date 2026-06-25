@@ -45,6 +45,7 @@ export type AvailabilityRule = {
   end_time: string;
   lunch_start: string | null;
   lunch_end: string | null;
+  slot_interval_minutes: number | null;
   buffer_minutes: number;
   minimum_notice_minutes: number;
   active: boolean;
@@ -69,6 +70,7 @@ export type CreateAvailabilityInput = {
   endTime: string;
   lunchStart?: string;
   lunchEnd?: string;
+  slotIntervalMinutes?: number | null;
   bufferMinutes?: number;
   minimumNoticeMinutes?: number;
   active?: boolean;
@@ -183,6 +185,7 @@ export class DatabaseService implements OnModuleInit {
         end_time time not null,
         lunch_start time,
         lunch_end time,
+        slot_interval_minutes integer,
         buffer_minutes integer not null default 0,
         minimum_notice_minutes integer not null default 120,
         active boolean not null default true,
@@ -190,6 +193,10 @@ export class DatabaseService implements OnModuleInit {
         updated_at timestamptz not null default now(),
         unique (professional_id, weekday)
       )
+    `);
+    await this.pool.query(`
+      alter table professional_availability
+      add column if not exists slot_interval_minutes integer
     `);
     this.ready = true;
     await this.ensureDefaultSchedulingData();
@@ -864,18 +871,20 @@ export class DatabaseService implements OnModuleInit {
           end_time,
           lunch_start,
           lunch_end,
+          slot_interval_minutes,
           buffer_minutes,
           minimum_notice_minutes,
           active,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
         on conflict (professional_id, weekday)
         do update set
           start_time = excluded.start_time,
           end_time = excluded.end_time,
           lunch_start = excluded.lunch_start,
           lunch_end = excluded.lunch_end,
+          slot_interval_minutes = excluded.slot_interval_minutes,
           buffer_minutes = excluded.buffer_minutes,
           minimum_notice_minutes = excluded.minimum_notice_minutes,
           active = excluded.active,
@@ -890,6 +899,7 @@ export class DatabaseService implements OnModuleInit {
         input.endTime,
         input.lunchStart || null,
         input.lunchEnd || null,
+        input.slotIntervalMinutes ?? null,
         input.bufferMinutes || 0,
         input.minimumNoticeMinutes || 120,
         input.active ?? true
@@ -916,6 +926,10 @@ export class DatabaseService implements OnModuleInit {
       endTime: input.endTime || current.end_time,
       lunchStart: input.lunchStart ?? current.lunch_start ?? undefined,
       lunchEnd: input.lunchEnd ?? current.lunch_end ?? undefined,
+      slotIntervalMinutes:
+        input.slotIntervalMinutes === undefined
+          ? current.slot_interval_minutes
+          : input.slotIntervalMinutes,
       bufferMinutes: input.bufferMinutes ?? current.buffer_minutes,
       minimumNoticeMinutes: input.minimumNoticeMinutes ?? current.minimum_notice_minutes,
       active: input.active ?? current.active

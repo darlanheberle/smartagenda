@@ -37,6 +37,7 @@ type AvailabilityRule = {
   end_time: string;
   lunch_start: string | null;
   lunch_end: string | null;
+  slot_interval_minutes: number | null;
   buffer_minutes: number;
   minimum_notice_minutes: number;
   active: boolean;
@@ -78,6 +79,7 @@ type AvailabilityForm = {
   endTime: string;
   lunchStart: string;
   lunchEnd: string;
+  slotIntervalMinutes: string;
   bufferMinutes: string;
   minimumNoticeMinutes: string;
   active: boolean;
@@ -293,6 +295,10 @@ function AdminSettings() {
         endTime: rule.endTime,
         lunchStart: rule.lunchStart || undefined,
         lunchEnd: rule.lunchEnd || undefined,
+        slotIntervalMinutes:
+          rule.slotIntervalMinutes === "auto"
+            ? null
+            : Number.parseInt(rule.slotIntervalMinutes, 10),
         bufferMinutes: Number.parseInt(rule.bufferMinutes, 10) || 0,
         minimumNoticeMinutes: Number.parseInt(rule.minimumNoticeMinutes, 10) || 0,
         active: rule.active
@@ -587,80 +593,119 @@ function AdminSettings() {
         <Panel title="Horarios de atendimento" subtitle="Defina quando a IA pode oferecer agenda para clientes.">
           <div className="grid gap-3">
             {availability.map((rule) => (
-              <div
-                className="grid gap-3 rounded-md bg-[var(--surface-subtle)] px-3 py-3 lg:grid-cols-[120px_repeat(6,minmax(0,1fr))_110px]"
-                key={rule.weekday}
-              >
-                <div className="flex items-center justify-between gap-3 lg:block">
-                  <p className="font-medium">{weekdayLabel(rule.weekday)}</p>
+              <div className="rounded-md bg-[var(--surface-subtle)] p-3" key={rule.weekday}>
+                <div className="grid gap-3 xl:grid-cols-[112px_minmax(0,1fr)_minmax(0,0.72fr)_104px] xl:items-end">
+                  <div className="flex items-center justify-between gap-3 xl:block xl:self-start">
+                    <p className="font-medium">{weekdayLabel(rule.weekday)}</p>
+                    <button
+                      className="mt-0 inline-flex min-h-8 items-center gap-1 rounded-md bg-white px-2 text-xs font-semibold text-[var(--ink-secondary)] shadow-sm hover:text-[var(--ink)] xl:mt-2"
+                      onClick={() => updateAvailability(rule.weekday, { active: !rule.active })}
+                      type="button"
+                    >
+                      {rule.active ? (
+                        <ToggleRight className="text-emerald-600" size={16} />
+                      ) : (
+                        <ToggleLeft size={16} />
+                      )}
+                      {rule.active ? "Ativo" : "Inativo"}
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <CompactField label="Inicio">
+                      <input
+                        className="input"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, { startTime: event.target.value })
+                        }
+                        type="time"
+                        value={rule.startTime}
+                      />
+                    </CompactField>
+                    <CompactField label="Fim">
+                      <input
+                        className="input"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, { endTime: event.target.value })
+                        }
+                        type="time"
+                        value={rule.endTime}
+                      />
+                    </CompactField>
+                    <CompactField label="Almoco inicio">
+                      <input
+                        className="input"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, { lunchStart: event.target.value })
+                        }
+                        type="time"
+                        value={rule.lunchStart}
+                      />
+                    </CompactField>
+                    <CompactField label="Almoco fim">
+                      <input
+                        className="input"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, { lunchEnd: event.target.value })
+                        }
+                        type="time"
+                        value={rule.lunchEnd}
+                      />
+                    </CompactField>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+                    <CompactField label="Inicios a cada">
+                      <select
+                        className="input"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, {
+                            slotIntervalMinutes: event.target.value
+                          })
+                        }
+                        value={rule.slotIntervalMinutes}
+                      >
+                        <option value="auto">Automatico</option>
+                        <option value="15">15 min</option>
+                        <option value="30">30 min</option>
+                        <option value="45">45 min</option>
+                        <option value="60">60 min</option>
+                      </select>
+                    </CompactField>
+                    <CompactField label="Pausa apos">
+                      <input
+                        className="input"
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, { bufferMinutes: event.target.value })
+                        }
+                        value={rule.bufferMinutes}
+                      />
+                    </CompactField>
+                    <CompactField label="Antecedencia min.">
+                      <input
+                        className="input"
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          updateAvailability(rule.weekday, {
+                            minimumNoticeMinutes: event.target.value
+                          })
+                        }
+                        value={rule.minimumNoticeMinutes}
+                      />
+                    </CompactField>
+                  </div>
                   <button
-                    className="mt-0 inline-flex min-h-8 items-center gap-1 rounded-md bg-white px-2 text-xs font-semibold text-[var(--ink-secondary)] shadow-sm hover:text-[var(--ink)] lg:mt-2"
-                    onClick={() => updateAvailability(rule.weekday, { active: !rule.active })}
+                    className="btn-primary"
+                    disabled={savingWeekday === rule.weekday}
+                    onClick={() => void saveAvailability(rule)}
                     type="button"
                   >
-                    {rule.active ? <ToggleRight className="text-emerald-600" size={16} /> : <ToggleLeft size={16} />}
-                    {rule.active ? "Ativo" : "Inativo"}
+                    <Save size={15} />
+                    {savingWeekday === rule.weekday ? "..." : "Salvar"}
                   </button>
                 </div>
-                <CompactField label="Inicio">
-                  <input
-                    className="input"
-                    onChange={(event) => updateAvailability(rule.weekday, { startTime: event.target.value })}
-                    type="time"
-                    value={rule.startTime}
-                  />
-                </CompactField>
-                <CompactField label="Fim">
-                  <input
-                    className="input"
-                    onChange={(event) => updateAvailability(rule.weekday, { endTime: event.target.value })}
-                    type="time"
-                    value={rule.endTime}
-                  />
-                </CompactField>
-                <CompactField label="Almoco inicio">
-                  <input
-                    className="input"
-                    onChange={(event) => updateAvailability(rule.weekday, { lunchStart: event.target.value })}
-                    type="time"
-                    value={rule.lunchStart}
-                  />
-                </CompactField>
-                <CompactField label="Almoco fim">
-                  <input
-                    className="input"
-                    onChange={(event) => updateAvailability(rule.weekday, { lunchEnd: event.target.value })}
-                    type="time"
-                    value={rule.lunchEnd}
-                  />
-                </CompactField>
-                <CompactField label="Intervalo">
-                  <input
-                    className="input"
-                    inputMode="numeric"
-                    onChange={(event) => updateAvailability(rule.weekday, { bufferMinutes: event.target.value })}
-                    value={rule.bufferMinutes}
-                  />
-                </CompactField>
-                <CompactField label="Antecedencia">
-                  <input
-                    className="input"
-                    inputMode="numeric"
-                    onChange={(event) =>
-                      updateAvailability(rule.weekday, { minimumNoticeMinutes: event.target.value })
-                    }
-                    value={rule.minimumNoticeMinutes}
-                  />
-                </CompactField>
-                <button
-                  className="btn-primary"
-                  disabled={savingWeekday === rule.weekday}
-                  onClick={() => void saveAvailability(rule)}
-                  type="button"
-                >
-                  <Save size={15} />
-                  {savingWeekday === rule.weekday ? "..." : "Salvar"}
-                </button>
+                <p className="mt-2 text-xs text-[var(--ink-muted)] xl:pl-[124px]">
+                  Automatico usa a duracao do servico mais a pausa apos o atendimento.
+                </p>
               </div>
             ))}
           </div>
@@ -680,6 +725,9 @@ function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[]
       endTime: trimTime(rule?.end_time) || "18:00",
       lunchStart: trimTime(rule?.lunch_start) || "12:00",
       lunchEnd: trimTime(rule?.lunch_end) || "13:00",
+      slotIntervalMinutes: rule?.slot_interval_minutes
+        ? String(rule.slot_interval_minutes)
+        : "auto",
       bufferMinutes: String(rule?.buffer_minutes ?? 0),
       minimumNoticeMinutes: String(rule?.minimum_notice_minutes ?? 120),
       active: rule?.active ?? (weekday.value >= 1 && weekday.value <= 5),
