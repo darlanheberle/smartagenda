@@ -61,32 +61,42 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-ink md:px-8">
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-5xl overflow-hidden rounded-lg border border-slate-200 bg-white lg:grid-cols-[1fr_440px]">
-        <aside className="hidden border-r border-slate-200 bg-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+    <main className="min-h-screen bg-[var(--canvas)] px-4 py-6 text-[var(--ink)] md:px-8 md:py-8">
+      <section className="surface mx-auto grid min-h-[calc(100vh-3rem)] max-w-5xl overflow-hidden rounded-lg lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1fr_440px]">
+        <aside className="hidden bg-[var(--ink)] p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-lg bg-brand-600">
+              <div className="grid size-10 place-items-center rounded-md bg-[var(--brand)]">
                 <CalendarCheck size={22} />
               </div>
               <div>
                 <p className="text-lg font-semibold">SmartAgenda</p>
-                <p className="text-xs text-slate-400">Painel do profissional</p>
+                <p className="text-xs text-white/55">Painel do profissional</p>
               </div>
             </div>
 
             <div className="mt-16 max-w-md">
-              <h1 className="text-3xl font-semibold tracking-normal">
-                Sua operacao de agenda em um unico lugar.
+              <h1 className="max-w-md text-3xl font-semibold text-balance">
+                Seu dia organizado antes da primeira mensagem.
               </h1>
-              <p className="mt-4 text-sm leading-6 text-slate-300">
-                Acesse servicos, horarios, clientes e integracoes vinculadas ao seu WhatsApp e
-                Google Agenda.
+              <p className="mt-4 max-w-md text-sm leading-6 text-white/65 text-pretty">
+                WhatsApp, horarios, clientes e financeiro no mesmo ritmo da sua Google Agenda.
               </p>
+            </div>
+            <div className="mt-10 max-w-sm rounded-md bg-white/[0.055] p-4 ring-1 ring-white/10">
+              <p className="text-[11px] font-semibold uppercase text-white/45">Proximo atendimento</p>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-semibold tabular">09:00</span>
+                <span className="h-8 w-px bg-white/15" />
+                <span>
+                  <span className="block text-sm font-semibold">Agenda sincronizada</span>
+                  <span className="block text-xs text-white/50">Google + WhatsApp</span>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4 text-sm text-slate-300">
+          <div className="space-y-4 text-sm text-white/65">
             <LoginBenefit icon={<ShieldCheck size={17} />} text="Sessao protegida e individual" />
             <LoginBenefit icon={<Smartphone size={17} />} text="WhatsApp vinculado ao profissional" />
             <LoginBenefit icon={<CheckCircle2 size={17} />} text="Dados separados por conta" />
@@ -96,18 +106,19 @@ function LoginForm() {
         <section className="flex items-center px-5 py-8 sm:px-10">
           <div className="w-full">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="grid size-10 place-items-center rounded-lg bg-brand-600 text-white">
+              <div className="grid size-10 place-items-center rounded-md bg-[var(--brand)] text-white">
                 <CalendarCheck size={21} />
               </div>
               <div>
                 <p className="text-lg font-semibold">SmartAgenda</p>
-                <p className="text-xs text-slate-500">Painel do profissional</p>
+                <p className="text-xs text-[var(--ink-muted)]">Painel do profissional</p>
               </div>
             </div>
 
             <div>
-              <h2 className="text-2xl font-semibold tracking-normal">Entrar na sua conta</h2>
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="eyebrow">Acesso seguro</p>
+              <h2 className="mt-1 text-2xl font-semibold text-balance">Entrar na sua conta</h2>
+              <p className="mt-2 text-sm text-[var(--ink-secondary)]">
                 Use o Gmail e a senha cadastrados no SmartAgenda.
               </p>
             </div>
@@ -140,7 +151,7 @@ function LoginForm() {
                   />
                   <button
                     aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 hover:text-slate-700"
+                    className="absolute inset-y-0 right-0 grid w-11 place-items-center text-[var(--ink-muted)] hover:text-[var(--ink)]"
                     onClick={() => setShowPassword((current) => !current)}
                     type="button"
                   >
@@ -150,13 +161,13 @@ function LoginForm() {
               </Field>
 
               {error ? (
-                <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+                <p className="rounded-md bg-[var(--danger-soft)] px-3 py-2.5 text-sm font-medium text-[var(--danger)]">
                   {error}
                 </p>
               ) : null}
 
               <button
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn-primary w-full"
                 disabled={loading}
                 type="submit"
               >
@@ -165,10 +176,10 @@ function LoginForm() {
               </button>
             </form>
 
-            <div className="mt-6 border-t border-slate-200 pt-6 text-center">
-              <p className="text-sm text-slate-500">Ainda nao possui cadastro?</p>
+            <div className="mt-6 border-t border-black/10 pt-6 text-center">
+              <p className="text-sm text-[var(--ink-muted)]">Ainda nao possui cadastro?</p>
               <Link
-                className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                className="btn-secondary mt-3 w-full"
                 href="/onboarding"
               >
                 Criar conta
@@ -184,7 +195,7 @@ function LoginForm() {
 function LoginBenefit({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-8 place-items-center rounded-md bg-white/10 text-emerald-300">
+      <span className="grid size-8 place-items-center rounded-md bg-white/10 text-[#8fd4bb]">
         {icon}
       </span>
       <span>{text}</span>
@@ -202,7 +213,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block text-sm font-medium text-slate-700" htmlFor={htmlFor}>
+    <label className="block text-sm font-medium text-[var(--ink-secondary)]" htmlFor={htmlFor}>
       {label}
       <div className="mt-1">{children}</div>
     </label>

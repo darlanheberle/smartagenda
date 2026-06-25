@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ProductShell } from "../components/product-shell";
 
 type Service = {
   id: string;
@@ -317,55 +318,40 @@ function AdminSettings() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-ink md:px-8">
-      <section className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-lg border border-slate-200 bg-white px-5 py-5">
+    <ProductShell
+      active="settings"
+      email={professional?.gmail || "Carregando conta..."}
+      name={professional?.name || "SmartAgenda"}
+    >
+      <div className="mx-auto max-w-[1440px] space-y-5 px-4 py-5 md:px-7">
+        <header className="flex flex-col gap-4 border-b border-black/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <Link
-                className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-brand-700"
-                href="/"
-              >
-                <ArrowLeft size={16} />
-                Voltar ao dashboard
-              </Link>
-              <h1 className="text-2xl font-semibold tracking-normal">Painel administrativo</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {professional
-                  ? `${professional.name} - ${professional.gmail}`
-                  : "Carregando dados da conta..."}
+              <p className="eyebrow">Preferencias do atendimento</p>
+              <h1 className="mt-1 text-2xl font-semibold text-[var(--ink)]">Configuracoes da agenda</h1>
+              <p className="mt-1 text-sm text-[var(--ink-secondary)]">
+                Servicos, precos e horarios usados pela IA durante o agendamento.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                disabled={loading}
-                onClick={() => void loadAdminData(professionalId)}
-                type="button"
-              >
-                <RefreshCcw size={16} />
-                Atualizar
-              </button>
-              <Link
-                className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500"
-                href="/"
-              >
-                <CalendarClock size={16} />
-                Abrir dashboard
-              </Link>
-              <button
-                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                onClick={() => void logout()}
-                type="button"
-              >
-                <LogOut size={16} />
-                Sair
-              </button>
-            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="btn-secondary"
+              disabled={loading}
+              onClick={() => void loadAdminData(professionalId)}
+              type="button"
+            >
+              <RefreshCcw size={16} />
+              Atualizar
+            </button>
+            <Link className="btn-primary" href="/">
+              <CalendarClock size={16} />
+              Voltar ao dia
+            </Link>
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-px overflow-hidden rounded-lg bg-black/10 md:grid-cols-4">
           <Metric
             icon={<Settings2 size={18} />}
             label="Profissional"
@@ -381,20 +367,20 @@ function AdminSettings() {
         </section>
 
         {message ? (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <p className="rounded-md bg-[var(--brand-soft)] px-4 py-3 text-sm font-medium text-[var(--brand)]">
             {message}
           </p>
         ) : null}
 
         {error ? (
-          <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <p className="rounded-md bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
             {error}
           </p>
         ) : null}
 
         <section className="grid gap-6 xl:grid-cols-[430px_1fr]">
           <div className="space-y-6">
-            <Panel title="Cadastro de servico" subtitle="Nome, duracao, preco e disponibilidade para agendamento.">
+            <Panel title="Novo servico" subtitle="Nome, duracao, preco e disponibilidade para agendamento.">
               <div className="space-y-4">
                 <Field label="Nome do servico" htmlFor="service-name">
                   <input
@@ -430,7 +416,7 @@ function AdminSettings() {
                   </Field>
                 </div>
                 <button
-                  className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="btn-secondary"
                   onClick={() => setServiceForm({ ...serviceForm, active: !serviceForm.active })}
                   type="button"
                 >
@@ -439,7 +425,7 @@ function AdminSettings() {
                 </button>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="btn-primary"
                     disabled={savingService}
                     onClick={() => void saveService()}
                     type="button"
@@ -449,7 +435,7 @@ function AdminSettings() {
                   </button>
                   {editingServiceId ? (
                     <button
-                      className="rounded-md border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      className="btn-secondary"
                       onClick={() => {
                         setEditingServiceId(undefined);
                         setServiceForm({ name: "", durationMinutes: "60", price: "0,00", active: true });
@@ -473,7 +459,7 @@ function AdminSettings() {
             </Panel>
           </div>
 
-          <Panel title="Servicos cadastrados" subtitle="A IA oferece esses servicos no fluxo pelo WhatsApp.">
+          <Panel title="Servicos cadastrados" subtitle="A IA oferece essas opcoes durante a conversa no WhatsApp.">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
@@ -518,14 +504,14 @@ function AdminSettings() {
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap gap-2">
                             <button
-                              className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              className="inline-flex min-h-9 items-center rounded-md bg-[var(--surface-inset)] px-3 text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink)]"
                               onClick={() => editService(service)}
                               type="button"
                             >
                               Editar
                             </button>
                             <button
-                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              className="inline-flex min-h-9 items-center gap-1 rounded-md bg-[var(--surface-inset)] px-3 text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink)]"
                               onClick={() => void toggleService(service)}
                               type="button"
                             >
@@ -547,13 +533,13 @@ function AdminSettings() {
           <div className="grid gap-3">
             {availability.map((rule) => (
               <div
-                className="grid gap-3 rounded-md border border-slate-200 px-3 py-3 lg:grid-cols-[120px_repeat(6,minmax(0,1fr))_110px]"
+                className="grid gap-3 rounded-md bg-[var(--surface-subtle)] px-3 py-3 lg:grid-cols-[120px_repeat(6,minmax(0,1fr))_110px]"
                 key={rule.weekday}
               >
                 <div className="flex items-center justify-between gap-3 lg:block">
                   <p className="font-medium">{weekdayLabel(rule.weekday)}</p>
                   <button
-                    className="mt-0 inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 lg:mt-2"
+                    className="mt-0 inline-flex min-h-8 items-center gap-1 rounded-md bg-white px-2 text-xs font-semibold text-[var(--ink-secondary)] shadow-sm hover:text-[var(--ink)] lg:mt-2"
                     onClick={() => updateAvailability(rule.weekday, { active: !rule.active })}
                     type="button"
                   >
@@ -612,7 +598,7 @@ function AdminSettings() {
                   />
                 </CompactField>
                 <button
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn-primary"
                   disabled={savingWeekday === rule.weekday}
                   onClick={() => void saveAvailability(rule)}
                   type="button"
@@ -624,8 +610,8 @@ function AdminSettings() {
             ))}
           </div>
         </Panel>
-      </section>
-    </main>
+      </div>
+    </ProductShell>
   );
 }
 
@@ -649,22 +635,22 @@ function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[]
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex size-9 items-center justify-center rounded-md bg-brand-50 text-brand-700">
+    <div className="bg-white p-4">
+      <div className="mb-4 flex size-8 items-center justify-center rounded-md bg-[var(--brand-soft)] text-[var(--brand)]">
         {icon}
       </div>
-      <p className="truncate text-xl font-semibold">{value}</p>
-      <p className="text-sm text-slate-500">{label}</p>
+      <p className="truncate text-xl font-semibold tabular text-[var(--ink)]">{value}</p>
+      <p className="mt-1 text-xs text-[var(--ink-muted)]">{label}</p>
     </div>
   );
 }
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <section className="surface rounded-lg p-4">
       <div className="mb-4">
-        <h2 className="font-semibold">{title}</h2>
-        <p className="text-sm text-slate-500">{subtitle}</p>
+        <h2 className="text-[15px] font-semibold text-[var(--ink)]">{title}</h2>
+        <p className="mt-1 text-xs text-[var(--ink-muted)]">{subtitle}</p>
       </div>
       {children}
     </section>
@@ -699,11 +685,13 @@ function CompactField({ label, children }: { label: string; children: React.Reac
 
 function StatusRow({ label, done }: { label: string; done: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5">
-      <span className="font-medium text-slate-800">{label}</span>
+    <div className="flex items-center justify-between rounded-md bg-[var(--surface-subtle)] px-3 py-2.5">
+      <span className="font-medium text-[var(--ink)]">{label}</span>
       <span
         className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-          done ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+          done
+            ? "bg-[var(--brand-soft)] text-[var(--brand)]"
+            : "bg-[var(--warning-soft)] text-[var(--warning)]"
         }`}
       >
         {done ? "Pronto" : "Pendente"}

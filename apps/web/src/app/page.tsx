@@ -14,6 +14,7 @@ import {
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "./components/logout-button";
+import { DashboardView } from "./components/dashboard-view";
 
 export const dynamic = "force-dynamic";
 
@@ -179,6 +180,20 @@ export default async function Home() {
   ];
   const completedSteps = onboardingSteps.filter((step) => step.done).length;
 
+  return (
+    <DashboardView
+      account={account.professional}
+      appointments={appointments}
+      clients={clients}
+      dashboard={dashboard}
+      googleConnectUrl={googleConnectUrl}
+      onboarding={onboarding}
+      services={services}
+      whatsappConnectUrl={whatsappConnectUrl}
+    />
+  );
+
+  /*
   return (
     <main className="min-h-screen bg-slate-50">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white px-5 py-6 lg:block">
@@ -445,6 +460,7 @@ export default async function Home() {
       </section>
     </main>
   );
+  */
 }
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

@@ -6,7 +6,7 @@ import { useState } from "react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 
-export function LogoutButton() {
+export function LogoutButton({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -26,13 +26,18 @@ export function LogoutButton() {
 
   return (
     <button
-      className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+      aria-label="Sair da conta"
+      className={
+        compact
+          ? "grid size-9 shrink-0 place-items-center rounded-md text-[var(--ink-muted)] hover:bg-black/5 hover:text-[var(--ink)] disabled:opacity-50"
+          : "btn-secondary"
+      }
       disabled={loading}
       onClick={() => void logout()}
       type="button"
     >
       <LogOut size={16} />
-      {loading ? "Saindo..." : "Sair"}
+      {!compact ? (loading ? "Saindo..." : "Sair") : null}
     </button>
   );
 }
