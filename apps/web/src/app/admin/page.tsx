@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   Clock3,
   LogOut,
+  MessageCircle,
   Plus,
+  QrCode,
   RefreshCcw,
   Save,
   Settings2,
@@ -82,6 +84,21 @@ type AvailabilityForm = {
   exists: boolean;
 };
 
+type WhatsappConnectionResult = {
+  connection?: {
+    status?: string;
+    data?: {
+      base64?: string;
+      pairingCode?: string | null;
+      qrcode?: {
+        base64?: string;
+        pairingCode?: string | null;
+      };
+    };
+    error?: unknown;
+  };
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 const weekdays = [
   { value: 1, label: "Segunda" },
@@ -114,6 +131,8 @@ function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [savingService, setSavingService] = useState(false);
   const [savingWeekday, setSavingWeekday] = useState<number | undefined>();
+  const [connectingWhatsapp, setConnectingWhatsapp] = useState(false);
+  const [whatsappConnection, setWhatsappConnection] = useState<WhatsappConnectionResult | undefined>();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -317,6 +336,32 @@ function AdminSettings() {
     router.replace("/login");
   }
 
+  async function generateWhatsappQr() {
+    if (!professionalId) {
+      return;
+    }
+
+    setConnectingWhatsapp(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/onboarding/${professionalId}/whatsapp/connect`,
+        { credentials: "include", cache: "no-store" }
+      );
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      setWhatsappConnection((await response.json()) as WhatsappConnectionResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel gerar o QR do WhatsApp.");
+    } finally {
+      setConnectingWhatsapp(false);
+    }
+  }
+
   return (
     <ProductShell
       active="settings"
@@ -456,6 +501,16 @@ function AdminSettings() {
                 <StatusRow label="Servicos configurados" done={Boolean(status?.servicesConfigured)} />
                 <StatusRow label="Horarios configurados" done={Boolean(status?.availabilityConfigured)} />
               </div>
+              <button
+                className="btn-secondary mt-4 w-full"
+                disabled={connectingWhatsapp}
+                onClick={() => void generateWhatsappQr()}
+                type="button"
+              >
+                {connectingWhatsapp ? <MessageCircle size={16} /> : <QrCode size={16} />}
+                {connectingWhatsapp ? "Gerando QR..." : "Gerar QR do WhatsApp"}
+              </button>
+              {whatsappConnection ? <WhatsappQr result={whatsappConnection} /> : null}
             </Panel>
           </div>
 
@@ -696,6 +751,41 @@ function StatusRow({ label, done }: { label: string; done: boolean }) {
       >
         {done ? "Pronto" : "Pendente"}
       </span>
+    </div>
+  );
+}
+
+function WhatsappQr({ result }: { result: WhatsappConnectionResult }) {
+  const data = result.connection?.data;
+  const qrBase64 = data?.base64 || data?.qrcode?.base64;
+  const pairingCode = data?.pairingCode || data?.qrcode?.pairingCode;
+
+  if (!qrBase64 && !pairingCode) {
+    return (
+      <p className="mt-3 rounded-md bg-[var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[var(--warning)]">
+        A Evolution ainda nao devolveu um QR. Aguarde alguns segundos e tente novamente.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-md bg-[var(--surface-subtle)] p-3 text-center">
+      {qrBase64 ? (
+        <img
+          alt="QR Code para conectar o WhatsApp"
+          className="mx-auto size-52 max-w-full rounded-md bg-white p-2 shadow-sm"
+          src={qrBase64}
+        />
+      ) : null}
+      {pairingCode ? (
+        <div className="mt-3">
+          <p className="eyebrow">Codigo de pareamento</p>
+          <p className="mt-1 text-xl font-semibold tabular text-[var(--ink)]">{pairingCode}</p>
+        </div>
+      ) : null}
+      <p className="mx-auto mt-3 max-w-xs text-xs leading-5 text-[var(--ink-muted)]">
+        No WhatsApp, abra Aparelhos conectados e leia este codigo.
+      </p>
     </div>
   );
 }
