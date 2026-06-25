@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
+import { Injectable, NotFoundException, OnApplicationBootstrap } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import {
   CreateProfessionalInput,
@@ -9,7 +9,7 @@ import {
 import { DatabaseService } from "./database.service";
 
 @Injectable()
-export class ProfessionalRegistryService implements OnModuleInit {
+export class ProfessionalRegistryService implements OnApplicationBootstrap {
   private readonly professionals = new Map<string, Professional>();
 
   constructor(private readonly database: DatabaseService) {
@@ -28,7 +28,7 @@ export class ProfessionalRegistryService implements OnModuleInit {
     });
   }
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
     const storedProfessionals = await this.database.listProfessionals();
 
     for (const stored of storedProfessionals) {
