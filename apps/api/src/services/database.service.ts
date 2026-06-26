@@ -26,6 +26,17 @@ type UpsertClientInput = {
   email?: string;
 };
 
+export type ClientRecord = {
+  id: string;
+  professional_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ServiceRecord = {
   id: string;
   professional_id: string;
@@ -519,7 +530,10 @@ export class DatabaseService implements OnModuleInit {
         values ($1, $2, $3, $4, $5, now())
         on conflict (professional_id, phone)
         do update set
-          name = excluded.name,
+          name = case
+            when clients.name in ('Cliente WhatsApp', 'Cliente') then excluded.name
+            else clients.name
+          end,
           email = coalesce(excluded.email, clients.email),
           updated_at = now()
         returning id, professional_id, name, phone, email, notes, created_at, updated_at
@@ -527,7 +541,26 @@ export class DatabaseService implements OnModuleInit {
       [id, input.professionalId, input.name, phone, input.email || null]
     );
 
-    return result.rows[0];
+    return result.rows[0] as ClientRecord;
+  }
+
+  async findClientByPhone(professionalId: string, phone: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select id, professional_id, name, phone, email, notes, created_at, updated_at
+        from clients
+        where professional_id = $1
+          and phone = $2
+        limit 1
+      `,
+      [professionalId, phone]
+    );
+
+    return result.rows[0] as ClientRecord | undefined;
   }
 
   async saveAppointment(input: SaveAppointmentInput) {

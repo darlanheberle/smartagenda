@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { CalendarService } from "./calendar.service";
-import { DatabaseService, ServiceRecord } from "./database.service";
+import { ClientRecord, DatabaseService, ServiceRecord } from "./database.service";
 import { EvolutionService } from "./evolution.service";
 import { ProfessionalRegistryService } from "./professional-registry.service";
 import { EvolutionWebhookPayload, IncomingWhatsAppMessage } from "../types/integrations";
@@ -12,16 +12,22 @@ type OfferedSlot = {
 
 type PendingFlow =
   | {
+      step: "name";
+    }
+  | {
       step: "category";
+      client: ClientRecord;
       categories: string[];
       services: ServiceRecord[];
     }
   | {
       step: "service";
+      client: ClientRecord;
       services: ServiceRecord[];
     }
   | {
       step: "slot";
+      client: ClientRecord;
       service: ServiceRecord;
       slots: OfferedSlot[];
     };
@@ -61,14 +67,19 @@ export class AiSchedulingService {
       };
     }
 
-    await this.database.upsertClient({
-      professionalId: professional.id,
-      name: incoming.customerName || "Cliente WhatsApp",
-      phone: incoming.customerPhone
-    });
-
     const pendingKey = `${professional.id}:${incoming.customerPhone}`;
     const pending = this.pendingChoices.get(pendingKey);
+
+    if (pending?.step === "name") {
+      return this.handleNameAnswer({
+        incoming,
+        pendingKey,
+        professional: {
+          id: professional.id,
+          evolutionInstanceName: professional.evolutionInstanceName
+        }
+      });
+    }
 
     if (pending?.step === "category") {
       return this.handleCategoryChoice({ incoming, pending, pendingKey });
@@ -82,12 +93,84 @@ export class AiSchedulingService {
       return this.handleSlotChoice({ incoming, pending, pendingKey, professional });
     }
 
-    const services = await this.database.listServices(professional.id, true);
+    const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
 
-    if (services.length === 0) {
+    if (!client) {
+      this.pendingChoices.set(pendingKey, { step: "name" });
+
       return this.reply({
         incoming,
         instanceName: professional.evolutionInstanceName,
+        body: "Ola! Para comecar seu atendimento, qual e o seu nome completo?"
+      });
+    }
+
+    return this.startSchedulingFlow({
+      incoming,
+      pendingKey,
+      professionalId: professional.id,
+      instanceName: professional.evolutionInstanceName,
+      client
+    });
+  }
+
+  private async handleNameAnswer(input: {
+    incoming: IncomingWhatsAppMessage;
+    pendingKey: string;
+    professional: {
+      id: string;
+      evolutionInstanceName: string;
+    };
+  }) {
+    const name = this.normalizeClientName(input.incoming.text);
+
+    if (!name) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.professional.evolutionInstanceName,
+        body: "Nao consegui identificar seu nome. Por favor, envie seu nome completo para continuar."
+      });
+    }
+
+    const client = await this.database.upsertClient({
+      professionalId: input.professional.id,
+      name,
+      phone: input.incoming.customerPhone
+    });
+
+    if (!client) {
+      this.pendingChoices.delete(input.pendingKey);
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.professional.evolutionInstanceName,
+        body: "Nao consegui salvar seu cadastro agora. Vou pedir para o profissional conferir manualmente."
+      });
+    }
+
+    this.pendingChoices.delete(input.pendingKey);
+
+    return this.startSchedulingFlow({
+      incoming: input.incoming,
+      pendingKey: input.pendingKey,
+      professionalId: input.professional.id,
+      instanceName: input.professional.evolutionInstanceName,
+      client
+    });
+  }
+
+  private async startSchedulingFlow(input: {
+    incoming: IncomingWhatsAppMessage;
+    pendingKey: string;
+    professionalId: string;
+    instanceName: string;
+    client: ClientRecord;
+  }) {
+    const services = await this.database.listServices(input.professionalId, true);
+
+    if (services.length === 0) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.instanceName,
         body: "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
       });
     }
@@ -95,21 +178,30 @@ export class AiSchedulingService {
     const categories = this.getServiceCategories(services);
 
     if (categories.length > 0) {
-      this.pendingChoices.set(pendingKey, { step: "category", categories, services });
+      this.pendingChoices.set(input.pendingKey, {
+        step: "category",
+        client: input.client,
+        categories,
+        services
+      });
 
       return this.reply({
-        incoming,
-        instanceName: professional.evolutionInstanceName,
-        body: `Qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
+        incoming: input.incoming,
+        instanceName: input.instanceName,
+        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
       });
     }
 
-    this.pendingChoices.set(pendingKey, { step: "service", services });
+    this.pendingChoices.set(input.pendingKey, {
+      step: "service",
+      client: input.client,
+      services
+    });
 
     return this.reply({
-      incoming,
-      instanceName: professional.evolutionInstanceName,
-      body: `Qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      incoming: input.incoming,
+      instanceName: input.instanceName,
+      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
     });
   }
 
@@ -135,12 +227,16 @@ export class AiSchedulingService {
       (service) => service.category?.toLowerCase() === selectedCategory.toLowerCase()
     );
 
-    this.pendingChoices.set(input.pendingKey, { step: "service", services });
+    this.pendingChoices.set(input.pendingKey, {
+      step: "service",
+      client: input.pending.client,
+      services
+    });
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `Certo. Qual servico de ${selectedCategory} voce deseja?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      body: `Certo, ${input.pending.client.name}. Qual servico de ${selectedCategory} voce deseja?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
     });
   }
 
@@ -181,6 +277,7 @@ export class AiSchedulingService {
 
     this.pendingChoices.set(input.pendingKey, {
       step: "slot",
+      client: input.pending.client,
       service: selectedService,
       slots: offeredSlots
     });
@@ -188,7 +285,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `Tenho estes horarios para ${selectedService.name}:\n\n${this.formatSlotOptions(offeredSlots)}\n\nResponda com o numero do horario desejado.`
+      body: `${input.pending.client.name}, tenho estes horarios para ${selectedService.name}:\n\n${this.formatSlotOptions(offeredSlots)}\n\nResponda com o numero do horario desejado.`
     });
   }
 
@@ -214,7 +311,7 @@ export class AiSchedulingService {
 
     const event = await this.calendar.createEvent({
       professionalId: input.professional.id,
-      clientName: input.incoming.customerName || "Cliente WhatsApp",
+      clientName: input.pending.client.name,
       clientPhone: input.incoming.customerPhone,
       startsAt: selectedSlot.startsAt,
       serviceId: input.pending.service.id,
@@ -232,7 +329,7 @@ export class AiSchedulingService {
         ? `\nValor: ${this.formatCurrency(input.pending.service.price_cents)}`
         : "";
     const body = created
-      ? `Perfeito, agendamento confirmado.\n\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}`
+      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.\n\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}`
       : "Nao consegui criar o evento na agenda agora. Vou pedir para o profissional confirmar manualmente.";
 
     return this.reply({
@@ -242,6 +339,7 @@ export class AiSchedulingService {
       extra: {
         intent: "confirm_appointment",
         selectedSlot,
+        client: input.pending.client,
         service: input.pending.service,
         event
       }
@@ -282,6 +380,19 @@ export class AiSchedulingService {
     }
 
     return services.find((service) => service.name.toLowerCase() === normalized);
+  }
+
+  private normalizeClientName(text: string) {
+    const name = text
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/[<>]/g, "");
+
+    if (name.length < 2 || /^\d+$/.test(name)) {
+      return undefined;
+    }
+
+    return name;
   }
 
   private findSelectedCategory(text: string, categories: string[]) {
