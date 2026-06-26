@@ -117,7 +117,7 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
         </div>
       ) : null}
 
-      <section className="lg:pl-60">
+      <section className="min-w-0 lg:pl-60">
         <div className="flex h-14 items-center justify-between border-b border-black/10 bg-[var(--canvas)] px-4 lg:hidden">
           <Brand compact />
           <button

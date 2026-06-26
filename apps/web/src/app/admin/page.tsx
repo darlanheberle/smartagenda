@@ -403,7 +403,7 @@ function AdminSettings() {
       email={professional?.gmail || "Carregando conta..."}
       name={professional?.name || "SmartAgenda"}
     >
-      <div className="mx-auto max-w-[1440px] space-y-5 px-4 py-5 md:px-7">
+      <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-5 md:px-7">
         <header className="flex flex-col gap-4 border-b border-black/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
@@ -431,7 +431,7 @@ function AdminSettings() {
           </div>
         </header>
 
-        <section className="grid gap-px overflow-hidden rounded-lg bg-black/10 md:grid-cols-4">
+        <section className="grid min-w-0 gap-px overflow-hidden rounded-lg bg-black/10 md:grid-cols-4">
           <Metric
             icon={<Settings2 size={18} />}
             label="Profissional"
@@ -458,8 +458,8 @@ function AdminSettings() {
           </p>
         ) : null}
 
-        <section className="grid gap-6 xl:grid-cols-[430px_1fr]">
-          <div className="space-y-6">
+        <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-6">
             <Panel title="Novo servico" subtitle="Nome, duracao, preco e disponibilidade para agendamento.">
               <div className="space-y-4">
                 <Field label="Categoria opcional" htmlFor="service-category">
@@ -559,7 +559,7 @@ function AdminSettings() {
           </div>
 
           <Panel title="Servicos cadastrados" subtitle="A IA oferece essas opcoes durante a conversa no WhatsApp.">
-            <div className="overflow-x-auto">
+            <div className="max-w-full overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
                   <tr>
@@ -822,7 +822,7 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section className="surface rounded-lg p-4">
+    <section className="surface min-w-0 rounded-lg p-4">
       <div className="mb-4">
         <h2 className="text-[15px] font-semibold text-[var(--ink)]">{title}</h2>
         <p className="mt-1 text-xs text-[var(--ink-muted)]">{subtitle}</p>
