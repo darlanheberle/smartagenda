@@ -24,6 +24,7 @@ import { ProductShell } from "../components/product-shell";
 
 type Service = {
   id: string;
+  category: string | null;
   name: string;
   duration_minutes: number;
   price_cents: number;
@@ -59,6 +60,7 @@ type OnboardingStatus = {
 };
 
 type ServiceForm = {
+  category: string;
   name: string;
   durationMinutes: string;
   price: string;
@@ -122,8 +124,11 @@ function AdminSettings() {
   const professionalId = professional?.id || "";
   const [services, setServices] = useState<Service[]>([]);
   const [availability, setAvailability] = useState<AvailabilityForm[]>(() => defaultAvailabilityForms([]));
+  const [selectedAvailabilityDay, setSelectedAvailabilityDay] = useState("all");
+  const [allAvailability, setAllAvailability] = useState<AvailabilityForm>(() => defaultAllAvailabilityForm());
   const [status, setStatus] = useState<OnboardingStatus | undefined>();
   const [serviceForm, setServiceForm] = useState<ServiceForm>({
+    category: "",
     name: "",
     durationMinutes: "60",
     price: "0,00",
@@ -140,6 +145,14 @@ function AdminSettings() {
 
   const activeServices = useMemo(() => services.filter((service) => service.active), [services]);
   const activeRules = useMemo(() => availability.filter((rule) => rule.active), [availability]);
+  const selectedAvailability = useMemo(
+    () =>
+      selectedAvailabilityDay === "all"
+        ? allAvailability
+        : availability.find((rule) => String(rule.weekday) === selectedAvailabilityDay) ||
+          defaultAvailabilityForms([])[0],
+    [allAvailability, availability, selectedAvailabilityDay]
+  );
 
   useEffect(() => {
     void loadSession();
@@ -194,6 +207,7 @@ function AdminSettings() {
 
       setServices(loadedServices);
       setAvailability(defaultAvailabilityForms(loadedAvailability));
+      setAllAvailability(defaultAllAvailabilityForm());
       setStatus(loadedStatus);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel carregar as configuracoes.");
@@ -209,6 +223,7 @@ function AdminSettings() {
 
     try {
       const payload = {
+        category: serviceForm.category.trim() || null,
         name: serviceForm.name.trim(),
         durationMinutes: Number.parseInt(serviceForm.durationMinutes, 10),
         priceCents: currencyToCents(serviceForm.price),
@@ -239,7 +254,7 @@ function AdminSettings() {
         throw new Error(await response.text());
       }
 
-      setServiceForm({ name: "", durationMinutes: "60", price: "0,00", active: true });
+      setServiceForm({ category: "", name: "", durationMinutes: "60", price: "0,00", active: true });
       setEditingServiceId(undefined);
       setMessage(editingServiceId ? "Servico atualizado." : "Servico criado.");
       await loadAdminData(professionalId);
@@ -254,6 +269,7 @@ function AdminSettings() {
     setEditingServiceId(service.id);
     setServiceForm({
       name: service.name,
+      category: service.category || "",
       durationMinutes: String(service.duration_minutes),
       price: centsToInput(service.price_cents),
       active: service.active
@@ -289,37 +305,45 @@ function AdminSettings() {
     setMessage("");
 
     try {
-      const payload = {
-        weekday: rule.weekday,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        lunchStart: rule.lunchStart || undefined,
-        lunchEnd: rule.lunchEnd || undefined,
-        slotIntervalMinutes:
-          rule.slotIntervalMinutes === "auto"
-            ? null
-            : Number.parseInt(rule.slotIntervalMinutes, 10),
-        bufferMinutes: Number.parseInt(rule.bufferMinutes, 10) || 0,
-        minimumNoticeMinutes: Number.parseInt(rule.minimumNoticeMinutes, 10) || 0,
-        active: rule.active
-      };
-      const response = await fetch(
-        rule.exists
-          ? `${apiUrl}/availability-rules/${rule.weekday}`
-          : `${apiUrl}/availability-rules`,
-        {
-          method: rule.exists ? "PATCH" : "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload)
-        }
-      );
+      const targetRules = rule.weekday === -1 ? availability : [rule];
 
-      if (!response.ok) {
-        throw new Error(await response.text());
+      for (const targetRule of targetRules) {
+        const payload = {
+          weekday: targetRule.weekday,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+          lunchStart: rule.lunchStart || undefined,
+          lunchEnd: rule.lunchEnd || undefined,
+          slotIntervalMinutes:
+            rule.slotIntervalMinutes === "auto"
+              ? null
+              : Number.parseInt(rule.slotIntervalMinutes, 10),
+          bufferMinutes: Number.parseInt(rule.bufferMinutes, 10) || 0,
+          minimumNoticeMinutes: Number.parseInt(rule.minimumNoticeMinutes, 10) || 0,
+          active: rule.active
+        };
+        const response = await fetch(
+          targetRule.exists
+            ? `${apiUrl}/availability-rules/${targetRule.weekday}`
+            : `${apiUrl}/availability-rules`,
+          {
+            method: targetRule.exists ? "PATCH" : "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload)
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
       }
 
-      setMessage(`Horario de ${weekdayLabel(rule.weekday)} salvo.`);
+      setMessage(
+        rule.weekday === -1
+          ? "Horario aplicado para todos os dias."
+          : `Horario de ${weekdayLabel(rule.weekday)} salvo.`
+      );
       await loadAdminData(professionalId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel salvar o horario.");
@@ -329,6 +353,11 @@ function AdminSettings() {
   }
 
   function updateAvailability(weekday: number, patch: Partial<AvailabilityForm>) {
+    if (weekday === -1) {
+      setAllAvailability((current) => ({ ...current, ...patch }));
+      return;
+    }
+
     setAvailability((current) =>
       current.map((rule) => (rule.weekday === weekday ? { ...rule, ...patch } : rule))
     );
@@ -433,6 +462,15 @@ function AdminSettings() {
           <div className="space-y-6">
             <Panel title="Novo servico" subtitle="Nome, duracao, preco e disponibilidade para agendamento.">
               <div className="space-y-4">
+                <Field label="Categoria opcional" htmlFor="service-category">
+                  <input
+                    className="input"
+                    id="service-category"
+                    onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })}
+                    placeholder="Ex: Cabelo, Unhas, Consulta"
+                    value={serviceForm.category}
+                  />
+                </Field>
                 <Field label="Nome do servico" htmlFor="service-name">
                   <input
                     className="input"
@@ -489,7 +527,7 @@ function AdminSettings() {
                       className="btn-secondary"
                       onClick={() => {
                         setEditingServiceId(undefined);
-                        setServiceForm({ name: "", durationMinutes: "60", price: "0,00", active: true });
+                        setServiceForm({ category: "", name: "", durationMinutes: "60", price: "0,00", active: true });
                       }}
                       type="button"
                     >
@@ -525,6 +563,7 @@ function AdminSettings() {
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
                   <tr>
+                    <th className="px-3 py-3 font-medium">Categoria</th>
                     <th className="px-3 py-3 font-medium">Servico</th>
                     <th className="px-3 py-3 font-medium">Duracao</th>
                     <th className="px-3 py-3 font-medium">Preco</th>
@@ -535,19 +574,20 @@ function AdminSettings() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td className="px-3 py-8 text-center text-slate-500" colSpan={5}>
+                      <td className="px-3 py-8 text-center text-slate-500" colSpan={6}>
                         Carregando servicos...
                       </td>
                     </tr>
                   ) : services.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-8 text-center text-slate-500" colSpan={5}>
+                      <td className="px-3 py-8 text-center text-slate-500" colSpan={6}>
                         Nenhum servico cadastrado ainda.
                       </td>
                     </tr>
                   ) : (
                     services.map((service) => (
                       <tr key={service.id}>
+                        <td className="px-3 py-3 text-slate-600">{service.category || "Sem categoria"}</td>
                         <td className="px-3 py-3 font-medium text-slate-900">{service.name}</td>
                         <td className="px-3 py-3 text-slate-600">{service.duration_minutes} min</td>
                         <td className="px-3 py-3 text-slate-600">
@@ -590,124 +630,141 @@ function AdminSettings() {
           </Panel>
         </section>
 
-        <Panel title="Horarios de atendimento" subtitle="Defina quando a IA pode oferecer agenda para clientes.">
-          <div className="grid gap-3">
-            {availability.map((rule) => (
-              <div className="rounded-md bg-[var(--surface-subtle)] p-3" key={rule.weekday}>
-                <div className="grid gap-3 xl:grid-cols-[112px_minmax(0,1fr)_minmax(0,0.72fr)_104px] xl:items-end">
-                  <div className="flex items-center justify-between gap-3 xl:block xl:self-start">
-                    <p className="font-medium">{weekdayLabel(rule.weekday)}</p>
-                    <button
-                      className="mt-0 inline-flex min-h-8 items-center gap-1 rounded-md bg-white px-2 text-xs font-semibold text-[var(--ink-secondary)] shadow-sm hover:text-[var(--ink)] xl:mt-2"
-                      onClick={() => updateAvailability(rule.weekday, { active: !rule.active })}
-                      type="button"
-                    >
-                      {rule.active ? (
-                        <ToggleRight className="text-emerald-600" size={16} />
-                      ) : (
-                        <ToggleLeft size={16} />
-                      )}
-                      {rule.active ? "Ativo" : "Inativo"}
-                    </button>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <CompactField label="Inicio">
-                      <input
-                        className="input"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, { startTime: event.target.value })
-                        }
-                        type="time"
-                        value={rule.startTime}
-                      />
-                    </CompactField>
-                    <CompactField label="Fim">
-                      <input
-                        className="input"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, { endTime: event.target.value })
-                        }
-                        type="time"
-                        value={rule.endTime}
-                      />
-                    </CompactField>
-                    <CompactField label="Almoco inicio">
-                      <input
-                        className="input"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, { lunchStart: event.target.value })
-                        }
-                        type="time"
-                        value={rule.lunchStart}
-                      />
-                    </CompactField>
-                    <CompactField label="Almoco fim">
-                      <input
-                        className="input"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, { lunchEnd: event.target.value })
-                        }
-                        type="time"
-                        value={rule.lunchEnd}
-                      />
-                    </CompactField>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-                    <CompactField label="Inicios a cada">
-                      <select
-                        className="input"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, {
-                            slotIntervalMinutes: event.target.value
-                          })
-                        }
-                        value={rule.slotIntervalMinutes}
-                      >
-                        <option value="auto">Automatico</option>
-                        <option value="15">15 min</option>
-                        <option value="30">30 min</option>
-                        <option value="45">45 min</option>
-                        <option value="60">60 min</option>
-                      </select>
-                    </CompactField>
-                    <CompactField label="Pausa apos">
-                      <input
-                        className="input"
-                        inputMode="numeric"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, { bufferMinutes: event.target.value })
-                        }
-                        value={rule.bufferMinutes}
-                      />
-                    </CompactField>
-                    <CompactField label="Antecedencia min.">
-                      <input
-                        className="input"
-                        inputMode="numeric"
-                        onChange={(event) =>
-                          updateAvailability(rule.weekday, {
-                            minimumNoticeMinutes: event.target.value
-                          })
-                        }
-                        value={rule.minimumNoticeMinutes}
-                      />
-                    </CompactField>
-                  </div>
-                  <button
-                    className="btn-primary"
-                    disabled={savingWeekday === rule.weekday}
-                    onClick={() => void saveAvailability(rule)}
-                    type="button"
-                  >
-                    <Save size={15} />
-                    {savingWeekday === rule.weekday ? "..." : "Salvar"}
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-[var(--ink-muted)] xl:pl-[124px]">
-                  Automatico usa a duracao do servico mais a pausa apos o atendimento.
-                </p>
-              </div>
-            ))}
+        <Panel title="Horarios de atendimento" subtitle="Escolha um dia, ajuste a regra e salve. Use Todos para repetir a configuracao.">
+          <div className="rounded-md bg-[var(--surface-subtle)] p-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,320px)_auto] md:items-end md:justify-between">
+              <Field label="Dia da semana" htmlFor="availability-day">
+                <select
+                  className="input"
+                  id="availability-day"
+                  onChange={(event) => setSelectedAvailabilityDay(event.target.value)}
+                  value={selectedAvailabilityDay}
+                >
+                  <option value="all">Todos os dias</option>
+                  {weekdays.map((weekday) => (
+                    <option key={weekday.value} value={weekday.value}>
+                      {weekday.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button
+                className="btn-secondary justify-center"
+                onClick={() =>
+                  updateAvailability(selectedAvailability.weekday, {
+                    active: !selectedAvailability.active
+                  })
+                }
+                type="button"
+              >
+                {selectedAvailability.active ? (
+                  <ToggleRight className="text-emerald-600" size={18} />
+                ) : (
+                  <ToggleLeft size={18} />
+                )}
+                {selectedAvailability.active ? "Dia ativo" : "Dia inativo"}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <CompactField label="Inicio">
+                <input
+                  className="input"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, { startTime: event.target.value })
+                  }
+                  type="time"
+                  value={selectedAvailability.startTime}
+                />
+              </CompactField>
+              <CompactField label="Fim">
+                <input
+                  className="input"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, { endTime: event.target.value })
+                  }
+                  type="time"
+                  value={selectedAvailability.endTime}
+                />
+              </CompactField>
+              <CompactField label="Almoco inicio">
+                <input
+                  className="input"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, { lunchStart: event.target.value })
+                  }
+                  type="time"
+                  value={selectedAvailability.lunchStart}
+                />
+              </CompactField>
+              <CompactField label="Almoco fim">
+                <input
+                  className="input"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, { lunchEnd: event.target.value })
+                  }
+                  type="time"
+                  value={selectedAvailability.lunchEnd}
+                />
+              </CompactField>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <CompactField label="Inicios a cada">
+                <select
+                  className="input"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, {
+                      slotIntervalMinutes: event.target.value
+                    })
+                  }
+                  value={selectedAvailability.slotIntervalMinutes}
+                >
+                  <option value="auto">Automatico</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">60 min</option>
+                </select>
+              </CompactField>
+              <CompactField label="Pausa apos atendimento">
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, { bufferMinutes: event.target.value })
+                  }
+                  value={selectedAvailability.bufferMinutes}
+                />
+              </CompactField>
+              <CompactField label="Antecedencia minima">
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    updateAvailability(selectedAvailability.weekday, {
+                      minimumNoticeMinutes: event.target.value
+                    })
+                  }
+                  value={selectedAvailability.minimumNoticeMinutes}
+                />
+              </CompactField>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 border-t border-black/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-[var(--ink-muted)]">
+                Automatico usa a duracao do servico escolhido no WhatsApp mais a pausa apos o atendimento.
+              </p>
+              <button
+                className="btn-primary justify-center"
+                disabled={savingWeekday === selectedAvailability.weekday}
+                onClick={() => void saveAvailability(selectedAvailability)}
+                type="button"
+              >
+                <Save size={15} />
+                {savingWeekday === selectedAvailability.weekday ? "Salvando..." : "Salvar horario"}
+              </button>
+            </div>
           </div>
         </Panel>
       </div>
@@ -734,6 +791,21 @@ function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[]
       exists: Boolean(rule)
     };
   });
+}
+
+function defaultAllAvailabilityForm(): AvailabilityForm {
+  return {
+    weekday: -1,
+    startTime: "09:00",
+    endTime: "18:00",
+    lunchStart: "12:00",
+    lunchEnd: "13:00",
+    slotIntervalMinutes: "auto",
+    bufferMinutes: "0",
+    minimumNoticeMinutes: "120",
+    active: true,
+    exists: false
+  };
 }
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

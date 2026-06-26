@@ -12,6 +12,11 @@ type OfferedSlot = {
 
 type PendingFlow =
   | {
+      step: "category";
+      categories: string[];
+      services: ServiceRecord[];
+    }
+  | {
       step: "service";
       services: ServiceRecord[];
     }
@@ -65,6 +70,10 @@ export class AiSchedulingService {
     const pendingKey = `${professional.id}:${incoming.customerPhone}`;
     const pending = this.pendingChoices.get(pendingKey);
 
+    if (pending?.step === "category") {
+      return this.handleCategoryChoice({ incoming, pending, pendingKey });
+    }
+
     if (pending?.step === "service") {
       return this.handleServiceChoice({ incoming, pending, pendingKey, professionalId: professional.id });
     }
@@ -83,12 +92,55 @@ export class AiSchedulingService {
       });
     }
 
+    const categories = this.getServiceCategories(services);
+
+    if (categories.length > 0) {
+      this.pendingChoices.set(pendingKey, { step: "category", categories, services });
+
+      return this.reply({
+        incoming,
+        instanceName: professional.evolutionInstanceName,
+        body: `Qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
+      });
+    }
+
     this.pendingChoices.set(pendingKey, { step: "service", services });
 
     return this.reply({
       incoming,
       instanceName: professional.evolutionInstanceName,
       body: `Qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+    });
+  }
+
+  private async handleCategoryChoice(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "category" }>;
+    pendingKey: string;
+  }) {
+    const selectedCategory = this.findSelectedCategory(
+      input.incoming.text,
+      input.pending.categories
+    );
+
+    if (!selectedCategory) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.incoming.instanceName,
+        body: `Nao encontrei essa categoria. Escolha uma das opcoes:\n\n${this.formatCategoryOptions(input.pending.categories)}`
+      });
+    }
+
+    const services = input.pending.services.filter(
+      (service) => service.category?.toLowerCase() === selectedCategory.toLowerCase()
+    );
+
+    this.pendingChoices.set(input.pendingKey, { step: "service", services });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.incoming.instanceName,
+      body: `Certo. Qual servico de ${selectedCategory} voce deseja?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
     });
   }
 
@@ -232,6 +284,21 @@ export class AiSchedulingService {
     return services.find((service) => service.name.toLowerCase() === normalized);
   }
 
+  private findSelectedCategory(text: string, categories: string[]) {
+    const normalized = text.trim().toLowerCase();
+    const numericChoice = Number.parseInt(normalized, 10);
+
+    if (
+      Number.isInteger(numericChoice) &&
+      numericChoice >= 1 &&
+      numericChoice <= categories.length
+    ) {
+      return categories[numericChoice - 1];
+    }
+
+    return categories.find((category) => category.toLowerCase() === normalized);
+  }
+
   private findSelectedSlot(text: string, slots?: OfferedSlot[]) {
     if (!slots?.length) {
       return undefined;
@@ -259,6 +326,20 @@ export class AiSchedulingService {
         return `${index + 1}. ${service.name} (${service.duration_minutes} min)${price}`;
       })
       .join("\n");
+  }
+
+  private getServiceCategories(services: ServiceRecord[]) {
+    return Array.from(
+      new Set(
+        services
+          .map((service) => service.category?.trim())
+          .filter((category): category is string => Boolean(category))
+      )
+    );
+  }
+
+  private formatCategoryOptions(categories: string[]) {
+    return categories.map((category, index) => `${index + 1}. ${category}`).join("\n");
   }
 
   private formatSlotOptions(slots: OfferedSlot[]) {

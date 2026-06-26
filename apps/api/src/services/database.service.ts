@@ -29,6 +29,7 @@ type UpsertClientInput = {
 export type ServiceRecord = {
   id: string;
   professional_id: string;
+  category: string | null;
   name: string;
   duration_minutes: number;
   price_cents: number;
@@ -55,6 +56,7 @@ export type AvailabilityRule = {
 
 export type CreateServiceInput = {
   professionalId: string;
+  category?: string | null;
   name: string;
   durationMinutes: number;
   priceCents?: number;
@@ -168,6 +170,7 @@ export class DatabaseService implements OnModuleInit {
       create table if not exists services (
         id text primary key,
         professional_id text not null,
+        category text,
         name text not null,
         duration_minutes integer not null,
         price_cents integer not null default 0,
@@ -197,6 +200,10 @@ export class DatabaseService implements OnModuleInit {
     await this.pool.query(`
       alter table professional_availability
       add column if not exists slot_interval_minutes integer
+    `);
+    await this.pool.query(`
+      alter table services
+      add column if not exists category text
     `);
     this.ready = true;
     await this.ensureDefaultSchedulingData();
@@ -712,7 +719,7 @@ export class DatabaseService implements OnModuleInit {
         from services
         where professional_id = $1
           and ($2::boolean = false or active = true)
-        order by active desc, name asc
+        order by active desc, nullif(category, '') asc nulls last, name asc
       `,
       [professionalId, onlyActive]
     );
@@ -747,18 +754,20 @@ export class DatabaseService implements OnModuleInit {
         insert into services (
           id,
           professional_id,
+          category,
           name,
           duration_minutes,
           price_cents,
           active,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, now())
+        values ($1, $2, $3, $4, $5, $6, $7, now())
         returning *
       `,
       [
         randomUUID(),
         input.professionalId,
+        this.normalizeOptionalText(input.category),
         input.name.trim(),
         input.durationMinutes,
         input.priceCents || 0,
@@ -782,10 +791,11 @@ export class DatabaseService implements OnModuleInit {
     const result = await this.pool.query(
       `
         update services set
-          name = $3,
-          duration_minutes = $4,
-          price_cents = $5,
-          active = $6,
+          category = $3,
+          name = $4,
+          duration_minutes = $5,
+          price_cents = $6,
+          active = $7,
           updated_at = now()
         where professional_id = $1 and id = $2
         returning *
@@ -793,6 +803,7 @@ export class DatabaseService implements OnModuleInit {
       [
         professionalId,
         serviceId,
+        input.category === undefined ? current.category : this.normalizeOptionalText(input.category),
         input.name?.trim() || current.name,
         input.durationMinutes ?? current.duration_minutes,
         input.priceCents ?? current.price_cents,
@@ -998,6 +1009,11 @@ export class DatabaseService implements OnModuleInit {
   private normalizePhone(phone: string): string {
     const digits = phone.replace(/\D/g, "");
     return digits.startsWith("+") ? digits : `+${digits}`;
+  }
+
+  private normalizeOptionalText(value?: string | null) {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
   }
 
   private buildInstanceName(phone: string): string {

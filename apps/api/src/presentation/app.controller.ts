@@ -361,6 +361,7 @@ export class AppController {
     @Body()
     input: {
       professionalId?: string;
+      category?: string | null;
       name: string;
       durationMinutes: number;
       priceCents?: number;
@@ -371,6 +372,7 @@ export class AppController {
     this.validateServiceInput(input);
     return this.database.createService({
       professionalId,
+      category: input.category,
       name: input.name,
       durationMinutes: input.durationMinutes,
       priceCents: input.priceCents,
@@ -385,6 +387,7 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId: string | undefined,
     @Body()
     input: {
+      category?: string | null;
       name?: string;
       durationMinutes?: number;
       priceCents?: number;
