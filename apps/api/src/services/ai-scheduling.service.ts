@@ -483,8 +483,30 @@ export class AiSchedulingService {
   private parseDateIntent(text: string): DateIntent | undefined {
     const normalized = this.normalizeText(text);
     const now = new Date();
+    const requestedWeekday = this.findRequestedWeekday(normalized);
+    const isNextWeek =
+      normalized.includes("semana que vem") || normalized.includes("proxima semana");
 
-    if (normalized.includes("semana que vem") || normalized.includes("proxima semana")) {
+    if (requestedWeekday !== undefined && isNextWeek) {
+      const start = this.weekdayInNextWeek(now, requestedWeekday);
+
+      return {
+        startDate: start.toISOString(),
+        daysAhead: 1,
+        label: `${this.weekdayName(requestedWeekday)} da semana que vem`
+      };
+    }
+
+    if (requestedWeekday !== undefined) {
+      const nextDate = this.nextWeekday(now, requestedWeekday, normalized.includes("proxima"));
+      return {
+        startDate: this.startOfDay(nextDate).toISOString(),
+        daysAhead: 1,
+        label: this.weekdayName(requestedWeekday)
+      };
+    }
+
+    if (isNextWeek) {
       const start = this.startOfNextWeek(now);
       return {
         startDate: start.toISOString(),
@@ -499,17 +521,6 @@ export class AiSchedulingService {
         startDate: start.toISOString(),
         daysAhead: 1,
         label: "amanha"
-      };
-    }
-
-    const requestedWeekday = this.findRequestedWeekday(normalized);
-
-    if (requestedWeekday !== undefined) {
-      const nextDate = this.nextWeekday(now, requestedWeekday, normalized.includes("proxima"));
-      return {
-        startDate: this.startOfDay(nextDate).toISOString(),
-        daysAhead: 1,
-        label: this.weekdayName(requestedWeekday)
       };
     }
 
@@ -549,6 +560,13 @@ export class AiSchedulingService {
     const current = date.getDay();
     const daysUntilNextMonday = ((1 - current + 7) % 7) || 7;
     return this.startOfDay(this.addDays(date, daysUntilNextMonday));
+  }
+
+  private weekdayInNextWeek(from: Date, weekday: number) {
+    const nextMonday = this.startOfNextWeek(from);
+    const offsetFromMonday = (weekday - 1 + 7) % 7;
+
+    return this.startOfDay(this.addDays(nextMonday, offsetFromMonday));
   }
 
   private addDays(date: Date, days: number) {
