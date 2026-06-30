@@ -137,7 +137,12 @@ export class CalendarService {
     return this.getAvailabilityForService({ professionalId: professional.id });
   }
 
-  async getAvailabilityForService(input: { professionalId: string; serviceId?: string }) {
+  async getAvailabilityForService(input: {
+    professionalId: string;
+    serviceId?: string;
+    startDate?: string;
+    daysAhead?: number;
+  }) {
     const professional = await this.loadGoogleCalendarConnection(
       this.professionals.getById(input.professionalId)
     );
@@ -154,10 +159,12 @@ export class CalendarService {
 
     const accessToken = await this.getValidAccessToken(professional.id);
     const now = new Date();
-    const daysAhead = Number.parseInt(process.env.GOOGLE_AVAILABILITY_DAYS || "14", 10);
-    const timeMin = now.toISOString();
+    const searchStart = input.startDate ? new Date(input.startDate) : now;
+    const daysAhead =
+      input.daysAhead || Number.parseInt(process.env.GOOGLE_AVAILABILITY_DAYS || "21", 10);
+    const timeMin = searchStart > now ? searchStart.toISOString() : now.toISOString();
     const timeMax = new Date(
-      now.getTime() + daysAhead * 24 * 60 * 60 * 1000
+      searchStart.getTime() + daysAhead * 24 * 60 * 60 * 1000
     ).toISOString();
 
     const response = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
@@ -189,6 +196,7 @@ export class CalendarService {
       busy,
       durationMinutes,
       timezone: professional.timezone,
+      searchStart,
       daysAhead,
       rules: await this.database.listAvailabilityRules(professional.id)
     });
@@ -388,19 +396,21 @@ export class CalendarService {
     busy: BusyInterval[];
     durationMinutes: number;
     timezone: string;
+    searchStart: Date;
     daysAhead: number;
     rules: AvailabilityRule[];
   }): CalendarSlot[] {
-    const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "6", 10);
+    const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "30", 10);
     const slots: CalendarSlot[] = [];
     const now = new Date();
+    const searchStart = input.searchStart > now ? input.searchStart : now;
 
     for (
       let dayOffset = 0;
       dayOffset < input.daysAhead && slots.length < maxSlots;
       dayOffset += 1
     ) {
-      const date = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+      const date = new Date(searchStart.getTime() + dayOffset * 24 * 60 * 60 * 1000);
       const parts = this.getDateParts(date, input.timezone);
       const dayOfWeek = this.getDayOfWeek(parts);
       const rule = this.getRuleForWeekday(input.rules, dayOfWeek);

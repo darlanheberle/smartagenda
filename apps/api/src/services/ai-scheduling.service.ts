@@ -10,19 +10,28 @@ type OfferedSlot = {
   label: string;
 };
 
+type DateIntent = {
+  startDate: string;
+  daysAhead: number;
+  label: string;
+};
+
 type PendingFlow =
   | {
       step: "name";
+      requestedPeriod?: DateIntent;
     }
   | {
       step: "category";
       client: ClientRecord;
+      requestedPeriod?: DateIntent;
       categories: string[];
       services: ServiceRecord[];
     }
   | {
       step: "service";
       client: ClientRecord;
+      requestedPeriod?: DateIntent;
       services: ServiceRecord[];
     }
   | {
@@ -94,9 +103,10 @@ export class AiSchedulingService {
     }
 
     const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
+    const requestedPeriod = this.parseDateIntent(incoming.text);
 
     if (!client) {
-      this.pendingChoices.set(pendingKey, { step: "name" });
+      this.pendingChoices.set(pendingKey, { step: "name", requestedPeriod });
 
       return this.reply({
         incoming,
@@ -110,18 +120,20 @@ export class AiSchedulingService {
       pendingKey,
       professionalId: professional.id,
       instanceName: professional.evolutionInstanceName,
-      client
+      client,
+      requestedPeriod
     });
   }
 
   private async handleNameAnswer(input: {
     incoming: IncomingWhatsAppMessage;
     pendingKey: string;
-    professional: {
-      id: string;
-      evolutionInstanceName: string;
-    };
+      professional: {
+        id: string;
+        evolutionInstanceName: string;
+      };
   }) {
+    const pending = this.pendingChoices.get(input.pendingKey);
     const name = this.normalizeClientName(input.incoming.text);
 
     if (!name) {
@@ -154,7 +166,8 @@ export class AiSchedulingService {
       pendingKey: input.pendingKey,
       professionalId: input.professional.id,
       instanceName: input.professional.evolutionInstanceName,
-      client
+      client,
+      requestedPeriod: pending?.step === "name" ? pending.requestedPeriod : undefined
     });
   }
 
@@ -164,6 +177,7 @@ export class AiSchedulingService {
     professionalId: string;
     instanceName: string;
     client: ClientRecord;
+    requestedPeriod?: DateIntent;
   }) {
     const services = await this.database.listServices(input.professionalId, true);
 
@@ -181,6 +195,7 @@ export class AiSchedulingService {
       this.pendingChoices.set(input.pendingKey, {
         step: "category",
         client: input.client,
+        requestedPeriod: input.requestedPeriod,
         categories,
         services
       });
@@ -195,6 +210,7 @@ export class AiSchedulingService {
     this.pendingChoices.set(input.pendingKey, {
       step: "service",
       client: input.client,
+      requestedPeriod: input.requestedPeriod,
       services
     });
 
@@ -230,6 +246,7 @@ export class AiSchedulingService {
     this.pendingChoices.set(input.pendingKey, {
       step: "service",
       client: input.pending.client,
+      requestedPeriod: input.pending.requestedPeriod,
       services
     });
 
@@ -258,20 +275,18 @@ export class AiSchedulingService {
 
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
-      serviceId: selectedService.id
+      serviceId: selectedService.id,
+      ...(this.parseDateIntent(input.incoming.text) || input.pending.requestedPeriod)
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const offeredSlots = slots.slice(0, 6).map((slot) => ({
-      startsAt: slot.startsAt,
-      label: slot.label
-    }));
+    const offeredSlots = this.pickDistributedSlots(slots);
 
     if (offeredSlots.length === 0) {
       this.pendingChoices.delete(input.pendingKey);
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei horarios livres para ${selectedService.name} nos proximos dias.`
+        body: `Nao encontrei horarios livres para ${selectedService.name} nesse periodo. Voce pode pedir outro dia, por exemplo: "semana que vem" ou "proxima terca".`
       });
     }
 
@@ -302,10 +317,23 @@ export class AiSchedulingService {
     const selectedSlot = this.findSelectedSlot(input.incoming.text, input.pending.slots);
 
     if (!selectedSlot) {
+      const requestedPeriod = this.parseDateIntent(input.incoming.text);
+
+      if (requestedPeriod) {
+        return this.offerSlotsForRequestedPeriod({
+          incoming: input.incoming,
+          pending: input.pending,
+          pendingKey: input.pendingKey,
+          professionalId: input.professional.id,
+          instanceName: input.professional.evolutionInstanceName,
+          requestedPeriod
+        });
+      }
+
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: `Nao encontrei esse horario. Escolha uma das opcoes:\n\n${this.formatSlotOptions(input.pending.slots)}`
+        body: `Nao encontrei esse horario. Escolha uma das opcoes ou peça outro periodo, como "semana que vem":\n\n${this.formatSlotOptions(input.pending.slots)}`
       });
     }
 
@@ -367,6 +395,45 @@ export class AiSchedulingService {
     };
   }
 
+  private async offerSlotsForRequestedPeriod(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "slot" }>;
+    pendingKey: string;
+    professionalId: string;
+    instanceName: string;
+    requestedPeriod: DateIntent;
+  }) {
+    const availability = await this.calendar.getAvailabilityForService({
+      professionalId: input.professionalId,
+      serviceId: input.pending.service.id,
+      startDate: input.requestedPeriod.startDate,
+      daysAhead: input.requestedPeriod.daysAhead
+    });
+    const slots = "slots" in availability ? availability.slots : [];
+    const offeredSlots = this.pickDistributedSlots(slots);
+
+    if (offeredSlots.length === 0) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.instanceName,
+        body: `Nao encontrei horarios livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro periodo?`
+      });
+    }
+
+    this.pendingChoices.set(input.pendingKey, {
+      step: "slot",
+      client: input.pending.client,
+      service: input.pending.service,
+      slots: offeredSlots
+    });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.instanceName,
+      body: `${input.pending.client.name}, encontrei estes horarios para ${input.requestedPeriod.label}:\n\n${this.formatSlotOptions(offeredSlots)}\n\nResponda com o numero do horario desejado.`
+    });
+  }
+
   private findSelectedService(text: string, services: ServiceRecord[]) {
     const normalized = text.trim().toLowerCase();
     const numericChoice = Number.parseInt(normalized, 10);
@@ -380,6 +447,130 @@ export class AiSchedulingService {
     }
 
     return services.find((service) => service.name.toLowerCase() === normalized);
+  }
+
+  private pickDistributedSlots(slots: OfferedSlot[], maxSlots = 8, maxPerDay = 2) {
+    const selected: OfferedSlot[] = [];
+    const perDay = new Map<string, number>();
+
+    for (const slot of slots) {
+      const dayKey = slot.startsAt.slice(0, 10);
+      const used = perDay.get(dayKey) || 0;
+
+      if (used >= maxPerDay) {
+        continue;
+      }
+
+      selected.push({
+        startsAt: slot.startsAt,
+        label: slot.label
+      });
+      perDay.set(dayKey, used + 1);
+
+      if (selected.length >= maxSlots) {
+        break;
+      }
+    }
+
+    return selected.length > 0
+      ? selected
+      : slots.slice(0, maxSlots).map((slot) => ({
+          startsAt: slot.startsAt,
+          label: slot.label
+        }));
+  }
+
+  private parseDateIntent(text: string): DateIntent | undefined {
+    const normalized = this.normalizeText(text);
+    const now = new Date();
+
+    if (normalized.includes("semana que vem") || normalized.includes("proxima semana")) {
+      const start = this.startOfNextWeek(now);
+      return {
+        startDate: start.toISOString(),
+        daysAhead: 7,
+        label: "semana que vem"
+      };
+    }
+
+    if (normalized.includes("amanha")) {
+      const start = this.startOfDay(this.addDays(now, 1));
+      return {
+        startDate: start.toISOString(),
+        daysAhead: 1,
+        label: "amanha"
+      };
+    }
+
+    const requestedWeekday = this.findRequestedWeekday(normalized);
+
+    if (requestedWeekday !== undefined) {
+      const nextDate = this.nextWeekday(now, requestedWeekday, normalized.includes("proxima"));
+      return {
+        startDate: this.startOfDay(nextDate).toISOString(),
+        daysAhead: 1,
+        label: this.weekdayName(requestedWeekday)
+      };
+    }
+
+    return undefined;
+  }
+
+  private findRequestedWeekday(text: string) {
+    const weekdays = [
+      ["domingo", 0],
+      ["segunda", 1],
+      ["terca", 2],
+      ["terça", 2],
+      ["quarta", 3],
+      ["quinta", 4],
+      ["sexta", 5],
+      ["sabado", 6],
+      ["sábado", 6]
+    ] as const;
+
+    return weekdays.find(([name]) => text.includes(name))?.[1];
+  }
+
+  private nextWeekday(from: Date, weekday: number, forceFollowingWeek = false) {
+    const date = new Date(from);
+    const current = date.getDay();
+    let diff = (weekday - current + 7) % 7;
+
+    if (diff === 0 || forceFollowingWeek) {
+      diff += 7;
+    }
+
+    return this.addDays(date, diff);
+  }
+
+  private startOfNextWeek(from: Date) {
+    const date = new Date(from);
+    const current = date.getDay();
+    const daysUntilNextMonday = ((1 - current + 7) % 7) || 7;
+    return this.startOfDay(this.addDays(date, daysUntilNextMonday));
+  }
+
+  private addDays(date: Date, days: number) {
+    return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+  }
+
+  private startOfDay(date: Date) {
+    const copy = new Date(date);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+  }
+
+  private weekdayName(weekday: number) {
+    return ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"][weekday];
+  }
+
+  private normalizeText(text: string) {
+    return text
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
   }
 
   private normalizeClientName(text: string) {
