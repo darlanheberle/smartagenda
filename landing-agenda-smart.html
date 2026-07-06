@@ -1,0 +1,1826 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda Smart | IA que responde, qualifica e agenda pelo WhatsApp</title>
+  <meta name="description" content="Agenda Smart e um agente de vendas com IA para WhatsApp que responde leads em segundos, qualifica e agenda horarios automaticamente.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070908;
+      --bg-2: #101411;
+      --paper: #f4f0df;
+      --paper-dim: #d8d1b9;
+      --ink: #080b09;
+      --muted: #96a097;
+      --line: rgba(244, 240, 223, 0.16);
+      --line-strong: rgba(244, 240, 223, 0.3);
+      --acid: #ccff00;
+      --mint: #31d583;
+      --orange: #ff7a1a;
+      --red: #ff4b3e;
+      --panel: rgba(244, 240, 223, 0.055);
+      --panel-strong: rgba(244, 240, 223, 0.11);
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+      --radius: 22px;
+      --font-display: "Archivo Black", Impact, sans-serif;
+      --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(204, 255, 0, 0.16), transparent 28rem),
+        radial-gradient(circle at 92% 18%, rgba(255, 122, 26, 0.12), transparent 24rem),
+        linear-gradient(180deg, #070908 0%, #101411 48%, #070908 100%);
+      color: var(--paper);
+      font-family: var(--font-body);
+      cursor: none;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      pointer-events: none;
+      opacity: 0.13;
+      background-image:
+        repeating-radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.55) 0 0.7px, transparent 0.8px 2.2px);
+      mix-blend-mode: overlay;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: none;
+    }
+
+    .cursor-dot,
+    .cursor-ring {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 1000;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      border-radius: 999px;
+      transition: opacity 160ms ease, width 160ms ease, height 160ms ease, border-color 160ms ease;
+    }
+
+    .cursor-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--acid);
+      box-shadow: 0 0 22px rgba(204, 255, 0, 0.8);
+    }
+
+    .cursor-ring {
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(204, 255, 0, 0.55);
+    }
+
+    .cursor-ring.is-hovering {
+      width: 58px;
+      height: 58px;
+      border-color: rgba(255, 122, 26, 0.8);
+    }
+
+    .site-shell {
+      width: min(100% - 28px, 1240px);
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: fixed;
+      left: 50%;
+      top: 14px;
+      z-index: 50;
+      width: min(100% - 28px, 1240px);
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 18px;
+      min-height: 64px;
+      padding: 10px 12px 10px 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(7, 9, 8, 0.74);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      text-transform: lowercase;
+    }
+
+    .logo-mark {
+      display: grid;
+      width: 37px;
+      height: 37px;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--acid);
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-size: 18px;
+      box-shadow: inset 0 -3px 0 rgba(8, 11, 9, 0.22);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(244, 240, 223, 0.04);
+    }
+
+    .nav-links a {
+      padding: 9px 13px;
+      border-radius: 999px;
+      color: var(--paper-dim);
+      font-size: 13px;
+      font-weight: 700;
+      transition: color 180ms ease, background 180ms ease;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      background: rgba(244, 240, 223, 0.1);
+      color: var(--paper);
+      outline: none;
+    }
+
+    .nav-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .system-link {
+      padding: 10px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--paper-dim);
+      font-size: 13px;
+      font-weight: 800;
+      transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+    }
+
+    .system-link:hover,
+    .system-link:focus-visible {
+      border-color: var(--line-strong);
+      background: rgba(244, 240, 223, 0.08);
+      color: var(--paper);
+      outline: none;
+    }
+
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 20px;
+      border-radius: 999px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms ease, background 180ms ease;
+      will-change: transform;
+    }
+
+    .btn-primary {
+      background: var(--acid);
+      color: var(--ink);
+      box-shadow: 0 14px 38px rgba(204, 255, 0, 0.2), inset 0 -4px 0 rgba(8, 11, 9, 0.2);
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 52px rgba(204, 255, 0, 0.28), inset 0 -4px 0 rgba(8, 11, 9, 0.2);
+      outline: none;
+    }
+
+    .btn-dark {
+      border: 1px solid var(--line-strong);
+      background: rgba(244, 240, 223, 0.08);
+      color: var(--paper);
+    }
+
+    .hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1.06fr) minmax(340px, 0.94fr);
+      gap: 44px;
+      align-items: end;
+      min-height: 100vh;
+      padding: 148px 0 66px;
+    }
+
+    .hero-copy {
+      min-width: 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      margin-bottom: 24px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(244, 240, 223, 0.06);
+      color: var(--paper-dim);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .tag::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--mint);
+      box-shadow: 0 0 16px rgba(49, 213, 131, 0.8);
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 400;
+      letter-spacing: -0.07em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 900px;
+      font-size: clamp(54px, 9vw, 132px);
+      line-height: 0.84;
+    }
+
+    h1 .acid {
+      color: var(--acid);
+      text-shadow: 0 0 36px rgba(204, 255, 0, 0.24);
+    }
+
+    .hero-sub {
+      max-width: 670px;
+      margin: 26px 0 30px;
+      color: var(--paper-dim);
+      font-size: clamp(18px, 2.1vw, 24px);
+      line-height: 1.38;
+      letter-spacing: -0.03em;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .micro-proof {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 26px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .avatars {
+      display: flex;
+    }
+
+    .avatar {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      margin-left: -8px;
+      place-items: center;
+      border: 2px solid var(--bg);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .avatar:first-child {
+      margin-left: 0;
+    }
+
+    .phone-stage {
+      position: relative;
+      min-width: 0;
+    }
+
+    .phone-stage::before {
+      content: "";
+      position: absolute;
+      inset: auto -3% -5% 8%;
+      height: 54%;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(204, 255, 0, 0.2), transparent 64%);
+      filter: blur(18px);
+      transform: rotate(-8deg);
+    }
+
+    .phone {
+      position: relative;
+      width: min(100%, 430px);
+      margin-left: auto;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 38px;
+      background: #0b0f0d;
+      box-shadow: var(--shadow), inset 0 0 0 10px #111613;
+    }
+
+    .phone-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 24px 13px;
+      border-bottom: 1px solid rgba(244, 240, 223, 0.1);
+    }
+
+    .contact {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .contact-photo {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--mint), var(--acid));
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .contact strong,
+    .contact span {
+      display: block;
+    }
+
+    .contact strong {
+      font-size: 14px;
+    }
+
+    .contact span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .typing {
+      display: inline-flex;
+      gap: 3px;
+    }
+
+    .typing i {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--mint);
+      animation: typing 1s infinite ease-in-out;
+    }
+
+    .typing i:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .typing i:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    .chat {
+      min-height: 540px;
+      padding: 24px 18px 22px;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        #0d1210;
+      background-size: 28px 28px;
+    }
+
+    .bubble {
+      width: fit-content;
+      max-width: 82%;
+      margin: 0 0 12px;
+      padding: 12px 13px;
+      border-radius: 16px;
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      animation: bubbleIn 640ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .bubble.lead {
+      border-bottom-left-radius: 4px;
+      background: rgba(244, 240, 223, 0.12);
+      color: var(--paper);
+    }
+
+    .bubble.ai {
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+      background: #d7ff54;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .bubble:nth-child(1) { animation-delay: 200ms; }
+    .bubble:nth-child(2) { animation-delay: 1150ms; }
+    .bubble:nth-child(3) { animation-delay: 2150ms; }
+    .bubble:nth-child(4) { animation-delay: 3300ms; }
+    .bubble:nth-child(5) { animation-delay: 4500ms; }
+    .bubble:nth-child(6) { animation-delay: 5650ms; }
+
+    .chat-input {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+      padding: 8px;
+      border: 1px solid rgba(244, 240, 223, 0.12);
+      border-radius: 999px;
+      background: rgba(7, 9, 8, 0.72);
+    }
+
+    .chat-input span {
+      flex: 1;
+      padding: 9px 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chat-input button {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--acid);
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .ticker-wrap {
+      overflow: hidden;
+      border-block: 1px solid var(--line);
+      background: var(--acid);
+      color: var(--ink);
+    }
+
+    .ticker {
+      display: flex;
+      width: max-content;
+      animation: marquee 24s linear infinite;
+    }
+
+    .ticker span {
+      padding: 14px 18px;
+      font-family: var(--font-display);
+      font-size: clamp(18px, 3vw, 34px);
+      letter-spacing: -0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .section {
+      padding: 102px 0;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(260px, 0.45fr);
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 38px;
+    }
+
+    .kicker {
+      margin: 0 0 12px;
+      color: var(--acid);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      max-width: 920px;
+      font-size: clamp(42px, 7vw, 94px);
+      line-height: 0.9;
+    }
+
+    .section-head p,
+    .lead-text {
+      margin: 0;
+      color: var(--paper-dim);
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .proof {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 26px;
+      align-items: center;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    .logos {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(112px, 1fr));
+      gap: 10px;
+    }
+
+    .logo-card {
+      display: flex;
+      min-height: 84px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(244, 240, 223, 0.04);
+      color: var(--paper-dim);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .logo-card svg {
+      width: 26px;
+      height: 26px;
+      margin-right: 9px;
+      color: var(--acid);
+    }
+
+    .stat {
+      min-width: 230px;
+      text-align: right;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--acid);
+      font-family: var(--font-display);
+      font-size: 58px;
+      line-height: 0.9;
+      letter-spacing: -0.07em;
+    }
+
+    .stat span {
+      color: var(--paper-dim);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .pain-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: rgba(244, 240, 223, 0.04);
+    }
+
+    .pain {
+      min-height: 330px;
+      padding: 28px;
+      border-right: 1px solid var(--line);
+    }
+
+    .pain:last-child {
+      border-right: 0;
+    }
+
+    .pain small {
+      color: var(--acid);
+      font-weight: 900;
+      letter-spacing: 0.14em;
+    }
+
+    .pain h3 {
+      margin-top: 78px;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 0.92;
+    }
+
+    .pain p {
+      margin: 18px 0 0;
+      color: var(--paper-dim);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      counter-reset: step;
+    }
+
+    .step {
+      position: relative;
+      min-height: 310px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .step::before {
+      counter-increment: step;
+      content: "0" counter(step);
+      position: absolute;
+      right: 22px;
+      top: 12px;
+      color: rgba(244, 240, 223, 0.08);
+      font-family: var(--font-display);
+      font-size: 112px;
+      letter-spacing: -0.1em;
+    }
+
+    .step-line {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      margin: 8px 0 86px;
+      border-radius: 999px;
+      background: rgba(244, 240, 223, 0.12);
+    }
+
+    .step-line::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 62%;
+      border-radius: inherit;
+      background: var(--acid);
+      animation: scan 2.4s infinite ease-in-out;
+    }
+
+    .step h3 {
+      font-size: 30px;
+      line-height: 0.98;
+    }
+
+    .step p {
+      color: var(--paper-dim);
+      line-height: 1.5;
+    }
+
+    .feature {
+      display: grid;
+      grid-template-columns: minmax(0, 0.84fr) minmax(320px, 1fr);
+      gap: 34px;
+      align-items: center;
+      padding: 46px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .feature:nth-child(even) {
+      grid-template-columns: minmax(320px, 1fr) minmax(0, 0.84fr);
+    }
+
+    .feature:nth-child(even) .feature-copy {
+      order: 2;
+    }
+
+    .feature-copy h3 {
+      font-size: clamp(34px, 5vw, 68px);
+      line-height: 0.92;
+    }
+
+    .feature-copy p {
+      max-width: 560px;
+      color: var(--paper-dim);
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .mock {
+      position: relative;
+      min-height: 360px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(244, 240, 223, 0.08), rgba(244, 240, 223, 0.025)),
+        #0b0f0d;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .mock-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .lights {
+      display: flex;
+      gap: 7px;
+    }
+
+    .lights i {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--line-strong);
+    }
+
+    .lights i:nth-child(1) { background: var(--red); }
+    .lights i:nth-child(2) { background: var(--orange); }
+    .lights i:nth-child(3) { background: var(--mint); }
+
+    .lead-board {
+      display: grid;
+      gap: 10px;
+    }
+
+    .lead-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(244, 240, 223, 0.07);
+      animation: lift 3.2s infinite ease-in-out;
+    }
+
+    .lead-row:nth-child(2) { animation-delay: 0.35s; }
+    .lead-row:nth-child(3) { animation-delay: 0.7s; }
+
+    .lead-row strong,
+    .lead-row span {
+      display: block;
+    }
+
+    .lead-row span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .score {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border-radius: 14px;
+      background: var(--acid);
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .agenda-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .slot {
+      min-height: 74px;
+      padding: 11px;
+      border: 1px solid rgba(244, 240, 223, 0.12);
+      border-radius: 14px;
+      color: var(--paper-dim);
+      font-size: 12px;
+    }
+
+    .slot.hot {
+      background: var(--acid);
+      color: var(--ink);
+      animation: pulse 2.4s infinite ease-in-out;
+    }
+
+    .money-lines {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .money-line {
+      display: grid;
+      grid-template-columns: 0.7fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+      color: var(--paper-dim);
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(244, 240, 223, 0.11);
+      overflow: hidden;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--mint);
+      animation: fill 3s infinite ease-in-out;
+    }
+
+    .testimonials {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .quote {
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    .quote p {
+      margin: 0 0 28px;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: -0.04em;
+    }
+
+    .quote strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .quote span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .pricing {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .pricing-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .toggle {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(244, 240, 223, 0.06);
+    }
+
+    .toggle button {
+      min-width: 110px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--paper-dim);
+      font-weight: 900;
+    }
+
+    .toggle button.is-active {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .plan {
+      position: relative;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    .plan.featured {
+      border-color: rgba(204, 255, 0, 0.62);
+      background: linear-gradient(180deg, rgba(204, 255, 0, 0.16), rgba(244, 240, 223, 0.07));
+      box-shadow: 0 24px 80px rgba(204, 255, 0, 0.12);
+    }
+
+    .badge {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--acid);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .plan h3 {
+      font-size: 32px;
+    }
+
+    .price {
+      margin: 28px 0 8px;
+      color: var(--acid);
+      font-family: var(--font-display);
+      font-size: 54px;
+      letter-spacing: -0.08em;
+    }
+
+    .period {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .plan ul {
+      display: grid;
+      gap: 12px;
+      margin: 28px 0;
+      padding: 0;
+      list-style: none;
+      color: var(--paper-dim);
+    }
+
+    .plan li::before {
+      content: "+";
+      margin-right: 9px;
+      color: var(--acid);
+      font-weight: 900;
+    }
+
+    .plan .btn {
+      width: 100%;
+    }
+
+    .faq {
+      border-top: 1px solid var(--line);
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .faq-button {
+      display: grid;
+      width: 100%;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+      padding: 24px 0;
+      background: transparent;
+      color: var(--paper);
+      text-align: left;
+      font-size: clamp(20px, 3vw, 34px);
+      font-weight: 900;
+      letter-spacing: -0.05em;
+    }
+
+    .faq-button span:last-child {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      transition: transform 220ms ease, background 220ms ease;
+    }
+
+    .faq-item.is-open .faq-button span:last-child {
+      transform: rotate(45deg);
+      background: var(--acid);
+      color: var(--ink);
+    }
+
+    .faq-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 280ms ease;
+    }
+
+    .faq-panel p {
+      max-width: 780px;
+      margin: 0;
+      padding: 0 0 24px;
+      color: var(--paper-dim);
+      line-height: 1.6;
+    }
+
+    .final-cta {
+      position: relative;
+      overflow: hidden;
+      padding: 64px;
+      border-radius: 34px;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .final-cta::after {
+      content: "30 DIAS";
+      position: absolute;
+      right: -22px;
+      bottom: -8px;
+      color: rgba(8, 11, 9, 0.06);
+      font-family: var(--font-display);
+      font-size: clamp(90px, 19vw, 260px);
+      line-height: 0.8;
+      letter-spacing: -0.1em;
+    }
+
+    .final-cta > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .final-cta h2 {
+      max-width: 860px;
+      color: var(--ink);
+    }
+
+    .final-cta p {
+      max-width: 620px;
+      color: rgba(8, 11, 9, 0.7);
+      font-size: 18px;
+      line-height: 1.55;
+    }
+
+    footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 34px 0 48px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 720ms cubic-bezier(0.23, 1, 0.32, 1), transform 720ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes bubbleIn {
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes typing {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    @keyframes marquee {
+      to { transform: translateX(-50%); }
+    }
+
+    @keyframes scan {
+      0%, 100% { transform: translateX(0); width: 38%; }
+      50% { transform: translateX(92%); width: 52%; }
+    }
+
+    @keyframes lift {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(204, 255, 0, 0); }
+      50% { box-shadow: 0 0 36px rgba(204, 255, 0, 0.28); }
+    }
+
+    @keyframes fill {
+      0% { width: 28%; }
+      55% { width: var(--w); }
+      100% { width: var(--w); }
+    }
+
+    @media (max-width: 1040px) {
+      body {
+        cursor: auto;
+      }
+
+      button,
+      a {
+        cursor: pointer;
+      }
+
+      .cursor-dot,
+      .cursor-ring {
+        display: none;
+      }
+
+      .nav {
+        grid-template-columns: 1fr auto;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero,
+      .feature,
+      .feature:nth-child(even),
+      .section-head,
+      .proof {
+        grid-template-columns: 1fr;
+      }
+
+      .feature:nth-child(even) .feature-copy {
+        order: 0;
+      }
+
+      .phone {
+        margin: 0 auto;
+      }
+
+      .logos,
+      .pain-grid,
+      .timeline,
+      .testimonials,
+      .pricing {
+        grid-template-columns: 1fr;
+      }
+
+      .pain {
+        min-height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .pain:last-child {
+        border-bottom: 0;
+      }
+
+      .stat {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .site-shell {
+        width: min(100% - 18px, 1240px);
+      }
+
+      .nav {
+        top: 8px;
+        width: min(100% - 18px, 1240px);
+        min-height: 58px;
+      }
+
+      .system-link {
+        display: none;
+      }
+
+      .nav-actions .btn {
+        min-height: 40px;
+        padding: 0 13px;
+        font-size: 12px;
+      }
+
+      .hero {
+        padding-top: 112px;
+        gap: 34px;
+      }
+
+      h1 {
+        font-size: clamp(48px, 15vw, 76px);
+      }
+
+      .hero-actions .btn {
+        width: 100%;
+      }
+
+      .chat {
+        min-height: 500px;
+      }
+
+      .section {
+        padding: 74px 0;
+      }
+
+      .proof,
+      .final-cta {
+        padding: 24px;
+      }
+
+      .logos {
+        grid-template-columns: 1fr;
+      }
+
+      .agenda-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .toggle {
+        width: 100%;
+      }
+
+      .toggle button {
+        min-width: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cursor-dot" aria-hidden="true"></div>
+  <div class="cursor-ring" aria-hidden="true"></div>
+
+  <nav class="nav" aria-label="Navegacao principal">
+    <a class="logo magnetic" href="#top" aria-label="Agenda Smart">
+      <span class="logo-mark">as</span>
+      <span>agenda smart</span>
+    </a>
+    <div class="nav-links">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#features">Produto</a>
+      <a href="#precos">Precos</a>
+    </div>
+    <div class="nav-actions">
+      <a class="system-link magnetic" href="https://www.agendasmart.com.br/login">Acesso ao sistema</a>
+      <a class="btn btn-primary magnetic" href="#precos">Testar gratis</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <section class="site-shell hero">
+      <div class="hero-copy reveal">
+        <div class="tag">IA comercial para WhatsApp</div>
+        <h1>Voce perde agenda quando demora a responder no <span class="acid">WhatsApp.</span></h1>
+        <p class="hero-sub">
+          A Agenda Smart responde leads em segundos, entende o que a pessoa quer,
+          qualifica o atendimento e agenda horarios sem o profissional largar o trabalho.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary magnetic" href="#precos">Testar gratis por 30 dias</a>
+          <a class="btn btn-dark magnetic" href="#como-funciona">Ver como fecha agenda</a>
+        </div>
+        <div class="micro-proof">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">DR</span>
+            <span class="avatar">CL</span>
+            <span class="avatar">ST</span>
+          </div>
+          <span>Feito para clinicas, studios, consultorios e profissionais com horario marcado.</span>
+        </div>
+      </div>
+
+      <div class="phone-stage reveal">
+        <div class="phone" aria-label="Mockup de conversa no WhatsApp">
+          <div class="phone-top">
+            <div class="contact">
+              <span class="contact-photo">IA</span>
+              <span>
+                <strong>Agenda Smart</strong>
+                <span>online agora</span>
+              </span>
+            </div>
+            <span class="typing" aria-label="Digitando">
+              <i></i><i></i><i></i>
+            </span>
+          </div>
+          <div class="chat">
+            <p class="bubble lead">Oi, vi o perfil da clinica. Tem avaliacao ainda essa semana?</p>
+            <p class="bubble ai">Oi, Camila. Tenho sim. Voce prefere consulta presencial ou online?</p>
+            <p class="bubble lead">Presencial. Pode ser depois das 18h.</p>
+            <p class="bubble ai">Perfeito. Encontrei quinta 18:30 e sexta 19:00. Qual fica melhor?</p>
+            <p class="bubble lead">Quinta 18:30.</p>
+            <p class="bubble ai">Agendado. Enviei confirmacao e lembrete automatico. Valor da avaliacao: R$ 120,00.</p>
+            <div class="chat-input" aria-hidden="true">
+              <span>Mensagem automatica pronta...</span>
+              <button type="button">></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="ticker-wrap" aria-hidden="true">
+      <div class="ticker">
+        <span>responde em segundos / qualifica o lead / agenda no Google Agenda / lembra pelo WhatsApp / vende enquanto voce atende /</span>
+        <span>responde em segundos / qualifica o lead / agenda no Google Agenda / lembra pelo WhatsApp / vende enquanto voce atende /</span>
+      </div>
+    </div>
+
+    <section class="site-shell section reveal" aria-labelledby="social-title">
+      <div class="proof">
+        <div>
+          <p class="kicker" id="social-title">Prova social</p>
+          <div class="logos" aria-label="Empresas brasileiras ficticias que usam Agenda Smart">
+            <div class="logo-card">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="currentColor"/></svg>
+              OdontoSul
+            </div>
+            <div class="logo-card">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="7" fill="currentColor"/></svg>
+              Studio Lume
+            </div>
+            <div class="logo-card">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 6l15 28H5L20 6z" fill="currentColor"/></svg>
+              ClinMais
+            </div>
+            <div class="logo-card">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 20c0-7 5-12 12-12s12 5 12 12-5 12-12 12S8 27 8 20z" fill="none" stroke="currentColor" stroke-width="7"/></svg>
+              FormaFit
+            </div>
+            <div class="logo-card">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30V10h24v20H8zm6-6h12v-8H14v8z" fill="currentColor"/></svg>
+              CasaPsi
+            </div>
+          </div>
+        </div>
+        <div class="stat">
+          <strong><span data-count="7000">0</span>+</strong>
+          <span>agendamentos no ultimo ano</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="site-shell section" id="problema" aria-labelledby="problema-title">
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">O problema</p>
+          <h2 id="problema-title">Lead quente esfria rapido.</h2>
+        </div>
+        <p>Quem chama no WhatsApp quer resolver agora. Se a resposta chega tarde, a agenda vai para outro profissional.</p>
+      </div>
+      <div class="pain-grid reveal">
+        <article class="pain">
+          <small>01</small>
+          <h3>Voce atende. O lead espera.</h3>
+          <p>Enquanto voce esta em consulta, corte, aula ou reuniao, novas oportunidades ficam sem resposta.</p>
+        </article>
+        <article class="pain">
+          <small>02</small>
+          <h3>Horario vira conversa infinita.</h3>
+          <p>Vai e volta de mensagem, print de agenda, audio, esquecimento. Tudo antes de confirmar.</p>
+        </article>
+        <article class="pain">
+          <small>03</small>
+          <h3>Faturamento some no improviso.</h3>
+          <p>Sem registro claro de servico, valor e cliente, fica dificil saber o que entrou e o que ficou pendente.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="site-shell section" id="como-funciona" aria-labelledby="como-title">
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">Como funciona</p>
+          <h2 id="como-title">A venda entra. A IA conduz. A agenda confirma.</h2>
+        </div>
+        <p>Sem trocar sua rotina: WhatsApp para conversar, Google Agenda para organizar, painel para enxergar o negocio.</p>
+      </div>
+      <div class="timeline reveal">
+        <article class="step">
+          <div class="step-line"></div>
+          <h3>Responde no primeiro minuto</h3>
+          <p>A IA recebe o lead, pergunta nome, entende o servico desejado e mantem a conversa ativa.</p>
+        </article>
+        <article class="step">
+          <div class="step-line"></div>
+          <h3>Consulta sua disponibilidade</h3>
+          <p>Ela respeita duracao do servico, pausas, antecedencia minima e horarios livres no Google Agenda.</p>
+        </article>
+        <article class="step">
+          <div class="step-line"></div>
+          <h3>Agenda e lembra</h3>
+          <p>Cria o evento real, manda confirmacao e reduz faltas com lembretes automaticos.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="site-shell section" id="features" aria-labelledby="features-title">
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">Produto</p>
+          <h2 id="features-title">Nao e chatbot. E operador comercial.</h2>
+        </div>
+        <p>Feito para vender horarios, organizar clientes e dar previsibilidade para quem vive de agenda cheia.</p>
+      </div>
+
+      <article class="feature reveal">
+        <div class="feature-copy">
+          <h3>Qualifica antes de ocupar sua agenda.</h3>
+          <p>O agente pergunta o essencial, identifica o interesse e separa lead pronto de curiosidade. Menos conversa perdida, mais horario confirmado.</p>
+        </div>
+        <div class="mock" aria-label="Mockup de painel de leads">
+          <div class="mock-toolbar">
+            <span>Leads em atendimento</span>
+            <span class="lights"><i></i><i></i><i></i></span>
+          </div>
+          <div class="lead-board">
+            <div class="lead-row">
+              <span><strong>Mariana A.</strong><span>Quer avaliacao presencial hoje</span></span>
+              <span class="score">98</span>
+            </div>
+            <div class="lead-row">
+              <span><strong>Rafael P.</strong><span>Pediu preco e disponibilidade</span></span>
+              <span class="score">84</span>
+            </div>
+            <div class="lead-row">
+              <span><strong>Bianca L.</strong><span>Retorno para proxima semana</span></span>
+              <span class="score">77</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="feature reveal">
+        <div class="feature-copy">
+          <h3>Agenda real, sem calendario paralelo.</h3>
+          <p>A Agenda Smart usa o Google Agenda do profissional. O cliente escolhe o horario, o sistema cria o evento e evita conflito automaticamente.</p>
+        </div>
+        <div class="mock" aria-label="Mockup de agenda">
+          <div class="mock-toolbar">
+            <span>Disponibilidade da semana</span>
+            <span>Google Agenda</span>
+          </div>
+          <div class="agenda-grid">
+            <div class="slot">Seg<br>09:00</div>
+            <div class="slot hot">Ter<br>14:30</div>
+            <div class="slot">Qua<br>10:00</div>
+            <div class="slot hot">Qui<br>18:30</div>
+            <div class="slot">Sex<br>08:00</div>
+            <div class="slot">Sex<br>16:00</div>
+            <div class="slot hot">Sab<br>11:30</div>
+            <div class="slot">Dom<br>fechado</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="feature reveal">
+        <div class="feature-copy">
+          <h3>Enxerga dinheiro antes do fim do mes.</h3>
+          <p>Cada servico tem duracao e preco. O painel mostra previsao, pendencias e clientes que precisam de acompanhamento.</p>
+        </div>
+        <div class="mock" aria-label="Mockup financeiro">
+          <div class="mock-toolbar">
+            <span>Financeiro previsto</span>
+            <span>Hoje</span>
+          </div>
+          <div class="money-lines">
+            <div class="money-line"><span>Confirmado</span><span class="bar"><i style="--w: 92%"></i></span><strong>R$ 4.860</strong></div>
+            <div class="money-line"><span>Pendente</span><span class="bar"><i style="--w: 54%"></i></span><strong>R$ 1.220</strong></div>
+            <div class="money-line"><span>Recuperado</span><span class="bar"><i style="--w: 71%"></i></span><strong>R$ 2.040</strong></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="site-shell section" aria-labelledby="depoimentos-title">
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">Resultados</p>
+          <h2 id="depoimentos-title">Gente ocupada nao quer mais responder manualmente.</h2>
+        </div>
+        <p>Depoimentos ficticios, baseados nos ganhos esperados de uma operacao com resposta rapida e agenda organizada.</p>
+      </div>
+      <div class="testimonials reveal">
+        <article class="quote">
+          <p>"Eu parei de perder lead do horario de almoco. A IA responde, filtra e ja deixa a consulta pronta."</p>
+          <strong>Dra. Renata Alves</strong>
+          <span>Dentista, Curitiba - +R$ 8.400 em 60 dias</span>
+        </article>
+        <article class="quote">
+          <p>"Antes eu respondia de noite. Agora o aluno chega com aula marcada e objetivo definido."</p>
+          <strong>Caio Martins</strong>
+          <span>Personal trainer, Florianopolis - +R$ 5.900 no mes</span>
+        </article>
+        <article class="quote">
+          <p>"Meu WhatsApp virou uma recepcao. O painel mostra quem marcou, quem faltou e o que falta receber."</p>
+          <strong>Juliana Prado</strong>
+          <span>Esteticista, Sao Paulo - +R$ 12.300 no trimestre</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="site-shell section" id="precos" aria-labelledby="precos-title">
+      <div class="pricing-top reveal">
+        <div>
+          <p class="kicker">Precos</p>
+          <h2 id="precos-title">Comece pequeno. Escale quando lotar.</h2>
+        </div>
+        <div class="toggle" role="group" aria-label="Alternar periodicidade">
+          <button type="button" class="is-active" data-billing="monthly">Mensal</button>
+          <button type="button" data-billing="annual">Anual -20%</button>
+        </div>
+      </div>
+      <div class="pricing reveal">
+        <article class="plan" data-base-price="19.90">
+          <h3>Inicio</h3>
+          <div class="price">R$ <span data-price>19,90</span></div>
+          <div class="period" data-period>/mes</div>
+          <ul>
+            <li>1 profissional</li>
+            <li>WhatsApp conectado</li>
+            <li>Google Agenda</li>
+            <li>Servicos e horarios</li>
+          </ul>
+          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/onboarding">Comecar</a>
+        </article>
+        <article class="plan featured" data-base-price="34.90">
+          <span class="badge">Mais escolhido</span>
+          <h3>Profissional</h3>
+          <div class="price">R$ <span data-price>34,90</span></div>
+          <div class="period" data-period>/mes</div>
+          <ul>
+            <li>IA de qualificacao</li>
+            <li>Lembretes automaticos</li>
+            <li>Financeiro previsto</li>
+            <li>Relatorio de clientes</li>
+          </ul>
+          <a class="btn btn-primary magnetic" href="https://www.agendasmart.com.br/onboarding">Testar gratis por 30 dias</a>
+        </article>
+        <article class="plan" data-base-price="99.90">
+          <h3>Equipe</h3>
+          <div class="price">R$ <span data-price>99,90</span></div>
+          <div class="period" data-period>/mes</div>
+          <ul>
+            <li>Multiplos profissionais</li>
+            <li>Agendas separadas</li>
+            <li>Servicos por colaborador</li>
+            <li>Visao da operacao</li>
+          </ul>
+          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/onboarding">Falar com vendas</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="site-shell section" aria-labelledby="faq-title">
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">FAQ</p>
+          <h2 id="faq-title">Perguntas antes de colocar a IA para vender.</h2>
+        </div>
+      </div>
+      <div class="faq reveal">
+        <div class="faq-item is-open">
+          <button class="faq-button" type="button" aria-expanded="true">
+            <span>Preciso trocar minha agenda atual?</span><span>+</span>
+          </button>
+          <div class="faq-panel"><p>Nao. A Agenda Smart usa o Google Agenda como fonte principal. O profissional continua trabalhando no calendario que ja conhece.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-button" type="button" aria-expanded="false">
+            <span>A IA responde como se fosse a minha empresa?</span><span>+</span>
+          </button>
+          <div class="faq-panel"><p>Sim. Voce configura servicos, horarios, regras e tom de atendimento. A conversa fica objetiva, educada e focada em agendar.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-button" type="button" aria-expanded="false">
+            <span>Funciona para mais de um profissional?</span><span>+</span>
+          </button>
+          <div class="faq-panel"><p>No plano Equipe, cada profissional pode ter agenda, servicos e disponibilidade proprios, enquanto a clinica acompanha tudo em um painel.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-button" type="button" aria-expanded="false">
+            <span>O cliente precisa instalar algo?</span><span>+</span>
+          </button>
+          <div class="faq-panel"><p>Nao. Ele conversa pelo WhatsApp normalmente. O sistema faz a ponte com a agenda e envia confirmacoes automaticas.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-button" type="button" aria-expanded="false">
+            <span>Posso cancelar se nao gostar?</span><span>+</span>
+          </button>
+          <div class="faq-panel"><p>Sim. O teste gratis dura 30 dias e voce pode cancelar sem multa. A promessa e simples: mais velocidade para responder, mais agenda confirmada.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="site-shell section">
+      <div class="final-cta reveal">
+        <p class="kicker" style="color: #617000;">Garantia simples</p>
+        <h2>Deixe a Agenda Smart tentar salvar seus proximos leads.</h2>
+        <p>Teste por 30 dias. Se a IA nao reduzir seu tempo no WhatsApp e nao organizar melhor seus agendamentos, voce sai sem compromisso.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary magnetic" href="https://www.agendasmart.com.br/onboarding">Testar gratis por 30 dias</a>
+          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/login">Acessar sistema</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-shell">
+    <span>agenda smart - SaaS ficticio brasileiro para atendimento e agenda com IA.</span>
+    <span>WhatsApp + Google Agenda + inteligencia comercial.</span>
+  </footer>
+
+  <script>
+    const money = new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    document.querySelectorAll(".faq-item").forEach((item) => {
+      const button = item.querySelector(".faq-button");
+      const panel = item.querySelector(".faq-panel");
+
+      const sync = () => {
+        if (item.classList.contains("is-open")) {
+          panel.style.maxHeight = panel.scrollHeight + "px";
+          button.setAttribute("aria-expanded", "true");
+        } else {
+          panel.style.maxHeight = "0px";
+          button.setAttribute("aria-expanded", "false");
+        }
+      };
+
+      button.addEventListener("click", () => {
+        item.classList.toggle("is-open");
+        sync();
+      });
+
+      sync();
+      window.addEventListener("resize", sync);
+    });
+
+    const billingButtons = document.querySelectorAll("[data-billing]");
+    const plans = document.querySelectorAll(".plan");
+
+    function setBilling(mode) {
+      billingButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.billing === mode);
+      });
+
+      plans.forEach((plan) => {
+        const base = Number(plan.dataset.basePrice);
+        const monthlyPrice = mode === "annual" ? base * 0.8 : base;
+        const priceTarget = plan.querySelector("[data-price]");
+        const periodTarget = plan.querySelector("[data-period]");
+
+        priceTarget.textContent = money.format(monthlyPrice);
+        periodTarget.textContent = mode === "annual"
+          ? `/mes no anual - R$ ${money.format(monthlyPrice * 12)} por ano`
+          : "/mes";
+      });
+    }
+
+    billingButtons.forEach((button) => {
+      button.addEventListener("click", () => setBilling(button.dataset.billing));
+    });
+
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.16 });
+
+    document.querySelectorAll(".reveal").forEach((element) => revealObserver.observe(element));
+
+    const statObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+
+        const target = entry.target;
+        const final = Number(target.dataset.count);
+        const start = performance.now();
+
+        function tick(now) {
+          const progress = Math.min((now - start) / 1450, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          target.textContent = Math.round(final * eased).toLocaleString("pt-BR");
+
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+        statObserver.unobserve(target);
+      });
+    }, { threshold: 0.7 });
+
+    document.querySelectorAll("[data-count]").forEach((element) => statObserver.observe(element));
+
+    const dot = document.querySelector(".cursor-dot");
+    const ring = document.querySelector(".cursor-ring");
+    let mouseX = 0;
+    let mouseY = 0;
+    let ringX = 0;
+    let ringY = 0;
+
+    window.addEventListener("pointermove", (event) => {
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+      dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+    });
+
+    function animateCursor() {
+      ringX += (mouseX - ringX) * 0.18;
+      ringY += (mouseY - ringY) * 0.18;
+      ring.style.transform = `translate(${ringX}px, ${ringY}px) translate(-50%, -50%)`;
+      requestAnimationFrame(animateCursor);
+    }
+    animateCursor();
+
+    document.querySelectorAll("a, button").forEach((element) => {
+      element.addEventListener("mouseenter", () => ring.classList.add("is-hovering"));
+      element.addEventListener("mouseleave", () => ring.classList.remove("is-hovering"));
+    });
+
+    document.querySelectorAll(".magnetic").forEach((element) => {
+      element.addEventListener("mousemove", (event) => {
+        const rect = element.getBoundingClientRect();
+        const x = event.clientX - rect.left - rect.width / 2;
+        const y = event.clientY - rect.top - rect.height / 2;
+        element.style.transform = `translate(${x * 0.12}px, ${y * 0.18}px)`;
+      });
+
+      element.addEventListener("mouseleave", () => {
+        element.style.transform = "translate(0, 0)";
+      });
+    });
+  </script>
+</body>
+</html>
