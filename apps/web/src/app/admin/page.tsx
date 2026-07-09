@@ -431,7 +431,7 @@ function AdminSettings() {
           </div>
         </header>
 
-        <section className="grid min-w-0 gap-px overflow-hidden rounded-lg bg-black/10 md:grid-cols-4">
+        <section className="grid min-w-0 gap-px overflow-hidden rounded-2xl bg-black/10 md:grid-cols-4">
           <Metric
             icon={<Settings2 size={18} />}
             label="Profissional"
@@ -447,13 +447,13 @@ function AdminSettings() {
         </section>
 
         {message ? (
-          <p className="rounded-md bg-[var(--brand-soft)] px-4 py-3 text-sm font-medium text-[var(--brand)]">
+          <p className="rounded-xl bg-[var(--brand-soft)] px-4 py-3 text-sm font-medium text-[var(--brand)]">
             {message}
           </p>
         ) : null}
 
         {error ? (
-          <p className="rounded-md bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
+          <p className="rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
             {error}
           </p>
         ) : null}
@@ -560,59 +560,67 @@ function AdminSettings() {
 
           <Panel title="Servicos cadastrados" subtitle="A IA oferece essas opcoes durante a conversa no WhatsApp.">
             <div className="max-w-full overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
+              <table className="w-full min-w-[640px] border-separate border-spacing-y-1 text-left text-sm">
+                <thead className="text-xs uppercase tracking-wide text-[var(--ink-muted)]">
                   <tr>
-                    <th className="px-3 py-3 font-medium">Categoria</th>
-                    <th className="px-3 py-3 font-medium">Servico</th>
-                    <th className="px-3 py-3 font-medium">Duracao</th>
-                    <th className="px-3 py-3 font-medium">Preco</th>
-                    <th className="px-3 py-3 font-medium">Status</th>
-                    <th className="px-3 py-3 font-medium">Acoes</th>
+                    <th className="px-3 py-2 font-medium">Categoria</th>
+                    <th className="px-3 py-2 font-medium">Servico</th>
+                    <th className="px-3 py-2 font-medium">Duracao</th>
+                    <th className="px-3 py-2 font-medium">Preco</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                    <th className="px-3 py-2 font-medium">Acoes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {loading ? (
                     <tr>
-                      <td className="px-3 py-8 text-center text-slate-500" colSpan={6}>
+                      <td className="px-3 py-8 text-center text-[var(--ink-muted)]" colSpan={6}>
                         Carregando servicos...
                       </td>
                     </tr>
                   ) : services.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-8 text-center text-slate-500" colSpan={6}>
+                      <td className="px-3 py-8 text-center text-[var(--ink-muted)]" colSpan={6}>
                         Nenhum servico cadastrado ainda.
                       </td>
                     </tr>
                   ) : (
                     services.map((service) => (
-                      <tr key={service.id}>
-                        <td className="px-3 py-3 text-slate-600">{service.category || "Sem categoria"}</td>
-                        <td className="px-3 py-3 font-medium text-slate-900">{service.name}</td>
-                        <td className="px-3 py-3 text-slate-600">{service.duration_minutes} min</td>
-                        <td className="px-3 py-3 text-slate-600">
+                      <tr className="group" key={service.id}>
+                        <td className="rounded-l-xl bg-[var(--surface-subtle)] px-3 py-3 text-[var(--ink-secondary)] transition-colors group-hover:bg-[var(--surface-inset)]">
+                          {service.category || "Sem categoria"}
+                        </td>
+                        <td className="bg-[var(--surface-subtle)] px-3 py-3 font-medium text-[var(--ink)] transition-colors group-hover:bg-[var(--surface-inset)]">
+                          {service.name}
+                        </td>
+                        <td className="bg-[var(--surface-subtle)] px-3 py-3 text-[var(--ink-secondary)] transition-colors group-hover:bg-[var(--surface-inset)]">
+                          {service.duration_minutes} min
+                        </td>
+                        <td className="bg-[var(--surface-subtle)] px-3 py-3 tabular text-[var(--ink-secondary)] transition-colors group-hover:bg-[var(--surface-inset)]">
                           {formatCurrency(service.price_cents / 100)}
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="bg-[var(--surface-subtle)] px-3 py-3 transition-colors group-hover:bg-[var(--surface-inset)]">
                           <span
                             className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                              service.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                              service.active
+                                ? "bg-[var(--brand-soft)] text-[var(--brand)]"
+                                : "bg-white text-[var(--ink-muted)]"
                             }`}
                           >
                             {service.active ? "Ativo" : "Inativo"}
                           </span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="rounded-r-xl bg-[var(--surface-subtle)] px-3 py-3 transition-colors group-hover:bg-[var(--surface-inset)]">
                           <div className="flex flex-wrap gap-2">
                             <button
-                              className="inline-flex min-h-9 items-center rounded-md bg-[var(--surface-inset)] px-3 text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+                              className="inline-flex min-h-9 items-center rounded-xl bg-white px-3 text-xs font-semibold text-[var(--ink-secondary)] shadow-[0_0_0_1px_var(--line)] hover:text-[var(--ink)]"
                               onClick={() => editService(service)}
                               type="button"
                             >
                               Editar
                             </button>
                             <button
-                              className="inline-flex min-h-9 items-center gap-1 rounded-md bg-[var(--surface-inset)] px-3 text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+                              className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-semibold text-[var(--ink-secondary)] shadow-[0_0_0_1px_var(--line)] hover:text-[var(--ink)]"
                               onClick={() => void toggleService(service)}
                               type="button"
                             >
@@ -631,7 +639,7 @@ function AdminSettings() {
         </section>
 
         <Panel title="Horarios de atendimento" subtitle="Escolha um dia, ajuste a regra e salve. Use Todos para repetir a configuracao.">
-          <div className="rounded-md bg-[var(--surface-subtle)] p-4">
+          <div className="rounded-xl bg-[var(--surface-subtle)] p-4">
             <div className="grid gap-3 md:grid-cols-[minmax(220px,320px)_auto] md:items-end md:justify-between">
               <Field label="Dia da semana" htmlFor="availability-day">
                 <select
@@ -811,7 +819,7 @@ function defaultAllAvailabilityForm(): AvailabilityForm {
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-white p-4">
-      <div className="mb-4 flex size-8 items-center justify-center rounded-md bg-[var(--brand-soft)] text-[var(--brand)]">
+      <div className="mb-4 flex size-8 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
         {icon}
       </div>
       <p className="truncate text-xl font-semibold tabular text-[var(--ink)]">{value}</p>
@@ -822,7 +830,7 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section className="surface min-w-0 rounded-lg p-4">
+    <section className="surface min-w-0 rounded-2xl p-4">
       <div className="mb-4">
         <h2 className="text-[15px] font-semibold text-[var(--ink)]">{title}</h2>
         <p className="mt-1 text-xs text-[var(--ink-muted)]">{subtitle}</p>
@@ -860,7 +868,7 @@ function CompactField({ label, children }: { label: string; children: React.Reac
 
 function StatusRow({ label, done }: { label: string; done: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-md bg-[var(--surface-subtle)] px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-3 py-2.5">
       <span className="font-medium text-[var(--ink)]">{label}</span>
       <span
         className={`rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -882,18 +890,18 @@ function WhatsappQr({ result }: { result: WhatsappConnectionResult }) {
 
   if (!qrBase64 && !pairingCode) {
     return (
-      <p className="mt-3 rounded-md bg-[var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[var(--warning)]">
+      <p className="mt-3 rounded-xl bg-[var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[var(--warning)]">
         A Evolution ainda nao devolveu um QR. Aguarde alguns segundos e tente novamente.
       </p>
     );
   }
 
   return (
-    <div className="mt-4 rounded-md bg-[var(--surface-subtle)] p-3 text-center">
+    <div className="mt-4 rounded-xl bg-[var(--surface-subtle)] p-3 text-center">
       {qrBase64 ? (
         <img
           alt="QR Code para conectar o WhatsApp"
-          className="mx-auto size-52 max-w-full rounded-md bg-white p-2 shadow-sm"
+          className="mx-auto size-52 max-w-full rounded-xl bg-white p-2 shadow-sm"
           src={qrBase64}
         />
       ) : null}

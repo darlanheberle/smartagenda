@@ -16,7 +16,7 @@ import { useState } from "react";
 import { LogoutButton } from "./logout-button";
 
 type ProductShellProps = {
-  active: "dashboard" | "settings";
+  active: "dashboard" | "agenda" | "clientes" | "financeiro" | "settings";
   name: string;
   email: string;
   children: React.ReactNode;
@@ -24,9 +24,9 @@ type ProductShellProps = {
 
 const navigation = [
   { label: "Visao geral", href: "/", icon: LayoutDashboard, key: "dashboard" },
-  { label: "Agenda", href: "#agenda", icon: CalendarRange },
-  { label: "Clientes", href: "#clientes", icon: ContactRound },
-  { label: "Financeiro", href: "#financeiro", icon: CircleDollarSign },
+  { label: "Agenda", href: "/agenda", icon: CalendarRange, key: "agenda" },
+  { label: "Clientes", href: "/clientes", icon: ContactRound, key: "clientes" },
+  { label: "Financeiro", href: "/financeiro", icon: CircleDollarSign, key: "financeiro" },
   { label: "Configuracoes", href: "/admin", icon: Settings2, key: "settings" }
 ];
 
@@ -44,15 +44,18 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
 
             return (
               <Link
-                className={`flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors ${
+                className={`relative flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${
                   selected
-                    ? "bg-white text-[var(--ink)] shadow-[0_0_0_1px_var(--line),0_1px_2px_rgba(23,32,30,0.04)]"
+                    ? "bg-white text-[var(--ink)] shadow-[0_0_0_1px_var(--line),0_4px_12px_-4px_rgba(23,32,30,0.12)]"
                     : "text-[var(--ink-secondary)] hover:bg-black/[0.035] hover:text-[var(--ink)]"
                 }`}
                 href={item.href}
                 key={item.label}
               >
-                <Icon className={selected ? "text-[var(--brand)]" : ""} size={17} />
+                {selected ? (
+                  <span className="absolute inset-y-1.5 left-1.5 w-1 rounded-full bg-[var(--brand-gradient)]" />
+                ) : null}
+                <Icon className={selected ? "ml-1.5 text-[var(--brand)]" : ""} size={17} />
                 {item.label}
               </Link>
             );
@@ -60,12 +63,13 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
         </nav>
 
         <div className="mt-auto">
-          <div className="mb-3 rounded-md bg-[var(--brand-soft)] px-3 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--brand)]">
+          <div className="relative mb-3 overflow-hidden rounded-2xl px-3.5 py-3.5" style={{ background: "var(--brand-gradient)" }}>
+            <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative flex items-center gap-2 text-xs font-semibold text-white">
               <Sparkles size={14} />
               Assistente ativo
             </div>
-            <p className="mt-1 text-xs leading-5 text-[var(--ink-secondary)]">
+            <p className="relative mt-1.5 text-xs leading-5 text-white/80">
               WhatsApp e Google Agenda trabalhando juntos.
             </p>
           </div>
@@ -83,7 +87,7 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
               <Brand />
               <button
                 aria-label="Fechar menu"
-                className="grid size-10 place-items-center rounded-md text-[var(--ink-secondary)] hover:bg-black/5"
+                className="grid size-10 place-items-center rounded-xl text-[var(--ink-secondary)] hover:bg-black/5"
                 onClick={() => setMobileOpen(false)}
                 type="button"
               >
@@ -97,7 +101,7 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
 
                 return (
                   <Link
-                    className={`flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium ${
+                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium ${
                       selected ? "bg-white text-[var(--ink)] shadow-sm" : "text-[var(--ink-secondary)]"
                     }`}
                     href={item.href}
@@ -122,7 +126,7 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
           <Brand compact />
           <button
             aria-label="Abrir menu"
-            className="grid size-10 place-items-center rounded-md text-[var(--ink-secondary)] hover:bg-black/5"
+            className="grid size-10 place-items-center rounded-xl text-[var(--ink-secondary)] hover:bg-black/5"
             onClick={() => setMobileOpen(true)}
             type="button"
           >
@@ -138,7 +142,10 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link className="flex items-center gap-3" href="/">
-      <span className="grid size-9 place-items-center rounded-md bg-[var(--brand)] text-white shadow-sm">
+      <span
+        className="grid size-9 place-items-center rounded-xl text-white shadow-[0_4px_12px_-2px_rgba(20,122,95,0.5)]"
+        style={{ background: "var(--brand-gradient)" }}
+      >
         <CalendarDays size={19} />
       </span>
       {!compact ? (
@@ -162,9 +169,9 @@ function Account({ name, email }: { name: string; email: string }) {
     .toUpperCase();
 
   return (
-    <div className="surface rounded-md p-2.5">
+    <div className="surface rounded-2xl p-2.5">
       <div className="flex items-center gap-2.5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--calendar-soft)] text-xs font-bold text-[var(--calendar)]">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--calendar-soft)] text-xs font-bold text-[var(--calendar)]">
           {initials || "SA"}
         </span>
         <span className="min-w-0 flex-1">

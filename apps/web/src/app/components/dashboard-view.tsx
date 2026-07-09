@@ -117,7 +117,7 @@ export function DashboardView({
       <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 md:px-7 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="min-w-0 space-y-5">
           {!onboarding.ready ? (
-            <section className="surface overflow-hidden rounded-lg">
+            <section className="surface overflow-hidden rounded-2xl">
               <div className="grid md:grid-cols-[220px_1fr]">
                 <div className="bg-[var(--warning-soft)] px-5 py-5">
                   <p className="eyebrow text-[var(--warning)]">Configuracao inicial</p>
@@ -165,8 +165,12 @@ export function DashboardView({
             </section>
           ) : null}
 
-          <section className="surface rounded-lg px-5 py-5">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <section className="surface relative overflow-hidden rounded-2xl px-5 py-5">
+            <div
+              className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full opacity-[0.08]"
+              style={{ background: "var(--brand-gradient)" }}
+            />
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="eyebrow">Ritmo de hoje</p>
                 <div className="mt-3 flex items-end gap-3">
@@ -189,9 +193,13 @@ export function DashboardView({
             </div>
           </section>
 
-          <section className="surface rounded-lg" id="agenda">
+          <section className="surface rounded-2xl">
             <SectionHeader
-              action={<span className="text-xs font-medium text-[var(--ink-muted)]">{appointments.length} proximos</span>}
+              action={
+                <Link className="text-xs font-semibold text-[var(--brand)] hover:underline" href="/agenda">
+                  Ver agenda completa
+                </Link>
+              }
               subtitle="Sua sequencia de atendimentos sincronizada com o Google."
               title="Proximos horarios"
             />
@@ -247,7 +255,7 @@ export function DashboardView({
                       {appointment.google_event_link ? (
                         <a
                           aria-label="Abrir evento no Google Agenda"
-                          className="grid size-9 place-items-center rounded-md text-[var(--calendar)] hover:bg-[var(--calendar-soft)]"
+                          className="grid size-9 place-items-center rounded-xl text-[var(--calendar)] hover:bg-[var(--calendar-soft)]"
                           href={appointment.google_event_link}
                           rel="noreferrer"
                           target="_blank"
@@ -263,8 +271,16 @@ export function DashboardView({
           </section>
 
           <section className="grid gap-5 lg:grid-cols-2">
-            <section className="surface rounded-lg" id="clientes">
-              <SectionHeader subtitle="Identificados automaticamente pelo telefone." title="Clientes recentes" />
+            <section className="surface rounded-2xl">
+              <SectionHeader
+                action={
+                  <Link className="text-xs font-semibold text-[var(--brand)] hover:underline" href="/clientes">
+                    Ver todos
+                  </Link>
+                }
+                subtitle="Identificados automaticamente pelo telefone."
+                title="Clientes recentes"
+              />
               {clients.length === 0 ? (
                 <EmptyState
                   icon={<UsersRound size={22} />}
@@ -275,7 +291,7 @@ export function DashboardView({
                 <div className="divide-y divide-black/[0.07] px-4 pb-2">
                   {clients.slice(0, 5).map((client) => (
                     <div className="flex items-center gap-3 py-3" key={client.id}>
-                      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--surface-inset)] text-[var(--ink-secondary)]">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-inset)] text-[var(--ink-secondary)]">
                         <UserRound size={16} />
                       </span>
                       <div className="min-w-0 flex-1">
@@ -293,7 +309,7 @@ export function DashboardView({
               )}
             </section>
 
-            <section className="surface rounded-lg">
+            <section className="surface rounded-2xl">
               <SectionHeader
                 action={
                   <Link className="text-xs font-semibold text-[var(--brand)] hover:underline" href="/admin">
@@ -323,8 +339,16 @@ export function DashboardView({
         </div>
 
         <aside className="space-y-5">
-          <section className="surface rounded-lg" id="financeiro">
-            <SectionHeader subtitle="Valores dos atendimentos de hoje." title="Financeiro" />
+          <section className="surface rounded-2xl">
+            <SectionHeader
+              action={
+                <Link className="text-xs font-semibold text-[var(--brand)] hover:underline" href="/financeiro">
+                  Ver tudo
+                </Link>
+              }
+              subtitle="Valores dos atendimentos de hoje."
+              title="Financeiro"
+            />
             <div className="px-5 pb-5">
               <p className="text-3xl font-semibold tabular text-[var(--ink)]">
                 {formatCurrency(dashboard.expectedRevenue)}
@@ -340,7 +364,7 @@ export function DashboardView({
             </div>
           </section>
 
-          <section className="surface rounded-lg">
+          <section className="surface rounded-2xl">
             <SectionHeader subtitle="Canais que sustentam o atendimento." title="Integracoes" />
             <div className="space-y-2 px-4 pb-4">
               <IntegrationRow
@@ -358,23 +382,29 @@ export function DashboardView({
             </div>
           </section>
 
-          <section className="rounded-lg bg-[var(--brand)] px-5 py-5 text-white">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <MessageCircle size={17} />
-              Atendimento automatico
+          <section
+            className="relative overflow-hidden rounded-2xl px-5 py-5 text-white shadow-[0_12px_28px_-10px_rgba(20,122,95,0.55)]"
+            style={{ background: "var(--brand-gradient)" }}
+          >
+            <div className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <MessageCircle size={17} />
+                Atendimento automatico
+              </div>
+              <p className="mt-3 text-sm leading-6 text-white/75">
+                {onboarding.ready
+                  ? "A IA ja pode consultar sua agenda, oferecer horarios e confirmar atendimentos."
+                  : "Finalize as configuracoes para liberar o fluxo completo pelo WhatsApp."}
+              </p>
+              <Link
+                className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl bg-white/10 px-3 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+                href="/admin"
+              >
+                Ver configuracoes
+                <ArrowUpRight size={14} />
+              </Link>
             </div>
-            <p className="mt-3 text-sm leading-6 text-white/75">
-              {onboarding.ready
-                ? "A IA ja pode consultar sua agenda, oferecer horarios e confirmar atendimentos."
-                : "Finalize as configuracoes para liberar o fluxo completo pelo WhatsApp."}
-            </p>
-            <Link
-              className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-md bg-white/10 px-3 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
-              href="/admin"
-            >
-              Ver configuracoes
-              <ArrowUpRight size={14} />
-            </Link>
           </section>
         </aside>
       </div>
@@ -393,7 +423,7 @@ function IntegrationPill({
 }) {
   return (
     <span
-      className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-xs font-semibold ${
+      className={`inline-flex min-h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold ${
         active
           ? "bg-[var(--brand-soft)] text-[var(--brand)]"
           : "bg-[var(--warning-soft)] text-[var(--warning)]"
@@ -445,8 +475,8 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className="mx-4 mb-4 rounded-md bg-[var(--surface-subtle)] px-5 py-8 text-center">
-      <span className="mx-auto grid size-10 place-items-center rounded-md bg-white text-[var(--ink-muted)] shadow-sm">
+    <div className="mx-4 mb-4 rounded-xl bg-[var(--surface-subtle)] px-5 py-8 text-center">
+      <span className="mx-auto grid size-10 place-items-center rounded-xl bg-white text-[var(--ink-muted)] shadow-sm">
         {icon}
       </span>
       <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{title}</p>
@@ -499,7 +529,7 @@ function IntegrationRow({
 }) {
   return (
     <a
-      className="flex min-h-12 items-center gap-3 rounded-md bg-[var(--surface-subtle)] px-3 hover:bg-[var(--surface-inset)]"
+      className="flex min-h-12 items-center gap-3 rounded-xl bg-[var(--surface-subtle)] px-3 hover:bg-[var(--surface-inset)]"
       href={action}
       target="_blank"
     >
