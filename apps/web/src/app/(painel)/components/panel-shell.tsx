@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bot, Calendar, Home, Scissors, Users, Wallet } from "lucide-react";
+import { Bell, Bot, Calendar, Home, Scissors, Users, Wallet, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -14,7 +14,8 @@ const navItems = [
   { href: "/agenda", icon: Calendar, label: "Agenda" },
   { href: "/clientes", icon: Users, label: "Clientes" },
   { href: "/financeiro", icon: Wallet, label: "Financeiro" },
-  { href: "/ia", icon: Bot, label: "IA" }
+  { href: "/ia", icon: Bot, label: "IA" },
+  { href: "/servicos", icon: Wrench, label: "Serviços" }
 ];
 
 export function PanelShell({
@@ -108,7 +109,7 @@ export function PanelShell({
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pb-safe pt-2 shadow-[0_-18px_40px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-6 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
