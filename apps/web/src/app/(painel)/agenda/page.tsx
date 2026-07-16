@@ -4,7 +4,7 @@ import { getPanelData } from "../lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
-  const { appointments } = await getPanelData();
+  const { appointments, services } = await getPanelData();
 
-  return <AgendaClient appointments={appointments} />;
+  return <AgendaClient appointments={appointments} services={services} />;
 }

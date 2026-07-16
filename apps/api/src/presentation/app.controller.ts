@@ -5,6 +5,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -345,6 +346,82 @@ export class AppController {
     );
   }
 
+  @Post("appointments/manual")
+  async createManualAppointment(
+    @Req() request: Request,
+    @Body()
+    input: {
+      professionalId?: string;
+      clientName: string;
+      clientPhone?: string;
+      clientEmail?: string;
+      serviceId?: string;
+      serviceName?: string;
+      startsAt: string;
+      durationMinutes?: number;
+      valueCents?: number;
+    }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const payload = await this.buildManualAppointmentPayload(professionalId, input);
+    return this.database.createManualAppointment(payload);
+  }
+
+  @Patch("appointments/:id")
+  async updateAppointment(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId: string | undefined,
+    @Body()
+    input: {
+      clientName?: string;
+      clientPhone?: string;
+      clientEmail?: string;
+      serviceId?: string;
+      serviceName?: string;
+      startsAt?: string;
+      durationMinutes?: number;
+      valueCents?: number;
+      status?: string;
+      paymentStatus?: string;
+    }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const current = await this.database.getAppointment(professionalId, id);
+
+    if (!current) {
+      throw new NotFoundException("Atendimento nao encontrado.");
+    }
+
+    const payload = await this.buildManualAppointmentPayload(professionalId, {
+      clientName: input.clientName || current.client_name || "Cliente",
+      clientPhone: input.clientPhone ?? current.client_phone ?? undefined,
+      clientEmail: input.clientEmail ?? current.client_email ?? undefined,
+      serviceId: input.serviceId,
+      serviceName: input.serviceName || current.service_name,
+      startsAt: input.startsAt || current.starts_at,
+      durationMinutes:
+        input.durationMinutes || this.minutesBetween(current.starts_at, current.ends_at),
+      valueCents: input.valueCents ?? current.value_cents
+    });
+
+    return this.database.updateAppointment(professionalId, id, {
+      ...payload,
+      status: input.status,
+      paymentStatus: input.paymentStatus
+    });
+  }
+
+  @Delete("appointments/:id")
+  deleteAppointment(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    return this.database.deleteAppointment(professionalId, id);
+  }
+
   @Get("services")
   services(
     @Req() request: Request,
@@ -552,6 +629,66 @@ export class AppController {
     if (!input.durationMinutes || input.durationMinutes <= 0) {
       throw new BadRequestException("durationMinutes deve ser maior que zero.");
     }
+  }
+
+  private async buildManualAppointmentPayload(
+    professionalId: string,
+    input: {
+      clientName?: string;
+      clientPhone?: string;
+      clientEmail?: string;
+      serviceId?: string;
+      serviceName?: string;
+      startsAt?: string;
+      durationMinutes?: number;
+      valueCents?: number;
+    }
+  ) {
+    if (!input.clientName?.trim()) {
+      throw new BadRequestException("clientName e obrigatorio.");
+    }
+
+    if (!input.startsAt) {
+      throw new BadRequestException("startsAt e obrigatorio.");
+    }
+
+    const startsAt = new Date(input.startsAt);
+    if (Number.isNaN(startsAt.getTime())) {
+      throw new BadRequestException("startsAt invalido.");
+    }
+
+    const service = input.serviceId
+      ? await this.database.getService(professionalId, input.serviceId)
+      : undefined;
+    const serviceName = service?.name || input.serviceName?.trim();
+    if (!serviceName) {
+      throw new BadRequestException("serviceName ou serviceId e obrigatorio.");
+    }
+
+    const durationMinutes = service?.duration_minutes || input.durationMinutes || 60;
+    if (durationMinutes <= 0) {
+      throw new BadRequestException("durationMinutes deve ser maior que zero.");
+    }
+
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+
+    return {
+      professionalId,
+      clientName: input.clientName.trim(),
+      clientPhone: input.clientPhone,
+      clientEmail: input.clientEmail,
+      serviceName,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      valueCents: service?.price_cents ?? input.valueCents ?? 0
+    };
+  }
+
+  private minutesBetween(startsAt: string, endsAt: string) {
+    const start = new Date(startsAt);
+    const end = new Date(endsAt);
+    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
   }
 
   private validateProfessionalInput(input: CreateProfessionalInput) {

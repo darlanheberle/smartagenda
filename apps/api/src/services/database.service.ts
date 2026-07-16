@@ -26,6 +26,21 @@ type UpsertClientInput = {
   email?: string;
 };
 
+type ManualAppointmentInput = {
+  professionalId: string;
+  clientName: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  serviceName: string;
+  startsAt: string;
+  endsAt: string;
+  valueCents?: number;
+  status?: string;
+  paymentStatus?: string;
+};
+
+type UpdateAppointmentInput = Partial<ManualAppointmentInput>;
+
 export type ClientRecord = {
   id: string;
   professional_id: string;
@@ -610,6 +625,166 @@ export class DatabaseService implements OnModuleInit {
     );
 
     return result.rows[0];
+  }
+
+  async getAppointment(professionalId: string, appointmentId: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select
+          a.id,
+          a.professional_id,
+          a.client_id,
+          a.google_event_id,
+          a.google_event_link,
+          a.service_name,
+          a.starts_at,
+          a.ends_at,
+          a.status,
+          a.value_cents,
+          a.payment_status,
+          a.payment_method,
+          a.source,
+          a.created_at,
+          c.name as client_name,
+          c.phone as client_phone,
+          c.email as client_email
+        from appointments a
+        left join clients c on c.id = a.client_id
+        where a.professional_id = $1 and a.id = $2
+        limit 1
+      `,
+      [professionalId, appointmentId]
+    );
+
+    return result.rows[0];
+  }
+
+  async createManualAppointment(input: ManualAppointmentInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const client = await this.upsertClient({
+      professionalId: input.professionalId,
+      name: input.clientName,
+      phone: input.clientPhone,
+      email: input.clientEmail
+    });
+
+    if (!client) {
+      return undefined;
+    }
+
+    const id = randomUUID();
+    const result = await this.pool.query(
+      `
+        insert into appointments (
+          id,
+          professional_id,
+          client_id,
+          google_event_id,
+          service_name,
+          starts_at,
+          ends_at,
+          status,
+          value_cents,
+          payment_status,
+          source,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'manual', now())
+        returning id
+      `,
+      [
+        id,
+        input.professionalId,
+        client.id,
+        `manual-${id}`,
+        input.serviceName,
+        input.startsAt,
+        input.endsAt,
+        input.status || "scheduled",
+        input.valueCents ?? 0,
+        input.paymentStatus || "pending"
+      ]
+    );
+
+    return this.getAppointment(input.professionalId, result.rows[0].id);
+  }
+
+  async updateAppointment(
+    professionalId: string,
+    appointmentId: string,
+    input: UpdateAppointmentInput
+  ) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const current = await this.getAppointment(professionalId, appointmentId);
+    if (!current) {
+      return undefined;
+    }
+
+    let clientId = current.client_id;
+    if (input.clientName || input.clientPhone !== undefined || input.clientEmail !== undefined) {
+      const client = await this.upsertClient({
+        professionalId,
+        name: input.clientName || current.client_name || "Cliente",
+        phone: input.clientPhone || current.client_phone || undefined,
+        email: input.clientEmail || current.client_email || undefined
+      });
+      clientId = client?.id || clientId;
+    }
+
+    await this.pool.query(
+      `
+        update appointments set
+          client_id = $3,
+          service_name = $4,
+          starts_at = $5,
+          ends_at = $6,
+          status = $7,
+          value_cents = $8,
+          payment_status = $9,
+          updated_at = now()
+        where professional_id = $1 and id = $2
+      `,
+      [
+        professionalId,
+        appointmentId,
+        clientId,
+        input.serviceName || current.service_name,
+        input.startsAt || current.starts_at,
+        input.endsAt || current.ends_at,
+        input.status || current.status,
+        input.valueCents ?? current.value_cents,
+        input.paymentStatus || current.payment_status
+      ]
+    );
+
+    return this.getAppointment(professionalId, appointmentId);
+  }
+
+  async deleteAppointment(professionalId: string, appointmentId: string) {
+    if (!this.pool || !this.ready) {
+      return { deleted: false };
+    }
+
+    const result = await this.pool.query(
+      `
+        delete from appointments
+        where professional_id = $1 and id = $2
+        returning id
+      `,
+      [professionalId, appointmentId]
+    );
+
+    return { deleted: (result.rowCount || 0) > 0 };
   }
 
   async listClients(professionalId: string) {
