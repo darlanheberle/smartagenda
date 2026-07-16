@@ -15,14 +15,26 @@ import { Card, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency, formatTime } from "../lib/format";
 import type { Appointment, Service } from "../lib/types";
 
-const hours = Array.from({ length: 10 }, (_, index) => 8 + index);
+const workdayStartHour = 8;
+const workdayEndHour = 18;
 const timezone = "America/Sao_Paulo";
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
+
+type AgendaSlot = {
+  key: string;
+  label: string;
+  startsAt: string;
+  startTime: number;
+  endTime: number;
+  hour: number;
+  minute: number;
+};
 
 type AgendaEditor = {
   mode: "create" | "edit";
   appointmentId?: string;
   hour: number;
+  minute: number;
   clientName: string;
   clientPhone: string;
   serviceId: string;
@@ -43,6 +55,9 @@ export function AgendaClient({
   const todayKey = dateKey(new Date());
   const [appointmentsState, setAppointmentsState] = useState(appointments);
   const [selectedDayKey, setSelectedDayKey] = useState(todayKey);
+  const [selectedServiceId, setSelectedServiceId] = useState(
+    services.find((service) => service.active)?.id || services[0]?.id || ""
+  );
   const [editor, setEditor] = useState<AgendaEditor | undefined>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -53,7 +68,13 @@ export function AgendaClient({
     [services]
   );
   const serviceOptions = activeServices.length > 0 ? activeServices : services;
+  const selectedService = serviceOptions.find((service) => service.id === selectedServiceId) || serviceOptions[0];
+  const slotDurationMinutes = selectedService?.duration_minutes || 60;
   const selectedDay = days.find((day) => day.key === selectedDayKey) || days[0];
+  const slots = useMemo(
+    () => buildSlots(selectedDay.date, slotDurationMinutes),
+    [selectedDay.date, slotDurationMinutes]
+  );
   const selectedAppointments = appointmentsState.filter(
     (appointment) => dateKey(new Date(appointment.starts_at)) === selectedDay.key
   );
@@ -64,18 +85,19 @@ export function AgendaClient({
     setSelectedDayKey(nextDay.key);
   }
 
-  function openCreate(hour: number) {
-    const service = serviceOptions[0];
+  function openCreate(slot: AgendaSlot) {
+    const service = selectedService || serviceOptions[0];
     setMessage("");
     setError("");
     setEditor({
       mode: "create",
-      hour,
+      hour: slot.hour,
+      minute: slot.minute,
       clientName: "",
       clientPhone: "",
       serviceId: service?.id || "",
       serviceName: service?.name || "",
-      startsAt: buildSlotIso(selectedDay.date, hour),
+      startsAt: slot.startsAt,
       durationMinutes: service?.duration_minutes || 60,
       priceCents: service?.price_cents || 0
     });
@@ -83,12 +105,14 @@ export function AgendaClient({
 
   function openEdit(appointment: Appointment) {
     const service = serviceOptions.find((item) => item.name === appointment.service_name);
+    const startTime = timePartsInSaoPaulo(appointment.starts_at);
     setMessage("");
     setError("");
     setEditor({
       mode: "edit",
       appointmentId: appointment.id,
-      hour: hourInSaoPaulo(appointment.starts_at),
+      hour: startTime.hour,
+      minute: startTime.minute,
       clientName: appointment.client_name || "",
       clientPhone: appointment.client_phone || "",
       serviceId: service?.id || "",
@@ -216,12 +240,18 @@ export function AgendaClient({
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">
             {selectedDay.key === todayKey ? "Hoje" : formatHeaderDay(selectedDay.date)}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">Toque em um horario livre para criar atendimento manual.</p>
+          <p className="mt-1 text-sm text-slate-500">Escolha o servico para a agenda abrir os encaixes na duracao certa.</p>
         </div>
         <button
           aria-label="Novo agendamento"
           className="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-          onClick={() => openCreate(suggestedHour(selectedDay.key === todayKey))}
+          disabled={slots.length === 0}
+          onClick={() => {
+            const slot = suggestedSlot(slots, selectedDay.key === todayKey);
+            if (slot) {
+              openCreate(slot);
+            }
+          }}
           type="button"
         >
           <Plus size={21} />
@@ -291,20 +321,43 @@ export function AgendaClient({
 
       <Card className="p-5">
         <SectionTitle
-          subtitle={`${selectedAppointments.length} atendimento${selectedAppointments.length === 1 ? "" : "s"} neste dia`}
+          subtitle={`${slotDurationMinutes} min por encaixe${selectedService ? ` para ${selectedService.name}` : ""}`}
           title={selectedDay.key === todayKey ? "Agenda de hoje" : formatHeaderDay(selectedDay.date)}
         />
+        {serviceOptions.length > 0 ? (
+          <label className="mt-5 block">
+            <span className="text-sm font-semibold text-slate-700">Servico para calcular horarios livres</span>
+            <select
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+              onChange={(event) => setSelectedServiceId(event.target.value)}
+              value={selectedService?.id || ""}
+            >
+              {serviceOptions.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.category ? `${service.category} - ` : ""}
+                  {service.name} - {service.duration_minutes} min
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="mt-5 space-y-3">
-          {hours.map((hour) => {
-            const appointmentsAtHour = selectedAppointments.filter((item) => hourInSaoPaulo(item.starts_at) === hour);
-            const appointment = appointmentsAtHour[0];
+          {slots.map((slot) => {
+            const overlappingAppointments = selectedAppointments.filter((appointment) =>
+              appointmentOverlapsSlot(appointment, slot)
+            );
+            const appointmentStartingInSlot = overlappingAppointments.find((appointment) =>
+              appointmentStartsInSlot(appointment, slot)
+            );
+            const appointment = appointmentStartingInSlot || overlappingAppointments[0];
+            const blockedByPrevious = appointment && !appointmentStartingInSlot;
 
             return (
-              <div className="grid grid-cols-[50px_1fr] gap-3" key={hour}>
+              <div className="grid grid-cols-[56px_1fr] gap-3" key={slot.key}>
                 <div className="pt-4 text-right text-sm font-bold tabular text-slate-500">
-                  {String(hour).padStart(2, "0")}:00
+                  {slot.label}
                 </div>
-                {appointment ? (
+                {appointment && !blockedByPrevious ? (
                   <div className="rounded-3xl border border-violet-100 bg-violet-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -339,20 +392,27 @@ export function AgendaClient({
                         </button>
                       </div>
                     </div>
-                    {appointmentsAtHour.length > 1 ? (
+                    {overlappingAppointments.length > 1 ? (
                       <p className="mt-2 text-xs font-semibold text-violet-500">
-                        +{appointmentsAtHour.length - 1} atendimento{appointmentsAtHour.length - 1 === 1 ? "" : "s"} neste horario
+                        +{overlappingAppointments.length - 1} atendimento{overlappingAppointments.length - 1 === 1 ? "" : "s"} neste horario
                       </p>
                     ) : null}
+                  </div>
+                ) : appointment && blockedByPrevious ? (
+                  <div className="flex min-h-[64px] items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-slate-100 px-4 text-sm text-slate-500">
+                    <span className="font-semibold">Ocupado por {appointment.service_name}</span>
+                    <Pill tone="slate">
+                      ate {appointment.ends_at ? formatTime(appointment.ends_at) : "--:--"}
+                    </Pill>
                   </div>
                 ) : (
                   <button
                     className="flex min-h-[76px] items-center justify-center gap-2 rounded-3xl border border-dashed border-slate-300 bg-white text-sm font-semibold text-slate-400 transition hover:border-violet-300 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                    onClick={() => openCreate(hour)}
+                    onClick={() => openCreate(slot)}
                     type="button"
                   >
                     <CalendarPlus size={17} />
-                    Livre
+                    Livre - {slotDurationMinutes} min
                   </button>
                 )}
               </div>
@@ -371,7 +431,7 @@ export function AgendaClient({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
-                  {String(editor.hour).padStart(2, "0")}:00
+                  {formatSlotLabel(editor.hour, editor.minute)}
                 </p>
                 <h2 className="mt-1 font-display text-xl font-bold text-slate-950">
                   {editor.mode === "edit" ? "Editar atendimento" : "Novo atendimento"}
@@ -501,29 +561,77 @@ function dateKey(value: Date) {
   }).format(value);
 }
 
-function hourInSaoPaulo(value: string) {
-  return Number(
-    new Intl.DateTimeFormat("pt-BR", {
-      hour: "2-digit",
-      hour12: false,
-      timeZone: timezone
-    }).format(new Date(value))
-  );
+function timePartsInSaoPaulo(value: string) {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    timeZone: timezone
+  }).formatToParts(new Date(value));
+
+  return {
+    hour: Number(parts.find((part) => part.type === "hour")?.value || 0),
+    minute: Number(parts.find((part) => part.type === "minute")?.value || 0)
+  };
 }
 
-function buildSlotIso(day: Date, hour: number) {
-  const slot = new Date(day);
-  slot.setHours(hour, 0, 0, 0);
-  return slot.toISOString();
-}
+function buildSlots(day: Date, durationMinutes: number): AgendaSlot[] {
+  const normalizedDuration = Math.max(15, durationMinutes || 60);
+  const firstMinute = workdayStartHour * 60;
+  const lastMinute = workdayEndHour * 60;
+  const slots: AgendaSlot[] = [];
 
-function suggestedHour(isToday: boolean) {
-  if (!isToday) {
-    return hours[0];
+  for (let minuteOfDay = firstMinute; minuteOfDay + normalizedDuration <= lastMinute; minuteOfDay += normalizedDuration) {
+    const hour = Math.floor(minuteOfDay / 60);
+    const minute = minuteOfDay % 60;
+    const start = new Date(day);
+    start.setHours(hour, minute, 0, 0);
+    const end = new Date(start.getTime() + normalizedDuration * 60 * 1000);
+    const label = formatSlotLabel(hour, minute);
+
+    slots.push({
+      key: `${dateKey(day)}-${label}`,
+      label,
+      startsAt: start.toISOString(),
+      startTime: start.getTime(),
+      endTime: end.getTime(),
+      hour,
+      minute
+    });
   }
 
-  const currentHour = new Date().getHours() + 1;
-  return Math.min(Math.max(currentHour, hours[0]), hours[hours.length - 1]);
+  return slots;
+}
+
+function suggestedSlot(slots: AgendaSlot[], isToday: boolean) {
+  if (slots.length === 0) {
+    return undefined;
+  }
+
+  if (!isToday) {
+    return slots[0];
+  }
+
+  const now = new Date();
+  return slots.find((slot) => slot.startTime > now.getTime()) || slots[slots.length - 1];
+}
+
+function appointmentStartsInSlot(appointment: Appointment, slot: AgendaSlot) {
+  const startsAt = new Date(appointment.starts_at).getTime();
+  return startsAt >= slot.startTime && startsAt < slot.endTime;
+}
+
+function appointmentOverlapsSlot(appointment: Appointment, slot: AgendaSlot) {
+  const startsAt = new Date(appointment.starts_at).getTime();
+  const endsAt = appointment.ends_at
+    ? new Date(appointment.ends_at).getTime()
+    : startsAt + 60 * 60 * 1000;
+
+  return startsAt < slot.endTime && endsAt > slot.startTime;
+}
+
+function formatSlotLabel(hour: number, minute: number) {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function minutesBetween(startsAt: string, endsAt?: string) {
