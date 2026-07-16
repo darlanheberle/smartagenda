@@ -38,6 +38,7 @@ type PendingFlow =
       step: "service";
       client: ClientRecord;
       requestedPeriod?: DateIntent;
+      category?: string;
       services: ServiceRecord[];
     }
   | {
@@ -94,6 +95,28 @@ export class AiSchedulingService {
     const pendingKey = `${professional.id}:${incoming.customerPhone}`;
     const pending = this.pendingChoices.get(pendingKey);
 
+    if (pending && this.isRestartCommand(incoming.text)) {
+      this.pendingChoices.delete(pendingKey);
+      const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
+
+      if (!client) {
+        this.pendingChoices.set(pendingKey, { step: "name" });
+        return this.reply({
+          incoming,
+          instanceName: professional.evolutionInstanceName,
+          body: "Vamos recomecar. Qual e o seu nome completo?"
+        });
+      }
+
+      return this.startSchedulingFlow({
+        incoming,
+        pendingKey,
+        professionalId: professional.id,
+        instanceName: professional.evolutionInstanceName,
+        client
+      });
+    }
+
     if (pending?.step === "name") {
       return this.handleNameAnswer({
         incoming,
@@ -106,7 +129,7 @@ export class AiSchedulingService {
     }
 
     if (pending?.step === "category") {
-      return this.handleCategoryChoice({ incoming, pending, pendingKey });
+      return this.handleCategoryChoice({ incoming, pending, pendingKey, professionalId: professional.id });
     }
 
     if (pending?.step === "service") {
@@ -252,28 +275,30 @@ export class AiSchedulingService {
     incoming: IncomingWhatsAppMessage;
     pending: Extract<PendingFlow, { step: "category" }>;
     pendingKey: string;
+    professionalId: string;
   }) {
+    const currentServices = await this.database.listServices(input.professionalId, true);
+    const categories = this.getServiceCategories(currentServices);
     const selectedCategory = this.findSelectedCategory(
       input.incoming.text,
-      input.pending.categories
+      categories
     );
 
     if (!selectedCategory) {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei essa categoria. Escolha uma das opcoes:\n\n${this.formatCategoryOptions(input.pending.categories)}`
+        body: `Nao encontrei essa categoria. Escolha uma das opcoes:\n\n${this.formatCategoryOptions(categories)}`
       });
     }
 
-    const services = input.pending.services.filter(
-      (service) => service.category?.toLowerCase() === selectedCategory.toLowerCase()
-    );
+    const services = this.filterServicesByCategory(currentServices, selectedCategory);
 
     this.pendingChoices.set(input.pendingKey, {
       step: "service",
       client: input.pending.client,
       requestedPeriod: input.pending.requestedPeriod,
+      category: selectedCategory,
       services
     });
 
@@ -290,13 +315,14 @@ export class AiSchedulingService {
     pendingKey: string;
     professionalId: string;
   }) {
-    const selectedService = this.findSelectedService(input.incoming.text, input.pending.services);
+    const services = await this.refreshPendingServices(input.professionalId, input.pending);
+    const selectedService = this.findSelectedService(input.incoming.text, services);
 
     if (!selectedService) {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei esse servico. Escolha uma das opcoes:\n\n${this.formatServiceOptions(input.pending.services)}`
+        body: `Nao encontrei esse servico. Escolha uma das opcoes:\n\n${this.formatServiceOptions(services)}`
       });
     }
 
@@ -573,6 +599,28 @@ export class AiSchedulingService {
     return services.find((service) => service.name.toLowerCase() === normalized);
   }
 
+  private async refreshPendingServices(
+    professionalId: string,
+    pending: Extract<PendingFlow, { step: "service" }>
+  ) {
+    const services = await this.database.listServices(professionalId, true);
+
+    if (!pending.category) {
+      return services;
+    }
+
+    return this.filterServicesByCategory(services, pending.category);
+  }
+
+  private filterServicesByCategory(services: ServiceRecord[], category: string) {
+    const normalizedCategory = this.normalizeText(category);
+
+    return services.filter((service) => {
+      const serviceCategory = service.category ? this.normalizeText(service.category) : "";
+      return serviceCategory === normalizedCategory;
+    });
+  }
+
   private buildDayOptions(slots: OfferedSlot[], startDate?: string, maxDays = 7): OfferedDay[] {
     const slotsByDay = new Map<string, OfferedSlot[]>();
 
@@ -724,6 +772,11 @@ export class AiSchedulingService {
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  private isRestartCommand(text: string) {
+    const normalized = this.normalizeText(text);
+    return ["menu", "reiniciar", "iniciar", "inicio", "comecar", "recomecar"].includes(normalized);
   }
 
   private normalizeClientName(text: string) {
