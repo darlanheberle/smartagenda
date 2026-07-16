@@ -49,7 +49,7 @@ export async function getPanelData(): Promise<PanelData> {
       cookieHeader
     ),
     fetchJson<Client[]>("/clients", [], cookieHeader),
-    fetchJson<Appointment[]>("/appointments/upcoming?limit=20", [], cookieHeader),
+    fetchJson<Appointment[]>("/appointments/upcoming?limit=100", [], cookieHeader),
     fetchJson<Service[]>("/services", [], cookieHeader),
     fetchJson<OnboardingStatus>(
       `/onboarding/${professionalId}/status`,
