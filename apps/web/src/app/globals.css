@@ -4,30 +4,15 @@
 
 :root {
   color-scheme: light;
-  --canvas: #f4f7f6;
+  --brand: #7c3aed;
+  --brand-dark: #6d28d9;
+  --brand-soft: #f5f3ff;
+  --canvas: #f8fafc;
   --surface: #ffffff;
-  --surface-subtle: #f8faf9;
-  --surface-inset: #f1f4f3;
-  --ink: #17201e;
-  --ink-secondary: #4f5d59;
-  --ink-muted: #7b8884;
-  --line: rgba(23, 32, 30, 0.1);
-  --line-strong: rgba(23, 32, 30, 0.16);
-  --brand: #147a5f;
-  --brand-hover: #0e674f;
-  --brand-soft: #e8f5f0;
-  --calendar: #3269a8;
-  --calendar-soft: #eaf1fa;
-  --warning: #9a6512;
-  --warning-soft: #fff5dc;
-  --danger: #b33a48;
-  --danger-soft: #fff0f2;
-  --brand-gradient: linear-gradient(135deg, #17977a 0%, #147a5f 55%, #0e674f 100%);
-  --shadow-sm: 0 1px 2px rgba(23, 32, 30, 0.05);
-  --shadow-md: 0 1px 2px rgba(23, 32, 30, 0.04), 0 8px 24px -8px rgba(23, 32, 30, 0.12);
-  --shadow-lg: 0 2px 4px rgba(23, 32, 30, 0.04), 0 16px 40px -12px rgba(23, 32, 30, 0.16);
-  background: var(--canvas);
-  color: var(--ink);
+  --ink: #0f172a;
+  --ink-secondary: #475569;
+  --ink-muted: #94a3b8;
+  --line: #f1f5f9;
 }
 
 * {
@@ -41,9 +26,10 @@ html {
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
-  font-family: var(--font-geist), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -60,92 +46,34 @@ a {
 
 button {
   transition:
-    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
-    background-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+    transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.97);
+button:active:not(:disabled),
+a:active {
+  transform: scale(0.98);
 }
 
 ::selection {
-  background: #cce8dd;
-  color: var(--ink);
+  background: #ddd6fe;
+  color: #2e1065;
 }
 
-@layer components {
-  .input {
-    @apply h-10 w-full rounded-xl px-3 text-sm outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60;
-    background: var(--surface-inset);
-    border: 1px solid transparent;
-    color: var(--ink);
-    transition:
-      background-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-      border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-      box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
+@layer utilities {
+  .font-display {
+    font-family: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   }
 
-  .input:hover {
-    border-color: var(--line);
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .input:focus {
-    background: var(--surface);
-    border-color: rgba(20, 122, 95, 0.55);
-    box-shadow: 0 0 0 3px rgba(20, 122, 95, 0.12);
-  }
-
-  .surface {
-    background: var(--surface);
-    box-shadow:
-      0 0 0 1px var(--line),
-      var(--shadow-md);
-  }
-
-  .surface-subtle {
-    background: var(--surface-subtle);
-    box-shadow: 0 0 0 1px var(--line);
-  }
-
-  .btn-primary {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55;
-    background: var(--brand-gradient);
-    box-shadow: 0 1px 1px rgba(14, 103, 79, 0.2), 0 8px 20px -8px rgba(20, 122, 95, 0.55);
-    transition:
-      transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
-      box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1),
-      filter 160ms cubic-bezier(0.23, 1, 0.32, 1);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.05);
-    box-shadow: 0 1px 1px rgba(14, 103, 79, 0.25), 0 10px 24px -8px rgba(20, 122, 95, 0.65);
-  }
-
-  .btn-secondary {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-55;
-    background: var(--surface);
-    box-shadow: 0 0 0 1px var(--line-strong);
-    color: var(--ink-secondary);
-  }
-
-  .btn-secondary:hover {
-    background: var(--surface-subtle);
-    color: var(--ink);
-  }
-
-  .eyebrow {
-    @apply text-[11px] font-semibold uppercase;
-    color: var(--ink-muted);
-    letter-spacing: 0.08em;
-  }
-
-  .metric-value {
-    @apply text-2xl font-semibold leading-none;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
   }
 
   .tabular {
@@ -161,11 +89,59 @@ button:active:not(:disabled) {
   }
 }
 
+@layer components {
+  .app-card {
+    @apply rounded-3xl border border-slate-100 bg-white shadow-sm;
+  }
+
+  .app-input {
+    @apply min-h-11 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm text-slate-900 outline-none placeholder:text-slate-400 shadow-sm transition focus:border-violet-200 focus:ring-4 focus:ring-violet-100;
+  }
+
+  .app-button-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .app-button-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-violet-100 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .surface {
+    @apply app-card;
+  }
+
+  .surface-subtle {
+    @apply rounded-3xl border border-slate-100 bg-slate-50;
+  }
+
+  .input {
+    @apply app-input;
+  }
+
+  .btn-primary {
+    @apply app-button-primary;
+  }
+
+  .btn-secondary {
+    @apply app-button-secondary;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400;
+  }
+
+  .metric-value {
+    @apply font-display text-2xl font-semibold leading-none text-slate-950 tabular;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

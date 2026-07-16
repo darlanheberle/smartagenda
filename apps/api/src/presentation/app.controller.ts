@@ -231,7 +231,7 @@ export class AppController {
     const professional = this.professionals.getById(professionalId);
     const webhookUrl = `${
       process.env.PUBLIC_API_URL || "https://api.agendasmart.com.br"
-    }/webhooks/evolution`;
+    }/webhooks/evolution/${professional.id}`;
     const result = await this.evolution.prepareProfessionalInstance({
       instanceName: professional.evolutionInstanceName,
       webhookUrl,
@@ -503,6 +503,15 @@ export class AppController {
     return this.aiScheduling.handleIncomingWhatsAppMessage(payload);
   }
 
+  @Post("webhooks/evolution/:professionalId")
+  async evolutionWebhookForProfessional(
+    @Param("professionalId") professionalId: string,
+    @Body() payload: EvolutionWebhookPayload
+  ) {
+    await this.updateWhatsappStatusFromWebhook(payload, professionalId);
+    return this.aiScheduling.handleIncomingWhatsAppMessage(payload, professionalId);
+  }
+
   private sanitizeProfessional(professional: Professional) {
     return {
       ...professional,
@@ -651,7 +660,10 @@ export class AppController {
     }
   }
 
-  private async updateWhatsappStatusFromWebhook(payload: EvolutionWebhookPayload) {
+  private async updateWhatsappStatusFromWebhook(
+    payload: EvolutionWebhookPayload,
+    forcedProfessionalId?: string
+  ) {
     const event = payload.event?.toUpperCase();
     if (event !== "CONNECTION_UPDATE") {
       return;
@@ -660,9 +672,11 @@ export class AppController {
     const instanceName =
       payload.instance || payload.instanceName || payload.data?.instance || process.env.EVOLUTION_INSTANCE_NAME;
     const state = JSON.stringify(payload.data || {}).toLowerCase();
-    const professional = instanceName
-      ? this.professionals.findByEvolutionInstance(instanceName)
-      : undefined;
+    const professional = forcedProfessionalId
+      ? this.findProfessionalSafely(forcedProfessionalId)
+      : instanceName
+        ? this.professionals.findByEvolutionInstance(instanceName)
+        : undefined;
 
     if (!professional) {
       return;
@@ -670,6 +684,14 @@ export class AppController {
 
     if (state.includes("open") || state.includes("connected")) {
       await this.database.markProfessionalWhatsappStatus(professional.id, "connected");
+    }
+  }
+
+  private findProfessionalSafely(professionalId: string) {
+    try {
+      return this.professionals.getById(professionalId);
+    } catch {
+      return undefined;
     }
   }
 

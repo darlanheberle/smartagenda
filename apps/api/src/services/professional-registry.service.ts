@@ -118,11 +118,15 @@ export class ProfessionalRegistryService implements OnApplicationBootstrap {
 
   normalizePhone(phone: string): string {
     const digits = phone.replace(/\D/g, "");
-    return digits.startsWith("+") ? digits : `+${digits}`;
+    const withCountryCode =
+      (digits.length === 10 || digits.length === 11) && !digits.startsWith("55")
+        ? `55${digits}`
+        : digits;
+    return `+${withCountryCode}`;
   }
 
   private buildInstanceName(phone: string): string {
-    return `smartagenda-${phone.replace(/\D/g, "")}`;
+    return `smartagenda-${this.normalizePhone(phone).replace(/\D/g, "")}`;
   }
 
   private fromRecord(record: ProfessionalRecord): Professional {

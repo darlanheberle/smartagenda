@@ -52,7 +52,7 @@ export class AiSchedulingService {
     private readonly professionals: ProfessionalRegistryService
   ) {}
 
-  async handleIncomingWhatsAppMessage(payload: EvolutionWebhookPayload) {
+  async handleIncomingWhatsAppMessage(payload: EvolutionWebhookPayload, forcedProfessionalId?: string) {
     const incoming = this.normalizeIncomingMessage(payload);
 
     if (!incoming.isCustomerMessage) {
@@ -65,7 +65,9 @@ export class AiSchedulingService {
       };
     }
 
-    const professional = this.professionals.findByEvolutionInstance(incoming.instanceName);
+    const professional = forcedProfessionalId
+      ? this.findProfessionalById(forcedProfessionalId)
+      : this.professionals.findByEvolutionInstance(incoming.instanceName);
 
     if (!professional) {
       return {
@@ -123,6 +125,14 @@ export class AiSchedulingService {
       client,
       requestedPeriod
     });
+  }
+
+  private findProfessionalById(professionalId: string) {
+    try {
+      return this.professionals.getById(professionalId);
+    } catch {
+      return undefined;
+    }
   }
 
   private async handleNameAnswer(input: {
