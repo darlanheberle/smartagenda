@@ -25,6 +25,8 @@ services:
     environment:
       API_PORT: "3333"
       NEXT_PUBLIC_APP_URL: https://www.agendasmart.com.br
+      APP_ALLOWED_ORIGINS: https://www.agendasmart.com.br,https://agendasmart.com.br
+      COOKIE_DOMAIN: .agendasmart.com.br
       DATABASE_URL: postgresql://smartagenda:${SMARTAGENDA_POSTGRES_PASSWORD}@smartagenda_postgres:5432/smartagenda
       DEMO_PROFESSIONAL_ID: ${DEMO_PROFESSIONAL_ID:-demo-professional}
       DEMO_PROFESSIONAL_NAME: ${DEMO_PROFESSIONAL_NAME:-Demonstracao SmartAgenda}
