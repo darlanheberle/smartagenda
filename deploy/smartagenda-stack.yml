@@ -79,7 +79,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.smartagenda_web.rule=Host(`www.agendasmart.com.br`)
+        - traefik.http.routers.smartagenda_web.rule=Host(`www.agendasmart.com.br`) || Host(`agendasmart.com.br`)
         - traefik.http.routers.smartagenda_web.entrypoints=websecure
         - traefik.http.routers.smartagenda_web.tls=true
         - traefik.http.routers.smartagenda_web.tls.certresolver=letsencryptresolver
