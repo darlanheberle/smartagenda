@@ -301,13 +301,14 @@ export class AiSchedulingService {
     }
 
     const requestedPeriod = this.parseDateIntent(input.incoming.text) || input.pending.requestedPeriod;
+    const searchPeriod = this.toSevenDaySearchPeriod(requestedPeriod);
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: selectedService.id,
-      ...requestedPeriod
+      ...searchPeriod
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const dayOptions = this.buildDayOptions(slots);
+    const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
 
     if (dayOptions.length === 0) {
       this.pendingChoices.delete(input.pendingKey);
@@ -362,6 +363,14 @@ export class AiSchedulingService {
     }
 
     const offeredSlots = this.pickSlotsForDay(selectedDay.slots);
+
+    if (offeredSlots.length === 0) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.incoming.instanceName,
+        body: `${selectedDay.label} esta fechado ou sem horarios livres para esse servico.\n\nEscolha outro dia:\n\n${this.formatDayOptions(input.pending.dayOptions)}`
+      });
+    }
 
     this.pendingChoices.set(input.pendingKey, {
       step: "slot",
@@ -476,14 +485,15 @@ export class AiSchedulingService {
     instanceName: string;
     requestedPeriod: DateIntent;
   }) {
+    const searchPeriod = this.toSevenDaySearchPeriod(input.requestedPeriod);
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: input.pending.service.id,
-      startDate: input.requestedPeriod.startDate,
-      daysAhead: input.requestedPeriod.daysAhead
+      startDate: searchPeriod.startDate,
+      daysAhead: searchPeriod.daysAhead
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const dayOptions = this.buildDayOptions(slots);
+    const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
 
     if (dayOptions.length === 0) {
       return this.reply({
@@ -515,14 +525,15 @@ export class AiSchedulingService {
     professionalId: string;
     requestedPeriod: DateIntent;
   }) {
+    const searchPeriod = this.toSevenDaySearchPeriod(input.requestedPeriod);
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: input.pending.service.id,
-      startDate: input.requestedPeriod.startDate,
-      daysAhead: input.requestedPeriod.daysAhead
+      startDate: searchPeriod.startDate,
+      daysAhead: searchPeriod.daysAhead
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const dayOptions = this.buildDayOptions(slots);
+    const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
 
     if (dayOptions.length === 0) {
       return this.reply({
@@ -562,30 +573,32 @@ export class AiSchedulingService {
     return services.find((service) => service.name.toLowerCase() === normalized);
   }
 
-  private buildDayOptions(slots: OfferedSlot[], maxDays = 7): OfferedDay[] {
-    const days = new Map<string, OfferedDay>();
+  private buildDayOptions(slots: OfferedSlot[], startDate?: string, maxDays = 7): OfferedDay[] {
+    const slotsByDay = new Map<string, OfferedSlot[]>();
 
     for (const slot of slots) {
       const dateKey = this.slotDateKey(slot.startsAt);
-      const existing = days.get(dateKey);
-
-      if (existing) {
-        existing.slots.push(slot);
-        continue;
-      }
-
-      if (days.size >= maxDays) {
-        continue;
-      }
-
-      days.set(dateKey, {
-        dateKey,
-        label: this.formatDayLabel(slot.startsAt),
-        slots: [slot]
-      });
+      const existing = slotsByDay.get(dateKey) || [];
+      existing.push(slot);
+      slotsByDay.set(dateKey, existing);
     }
 
-    return Array.from(days.values()).slice(0, maxDays);
+    const startDateKey = startDate
+      ? this.slotDateKey(startDate)
+      : this.slotDateKey(new Date().toISOString());
+    const firstDay = new Date(`${startDateKey}T12:00:00-03:00`);
+
+    return Array.from({ length: maxDays }, (_, index) => {
+      const day = this.addDays(firstDay, index);
+      const startsAt = day.toISOString();
+      const dateKey = this.slotDateKey(startsAt);
+
+      return {
+        dateKey,
+        label: this.formatDayLabel(startsAt),
+        slots: slotsByDay.get(dateKey) || []
+      };
+    });
   }
 
   private pickSlotsForDay(slots: OfferedSlot[], maxSlots = 10) {
@@ -593,6 +606,13 @@ export class AiSchedulingService {
       startsAt: slot.startsAt,
       label: slot.label
     }));
+  }
+
+  private toSevenDaySearchPeriod(requestedPeriod?: DateIntent) {
+    return {
+      startDate: requestedPeriod?.startDate,
+      daysAhead: Math.max(requestedPeriod?.daysAhead || 7, 7)
+    };
   }
 
   private parseDateIntent(text: string): DateIntent | undefined {
@@ -805,7 +825,9 @@ export class AiSchedulingService {
     return days
       .map((day, index) => {
         const count = day.slots.length;
-        return `${index + 1}. ${day.label} (${count} horario${count === 1 ? "" : "s"})`;
+        const availabilityLabel =
+          count > 0 ? `${count} horario${count === 1 ? "" : "s"}` : "fechado";
+        return `${index + 1}. ${day.label} (${availabilityLabel})`;
       })
       .join("\n");
   }
@@ -841,7 +863,9 @@ export class AiSchedulingService {
       month: "2-digit",
       timeZone: "America/Sao_Paulo",
       weekday: "long"
-    }).format(new Date(startsAt));
+    })
+      .format(new Date(startsAt))
+      .replace(",", "");
   }
 
   private formatTimeLabel(startsAt: string) {
