@@ -10,6 +10,12 @@ type OfferedSlot = {
   label: string;
 };
 
+type OfferedDay = {
+  dateKey: string;
+  label: string;
+  slots: OfferedSlot[];
+};
+
 type DateIntent = {
   startDate: string;
   daysAhead: number;
@@ -33,6 +39,13 @@ type PendingFlow =
       client: ClientRecord;
       requestedPeriod?: DateIntent;
       services: ServiceRecord[];
+    }
+  | {
+      step: "day";
+      client: ClientRecord;
+      service: ServiceRecord;
+      dayOptions: OfferedDay[];
+      requestedPeriod?: DateIntent;
     }
   | {
       step: "slot";
@@ -98,6 +111,10 @@ export class AiSchedulingService {
 
     if (pending?.step === "service") {
       return this.handleServiceChoice({ incoming, pending, pendingKey, professionalId: professional.id });
+    }
+
+    if (pending?.step === "day") {
+      return this.handleDayChoice({ incoming, pending, pendingKey, professionalId: professional.id });
     }
 
     if (pending?.step === "slot") {
@@ -283,15 +300,16 @@ export class AiSchedulingService {
       });
     }
 
+    const requestedPeriod = this.parseDateIntent(input.incoming.text) || input.pending.requestedPeriod;
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: selectedService.id,
-      ...(this.parseDateIntent(input.incoming.text) || input.pending.requestedPeriod)
+      ...requestedPeriod
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const offeredSlots = this.pickDistributedSlots(slots);
+    const dayOptions = this.buildDayOptions(slots);
 
-    if (offeredSlots.length === 0) {
+    if (dayOptions.length === 0) {
       this.pendingChoices.delete(input.pendingKey);
       return this.reply({
         incoming: input.incoming,
@@ -301,16 +319,61 @@ export class AiSchedulingService {
     }
 
     this.pendingChoices.set(input.pendingKey, {
-      step: "slot",
+      step: "day",
       client: input.pending.client,
       service: selectedService,
+      requestedPeriod,
+      dayOptions
+    });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.incoming.instanceName,
+      body: `${input.pending.client.name}, em qual dia voce prefere fazer ${selectedService.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+    });
+  }
+
+  private async handleDayChoice(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "day" }>;
+    pendingKey: string;
+    professionalId: string;
+  }) {
+    const selectedDay = this.findSelectedDay(input.incoming.text, input.pending.dayOptions);
+
+    if (!selectedDay) {
+      const requestedPeriod = this.parseDateIntent(input.incoming.text);
+
+      if (requestedPeriod) {
+        return this.offerDaysForRequestedPeriod({
+          incoming: input.incoming,
+          pending: input.pending,
+          pendingKey: input.pendingKey,
+          professionalId: input.professionalId,
+          requestedPeriod
+        });
+      }
+
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.incoming.instanceName,
+        body: `Nao encontrei esse dia. Escolha uma das opcoes ou diga outro dia, como "quinta" ou "semana que vem":\n\n${this.formatDayOptions(input.pending.dayOptions)}`
+      });
+    }
+
+    const offeredSlots = this.pickSlotsForDay(selectedDay.slots);
+
+    this.pendingChoices.set(input.pendingKey, {
+      step: "slot",
+      client: input.pending.client,
+      service: input.pending.service,
       slots: offeredSlots
     });
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `${input.pending.client.name}, tenho estes horarios para ${selectedService.name}:\n\n${this.formatSlotOptions(offeredSlots)}\n\nResponda com o numero do horario desejado.`
+      body: `Perfeito. Qual horario de ${selectedDay.label} voce prefere?\n\n${this.formatSlotOptions(offeredSlots, "time")}\n\nResponda com o numero do horario.`
     });
   }
 
@@ -420,9 +483,9 @@ export class AiSchedulingService {
       daysAhead: input.requestedPeriod.daysAhead
     });
     const slots = "slots" in availability ? availability.slots : [];
-    const offeredSlots = this.pickDistributedSlots(slots);
+    const dayOptions = this.buildDayOptions(slots);
 
-    if (offeredSlots.length === 0) {
+    if (dayOptions.length === 0) {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
@@ -431,16 +494,56 @@ export class AiSchedulingService {
     }
 
     this.pendingChoices.set(input.pendingKey, {
-      step: "slot",
+      step: "day",
       client: input.pending.client,
       service: input.pending.service,
-      slots: offeredSlots
+      requestedPeriod: input.requestedPeriod,
+      dayOptions
     });
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${input.pending.client.name}, encontrei estes horarios para ${input.requestedPeriod.label}:\n\n${this.formatSlotOptions(offeredSlots)}\n\nResponda com o numero do horario desejado.`
+      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+    });
+  }
+
+  private async offerDaysForRequestedPeriod(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "day" }>;
+    pendingKey: string;
+    professionalId: string;
+    requestedPeriod: DateIntent;
+  }) {
+    const availability = await this.calendar.getAvailabilityForService({
+      professionalId: input.professionalId,
+      serviceId: input.pending.service.id,
+      startDate: input.requestedPeriod.startDate,
+      daysAhead: input.requestedPeriod.daysAhead
+    });
+    const slots = "slots" in availability ? availability.slots : [];
+    const dayOptions = this.buildDayOptions(slots);
+
+    if (dayOptions.length === 0) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.incoming.instanceName,
+        body: `Nao encontrei dias livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro periodo?`
+      });
+    }
+
+    this.pendingChoices.set(input.pendingKey, {
+      step: "day",
+      client: input.pending.client,
+      service: input.pending.service,
+      requestedPeriod: input.requestedPeriod,
+      dayOptions
+    });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.incoming.instanceName,
+      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
     });
   }
 
@@ -459,35 +562,37 @@ export class AiSchedulingService {
     return services.find((service) => service.name.toLowerCase() === normalized);
   }
 
-  private pickDistributedSlots(slots: OfferedSlot[], maxSlots = 8, maxPerDay = 2) {
-    const selected: OfferedSlot[] = [];
-    const perDay = new Map<string, number>();
+  private buildDayOptions(slots: OfferedSlot[], maxDays = 7): OfferedDay[] {
+    const days = new Map<string, OfferedDay>();
 
     for (const slot of slots) {
-      const dayKey = slot.startsAt.slice(0, 10);
-      const used = perDay.get(dayKey) || 0;
+      const dateKey = this.slotDateKey(slot.startsAt);
+      const existing = days.get(dateKey);
 
-      if (used >= maxPerDay) {
+      if (existing) {
+        existing.slots.push(slot);
         continue;
       }
 
-      selected.push({
-        startsAt: slot.startsAt,
-        label: slot.label
-      });
-      perDay.set(dayKey, used + 1);
-
-      if (selected.length >= maxSlots) {
-        break;
+      if (days.size >= maxDays) {
+        continue;
       }
+
+      days.set(dateKey, {
+        dateKey,
+        label: this.formatDayLabel(slot.startsAt),
+        slots: [slot]
+      });
     }
 
-    return selected.length > 0
-      ? selected
-      : slots.slice(0, maxSlots).map((slot) => ({
-          startsAt: slot.startsAt,
-          label: slot.label
-        }));
+    return Array.from(days.values()).slice(0, maxDays);
+  }
+
+  private pickSlotsForDay(slots: OfferedSlot[], maxSlots = 10) {
+    return slots.slice(0, maxSlots).map((slot) => ({
+      startsAt: slot.startsAt,
+      label: slot.label
+    }));
   }
 
   private parseDateIntent(text: string): DateIntent | undefined {
@@ -645,7 +750,31 @@ export class AiSchedulingService {
       return slots[numericChoice - 1];
     }
 
-    return slots.find((slot) => slot.label.toLowerCase() === normalized);
+    return slots.find((slot) => {
+      const label = slot.label.toLowerCase();
+      const time = this.formatTimeLabel(slot.startsAt).toLowerCase();
+      return label === normalized || time === normalized;
+    });
+  }
+
+  private findSelectedDay(text: string, days: OfferedDay[]) {
+    const normalized = this.normalizeText(text);
+    const numericChoice = Number.parseInt(normalized, 10);
+
+    if (
+      Number.isInteger(numericChoice) &&
+      numericChoice >= 1 &&
+      numericChoice <= days.length
+    ) {
+      return days[numericChoice - 1];
+    }
+
+    const requestedWeekday = this.findRequestedWeekday(normalized);
+    if (requestedWeekday !== undefined) {
+      return days.find((day) => new Date(`${day.dateKey}T12:00:00`).getDay() === requestedWeekday);
+    }
+
+    return days.find((day) => this.normalizeText(day.label) === normalized);
   }
 
   private formatServiceOptions(services: ServiceRecord[]) {
@@ -672,8 +801,22 @@ export class AiSchedulingService {
     return categories.map((category, index) => `${index + 1}. ${category}`).join("\n");
   }
 
-  private formatSlotOptions(slots: OfferedSlot[]) {
-    return slots.map((slot, index) => `${index + 1}. ${slot.label}`).join("\n");
+  private formatDayOptions(days: OfferedDay[]) {
+    return days
+      .map((day, index) => {
+        const count = day.slots.length;
+        return `${index + 1}. ${day.label} (${count} horario${count === 1 ? "" : "s"})`;
+      })
+      .join("\n");
+  }
+
+  private formatSlotOptions(slots: OfferedSlot[], mode: "full" | "time" = "full") {
+    return slots
+      .map((slot, index) => {
+        const label = mode === "time" ? this.formatTimeLabel(slot.startsAt) : slot.label;
+        return `${index + 1}. ${label}`;
+      })
+      .join("\n");
   }
 
   private formatCurrency(valueCents: number) {
@@ -681,6 +824,32 @@ export class AiSchedulingService {
       style: "currency",
       currency: "BRL"
     }).format(valueCents / 100);
+  }
+
+  private slotDateKey(startsAt: string) {
+    return new Intl.DateTimeFormat("en-CA", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+      year: "numeric"
+    }).format(new Date(startsAt));
+  }
+
+  private formatDayLabel(startsAt: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+      weekday: "long"
+    }).format(new Date(startsAt));
+  }
+
+  private formatTimeLabel(startsAt: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/Sao_Paulo"
+    }).format(new Date(startsAt));
   }
 
   private normalizeIncomingMessage(payload: EvolutionWebhookPayload): IncomingWhatsAppMessage {
