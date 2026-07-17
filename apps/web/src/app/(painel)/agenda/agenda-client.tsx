@@ -7,13 +7,15 @@ import {
   Edit3,
   Plus,
   Save,
+  ToggleLeft,
+  ToggleRight,
   Trash2,
   X
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency, formatTime } from "../lib/format";
-import type { Appointment, Service } from "../lib/types";
+import type { Appointment, AvailabilityRule, Service } from "../lib/types";
 
 const workdayStartHour = 8;
 const workdayEndHour = 18;
@@ -44,11 +46,36 @@ type AgendaEditor = {
   priceCents: number;
 };
 
+type AvailabilityForm = {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  lunchStart: string;
+  lunchEnd: string;
+  slotIntervalMinutes: string;
+  bufferMinutes: string;
+  minimumNoticeMinutes: string;
+  active: boolean;
+  exists: boolean;
+};
+
+const weekdays = [
+  { value: 1, label: "Segunda" },
+  { value: 2, label: "Terca" },
+  { value: 3, label: "Quarta" },
+  { value: 4, label: "Quinta" },
+  { value: 5, label: "Sexta" },
+  { value: 6, label: "Sabado" },
+  { value: 0, label: "Domingo" }
+];
+
 export function AgendaClient({
   appointments,
+  availabilityRules,
   services
 }: {
   appointments: Appointment[];
+  availabilityRules: AvailabilityRule[];
   services: Service[];
 }) {
   const days = useMemo(() => buildDays(21), []);
@@ -421,6 +448,8 @@ export function AgendaClient({
         </div>
       </Card>
 
+      <AvailabilitySettings initialRules={availabilityRules} />
+
       {editor ? (
         <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-3 backdrop-blur-sm md:items-center md:justify-center">
           <section
@@ -535,6 +564,301 @@ export function AgendaClient({
       ) : null}
     </div>
   );
+}
+
+function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule[] }) {
+  const [rules, setRules] = useState(() => defaultAvailabilityForms(initialRules));
+  const [selectedDay, setSelectedDay] = useState("all");
+  const [allRule, setAllRule] = useState<AvailabilityForm>(() => defaultAllAvailabilityForm());
+  const [savingWeekday, setSavingWeekday] = useState<number | undefined>();
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const selectedRule =
+    selectedDay === "all"
+      ? allRule
+      : rules.find((rule) => String(rule.weekday) === selectedDay) || rules[0];
+
+  function updateRule(weekday: number, patch: Partial<AvailabilityForm>) {
+    setMessage("");
+    setError("");
+
+    if (weekday === -1) {
+      setAllRule((current) => ({ ...current, ...patch }));
+      return;
+    }
+
+    setRules((current) =>
+      current.map((rule) => (rule.weekday === weekday ? { ...rule, ...patch } : rule))
+    );
+  }
+
+  async function reloadRules() {
+    const response = await fetch(`${apiUrl}/availability-rules`, {
+      cache: "no-store",
+      credentials: "include"
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    setRules(defaultAvailabilityForms((await response.json()) as AvailabilityRule[]));
+  }
+
+  async function saveRule(rule: AvailabilityForm) {
+    setSavingWeekday(rule.weekday);
+    setMessage("");
+    setError("");
+
+    try {
+      const rulesToSave =
+        rule.weekday === -1
+          ? weekdays.map((weekday) => ({
+              ...rule,
+              weekday: weekday.value,
+              exists: rules.find((item) => item.weekday === weekday.value)?.exists || false
+            }))
+          : [rule];
+
+      for (const targetRule of rulesToSave) {
+        const payload = {
+          weekday: targetRule.weekday,
+          startTime: targetRule.startTime,
+          endTime: targetRule.endTime,
+          lunchStart: targetRule.lunchStart || null,
+          lunchEnd: targetRule.lunchEnd || null,
+          slotIntervalMinutes:
+            targetRule.slotIntervalMinutes === "auto"
+              ? null
+              : Number.parseInt(targetRule.slotIntervalMinutes, 10),
+          bufferMinutes: Number.parseInt(targetRule.bufferMinutes, 10) || 0,
+          minimumNoticeMinutes: Number.parseInt(targetRule.minimumNoticeMinutes, 10) || 0,
+          active: targetRule.active
+        };
+
+        const response = await fetch(
+          targetRule.exists
+            ? `${apiUrl}/availability-rules/${targetRule.weekday}`
+            : `${apiUrl}/availability-rules`,
+          {
+            method: targetRule.exists ? "PATCH" : "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload)
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+      }
+
+      await reloadRules();
+      setMessage(rule.weekday === -1 ? "Horarios aplicados para todos os dias." : "Horario salvo.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar os horarios.");
+    } finally {
+      setSavingWeekday(undefined);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <SectionTitle
+        subtitle="Escolha um dia, ajuste a regra e salve. Use todos para repetir a configuracao."
+        title="Horarios de atendimento"
+      />
+
+      <div className="mt-5 rounded-3xl bg-slate-50 p-4">
+        <div className="grid gap-3 md:grid-cols-[minmax(220px,320px)_auto] md:items-end md:justify-between">
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-700">Dia da semana</span>
+            <select
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+              onChange={(event) => setSelectedDay(event.target.value)}
+              value={selectedDay}
+            >
+              <option value="all">Todos os dias</option>
+              {weekdays.map((weekday) => (
+                <option key={weekday.value} value={weekday.value}>
+                  {weekday.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+            onClick={() => updateRule(selectedRule.weekday, { active: !selectedRule.active })}
+            type="button"
+          >
+            {selectedRule.active ? (
+              <ToggleRight className="text-emerald-600" size={19} />
+            ) : (
+              <ToggleLeft className="text-slate-400" size={19} />
+            )}
+            {selectedRule.active ? "Dia ativo" : "Dia inativo"}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <TimeField
+            label="Inicio"
+            onChange={(value) => updateRule(selectedRule.weekday, { startTime: value })}
+            value={selectedRule.startTime}
+          />
+          <TimeField
+            label="Fim"
+            onChange={(value) => updateRule(selectedRule.weekday, { endTime: value })}
+            value={selectedRule.endTime}
+          />
+          <TimeField
+            label="Almoco inicio"
+            onChange={(value) => updateRule(selectedRule.weekday, { lunchStart: value })}
+            value={selectedRule.lunchStart}
+          />
+          <TimeField
+            label="Almoco fim"
+            onChange={(value) => updateRule(selectedRule.weekday, { lunchEnd: value })}
+            value={selectedRule.lunchEnd}
+          />
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-xs font-bold uppercase text-slate-500">Inicios a cada</span>
+            <select
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+              onChange={(event) =>
+                updateRule(selectedRule.weekday, { slotIntervalMinutes: event.target.value })
+              }
+              value={selectedRule.slotIntervalMinutes}
+            >
+              <option value="auto">Automatico</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </label>
+          <NumberField
+            label="Pausa apos atendimento"
+            onChange={(value) => updateRule(selectedRule.weekday, { bufferMinutes: value })}
+            value={selectedRule.bufferMinutes}
+          />
+          <NumberField
+            label="Antecedencia minima"
+            onChange={(value) => updateRule(selectedRule.weekday, { minimumNoticeMinutes: value })}
+            value={selectedRule.minimumNoticeMinutes}
+          />
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-5 text-slate-500">
+            Automatico usa a duracao do servico escolhido no WhatsApp mais a pausa apos o atendimento.
+          </p>
+          <button
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+            disabled={savingWeekday === selectedRule.weekday}
+            onClick={() => void saveRule(selectedRule)}
+            type="button"
+          >
+            <Save size={17} />
+            {savingWeekday === selectedRule.weekday ? "Salvando..." : "Salvar horario"}
+          </button>
+        </div>
+
+        {message ? (
+          <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
+        ) : null}
+        {error ? (
+          <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
+function TimeField({
+  label,
+  onChange,
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold uppercase text-slate-500">{label}</span>
+      <input
+        className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+        onChange={(event) => onChange(event.target.value)}
+        type="time"
+        value={value}
+      />
+    </label>
+  );
+}
+
+function NumberField({
+  label,
+  onChange,
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold uppercase text-slate-500">{label}</span>
+      <input
+        className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+        inputMode="numeric"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[] {
+  return weekdays.map((weekday) => {
+    const rule = rules.find((item) => item.weekday === weekday.value);
+
+    return {
+      weekday: weekday.value,
+      startTime: trimTime(rule?.start_time) || "09:00",
+      endTime: trimTime(rule?.end_time) || "18:00",
+      lunchStart: trimTime(rule?.lunch_start) || "12:00",
+      lunchEnd: trimTime(rule?.lunch_end) || "13:00",
+      slotIntervalMinutes: rule?.slot_interval_minutes ? String(rule.slot_interval_minutes) : "auto",
+      bufferMinutes: String(rule?.buffer_minutes ?? 0),
+      minimumNoticeMinutes: String(rule?.minimum_notice_minutes ?? 120),
+      active: rule?.active ?? (weekday.value >= 1 && weekday.value <= 5),
+      exists: Boolean(rule)
+    };
+  });
+}
+
+function defaultAllAvailabilityForm(): AvailabilityForm {
+  return {
+    weekday: -1,
+    startTime: "09:00",
+    endTime: "18:00",
+    lunchStart: "12:00",
+    lunchEnd: "13:00",
+    slotIntervalMinutes: "auto",
+    bufferMinutes: "0",
+    minimumNoticeMinutes: "120",
+    active: true,
+    exists: false
+  };
+}
+
+function trimTime(value?: string | null) {
+  return value ? value.slice(0, 5) : "";
 }
 
 function buildDays(amount: number) {

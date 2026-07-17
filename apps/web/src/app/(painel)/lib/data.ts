@@ -1,6 +1,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { AccountProfessional, Appointment, Client, Dashboard, OnboardingStatus, PanelData, Service } from "./types";
+import type {
+  AccountProfessional,
+  Appointment,
+  AvailabilityRule,
+  Client,
+  Dashboard,
+  OnboardingStatus,
+  PanelData,
+  Service
+} from "./types";
 
 async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Promise<T> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
@@ -35,7 +44,7 @@ export async function getPanelData(): Promise<PanelData> {
 
   const account = (await sessionResponse.json()) as { professional: AccountProfessional };
   const professionalId = account.professional.id;
-  const [dashboard, clients, appointments, services, onboarding] = await Promise.all([
+  const [dashboard, clients, appointments, services, availabilityRules, onboarding] = await Promise.all([
     fetchJson<Dashboard>(
       "/dashboard/today",
       {
@@ -51,6 +60,7 @@ export async function getPanelData(): Promise<PanelData> {
     fetchJson<Client[]>("/clients", [], cookieHeader),
     fetchJson<Appointment[]>("/appointments/upcoming?limit=100", [], cookieHeader),
     fetchJson<Service[]>("/services", [], cookieHeader),
+    fetchJson<AvailabilityRule[]>("/availability-rules", [], cookieHeader),
     fetchJson<OnboardingStatus>(
       `/onboarding/${professionalId}/status`,
       {
@@ -73,6 +83,7 @@ export async function getPanelData(): Promise<PanelData> {
     clients,
     dashboard,
     onboarding,
-    services
+    services,
+    availabilityRules
   };
 }

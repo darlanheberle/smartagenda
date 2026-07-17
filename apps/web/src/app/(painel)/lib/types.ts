@@ -37,6 +37,19 @@ export type Service = {
   active: boolean;
 };
 
+export type AvailabilityRule = {
+  id?: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+  lunch_start?: string | null;
+  lunch_end?: string | null;
+  slot_interval_minutes?: number | null;
+  buffer_minutes: number;
+  minimum_notice_minutes: number;
+  active: boolean;
+};
+
 export type OnboardingStatus = {
   professional?: {
     id: string;
@@ -70,5 +83,6 @@ export type PanelData = {
   dashboard: Dashboard;
   onboarding: OnboardingStatus;
   services: Service[];
+  availabilityRules: AvailabilityRule[];
   apiUrl: string;
 };
