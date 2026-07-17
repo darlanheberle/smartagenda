@@ -400,7 +400,8 @@ export class CalendarService {
     daysAhead: number;
     rules: AvailabilityRule[];
   }): CalendarSlot[] {
-    const maxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "30", 10);
+    const configuredMaxSlots = Number.parseInt(process.env.MAX_AVAILABILITY_SLOTS || "30", 10);
+    const maxSlots = Math.max(configuredMaxSlots, input.daysAhead * 24 * 60);
     const slots: CalendarSlot[] = [];
     const now = new Date();
     const searchStart = input.searchStart > now ? input.searchStart : now;
@@ -421,6 +422,11 @@ export class CalendarService {
 
       const startMinute = this.timeToMinutes(rule.start_time);
       const endMinute = this.timeToMinutes(rule.end_time);
+
+      if (endMinute <= startMinute) {
+        continue;
+      }
+
       const lunchStart = rule.lunch_start ? this.timeToMinutes(rule.lunch_start) : undefined;
       const lunchEnd = rule.lunch_end ? this.timeToMinutes(rule.lunch_end) : undefined;
       const minimumStart = new Date(now.getTime() + rule.minimum_notice_minutes * 60 * 1000);

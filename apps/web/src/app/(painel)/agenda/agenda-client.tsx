@@ -98,9 +98,10 @@ export function AgendaClient({
   const selectedService = serviceOptions.find((service) => service.id === selectedServiceId) || serviceOptions[0];
   const slotDurationMinutes = selectedService?.duration_minutes || 60;
   const selectedDay = days.find((day) => day.key === selectedDayKey) || days[0];
+  const selectedAvailabilityRule = getAvailabilityRuleForDate(availabilityRules, selectedDay.date);
   const slots = useMemo(
-    () => buildSlots(selectedDay.date, slotDurationMinutes),
-    [selectedDay.date, slotDurationMinutes]
+    () => buildSlots(selectedDay.date, slotDurationMinutes, selectedAvailabilityRule),
+    [selectedAvailabilityRule, selectedDay.date, slotDurationMinutes]
   );
   const selectedAppointments = appointmentsState.filter(
     (appointment) => dateKey(new Date(appointment.starts_at)) === selectedDay.key
@@ -369,6 +370,11 @@ export function AgendaClient({
           </label>
         ) : null}
         <div className="mt-5 space-y-3">
+          {slots.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+              Este dia esta fechado ou sem horario de atendimento cadastrado para a duracao escolhida.
+            </div>
+          ) : null}
           {slots.map((slot) => {
             const overlappingAppointments = selectedAppointments.filter((appointment) =>
               appointmentOverlapsSlot(appointment, slot)
@@ -899,13 +905,39 @@ function timePartsInSaoPaulo(value: string) {
   };
 }
 
-function buildSlots(day: Date, durationMinutes: number): AgendaSlot[] {
+function buildSlots(day: Date, durationMinutes: number, rule?: AvailabilityRule | null): AgendaSlot[] {
   const normalizedDuration = Math.max(15, durationMinutes || 60);
-  const firstMinute = workdayStartHour * 60;
-  const lastMinute = workdayEndHour * 60;
+  if (rule === null) {
+    return [];
+  }
+
+  const firstMinute = rule ? timeToMinutes(rule.start_time) : workdayStartHour * 60;
+  const lastMinute = rule ? timeToMinutes(rule.end_time) : workdayEndHour * 60;
+  const lunchStart = rule?.lunch_start ? timeToMinutes(rule.lunch_start) : undefined;
+  const lunchEnd = rule?.lunch_end ? timeToMinutes(rule.lunch_end) : undefined;
+  const stepMinutes =
+    rule?.slot_interval_minutes && rule.slot_interval_minutes > 0
+      ? rule.slot_interval_minutes
+      : normalizedDuration + (rule?.buffer_minutes || 0);
   const slots: AgendaSlot[] = [];
 
-  for (let minuteOfDay = firstMinute; minuteOfDay + normalizedDuration <= lastMinute; minuteOfDay += normalizedDuration) {
+  if (lastMinute <= firstMinute) {
+    return slots;
+  }
+
+  for (let minuteOfDay = firstMinute; minuteOfDay + normalizedDuration <= lastMinute; minuteOfDay += stepMinutes) {
+    const appointmentEndMinute = minuteOfDay + normalizedDuration;
+
+    if (
+      lunchStart !== undefined &&
+      lunchEnd !== undefined &&
+      minuteOfDay < lunchEnd &&
+      appointmentEndMinute > lunchStart
+    ) {
+      minuteOfDay = lunchEnd - stepMinutes;
+      continue;
+    }
+
     const hour = Math.floor(minuteOfDay / 60);
     const minute = minuteOfDay % 60;
     const start = new Date(day);
@@ -925,6 +957,53 @@ function buildSlots(day: Date, durationMinutes: number): AgendaSlot[] {
   }
 
   return slots;
+}
+
+function getAvailabilityRuleForDate(rules: AvailabilityRule[], date: Date) {
+  const weekday = weekdayForDate(date);
+
+  if (rules.length === 0) {
+    if (weekday === 0 || weekday === 6) {
+      return null;
+    }
+
+    return {
+      weekday,
+      start_time: `${String(workdayStartHour).padStart(2, "0")}:00`,
+      end_time: `${String(workdayEndHour).padStart(2, "0")}:00`,
+      lunch_start: null,
+      lunch_end: null,
+      slot_interval_minutes: null,
+      buffer_minutes: 0,
+      minimum_notice_minutes: 120,
+      active: true
+    } as AvailabilityRule;
+  }
+
+  return rules.find((rule) => rule.weekday === weekday && rule.active) || null;
+}
+
+function weekdayForDate(date: Date) {
+  const value = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short"
+  }).format(date);
+  const weekdaysByName: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6
+  };
+
+  return weekdaysByName[value] ?? date.getDay();
+}
+
+function timeToMinutes(time: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + (minute || 0);
 }
 
 function suggestedSlot(slots: AgendaSlot[], isToday: boolean) {
