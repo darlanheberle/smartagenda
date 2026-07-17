@@ -108,6 +108,44 @@ export class AppController {
     };
   }
 
+  @Get("profile/branding")
+  async professionalBranding(@Req() request: Request) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    const professional = await this.database.getProfessional(professionalId);
+
+    if (!professional) {
+      throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    return this.toProfessionalBranding(professional);
+  }
+
+  @Patch("profile/branding")
+  async updateProfessionalBranding(
+    @Req() request: Request,
+    @Body()
+    input: {
+      logoUrl?: string | null;
+      themePrimary?: string | null;
+      themePrimaryDark?: string | null;
+      themeAccent?: string | null;
+      themeBackground?: string | null;
+      themeSurface?: string | null;
+      themeText?: string | null;
+      themeSuccess?: string | null;
+    }
+  ) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    this.validateBrandingInput(input);
+    const professional = await this.database.updateProfessionalBranding(professionalId, input);
+
+    if (!professional) {
+      throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    return this.toProfessionalBranding(professional);
+  }
+
   @Post("auth/logout")
   logout(@Res({ passthrough: true }) response: Response) {
     this.auth.clearSession(response);
@@ -718,7 +756,21 @@ export class AppController {
       specialty: professional.specialty,
       gmail: professional.gmail,
       whatsappNumber: professional.whatsapp_number,
-      timezone: professional.timezone
+      timezone: professional.timezone,
+      branding: this.toProfessionalBranding(professional)
+    };
+  }
+
+  private toProfessionalBranding(professional: ProfessionalRecord) {
+    return {
+      logoUrl: professional.logo_url || null,
+      themePrimary: professional.theme_primary || "#7c3aed",
+      themePrimaryDark: professional.theme_primary_dark || "#6d28d9",
+      themeAccent: professional.theme_accent || "#4f46e5",
+      themeBackground: professional.theme_background || "#f8fafc",
+      themeSurface: professional.theme_surface || "#ffffff",
+      themeText: professional.theme_text || "#0f172a",
+      themeSuccess: professional.theme_success || "#059669"
     };
   }
 
@@ -764,6 +816,31 @@ export class AppController {
 
     if (input.minimumNoticeMinutes !== undefined && input.minimumNoticeMinutes < 0) {
       throw new BadRequestException("minimumNoticeMinutes nao pode ser negativo.");
+    }
+  }
+
+  private validateBrandingInput(input: {
+    logoUrl?: string | null;
+    themePrimary?: string | null;
+    themePrimaryDark?: string | null;
+    themeAccent?: string | null;
+    themeBackground?: string | null;
+    themeSurface?: string | null;
+    themeText?: string | null;
+    themeSuccess?: string | null;
+  }) {
+    if (input.logoUrl && input.logoUrl.length > 300000) {
+      throw new BadRequestException("A imagem do logo esta muito grande.");
+    }
+
+    for (const [key, value] of Object.entries(input)) {
+      if (key === "logoUrl" || value === undefined || value === null || value === "") {
+        continue;
+      }
+
+      if (!/^#[0-9a-f]{6}$/i.test(String(value))) {
+        throw new BadRequestException(`${key} precisa estar no formato hexadecimal #RRGGBB.`);
+      }
     }
   }
 

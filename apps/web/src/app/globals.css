@@ -63,6 +63,94 @@ a:active {
   color: #2e1065;
 }
 
+.professional-theme {
+  --theme-primary: #7c3aed;
+  --theme-primary-dark: #6d28d9;
+  --theme-accent: #4f46e5;
+  --theme-background: #f8fafc;
+  --theme-surface: #ffffff;
+  --theme-text: #0f172a;
+  --theme-success: #059669;
+  background: var(--theme-background);
+  color: var(--theme-text);
+}
+
+.professional-theme .bg-slate-50 {
+  background-color: var(--theme-background) !important;
+}
+
+.professional-theme .bg-white {
+  background-color: var(--theme-surface) !important;
+}
+
+.professional-theme .text-slate-950,
+.professional-theme .text-slate-900 {
+  color: var(--theme-text) !important;
+}
+
+.professional-theme .bg-violet-600 {
+  background-color: var(--theme-primary) !important;
+}
+
+.professional-theme .hover\:bg-violet-700:hover,
+.professional-theme .bg-violet-700 {
+  background-color: var(--theme-primary-dark) !important;
+}
+
+.professional-theme .text-violet-700,
+.professional-theme .text-violet-600,
+.professional-theme .hover\:text-violet-700:hover {
+  color: var(--theme-primary) !important;
+}
+
+.professional-theme .bg-violet-50,
+.professional-theme .hover\:bg-violet-50:hover {
+  background-color: color-mix(in srgb, var(--theme-primary) 10%, white) !important;
+}
+
+.professional-theme .bg-violet-100 {
+  background-color: color-mix(in srgb, var(--theme-primary) 16%, white) !important;
+}
+
+.professional-theme .border-violet-600 {
+  border-color: var(--theme-primary) !important;
+}
+
+.professional-theme .border-violet-100,
+.professional-theme .hover\:border-violet-100:hover {
+  border-color: color-mix(in srgb, var(--theme-primary) 18%, white) !important;
+}
+
+.professional-theme .shadow-violet-200 {
+  --tw-shadow-color: color-mix(in srgb, var(--theme-primary) 28%, transparent) !important;
+  --tw-shadow: var(--tw-shadow-colored) !important;
+}
+
+.professional-theme .from-violet-600 {
+  --tw-gradient-from: var(--theme-primary) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--theme-primary) 0%, transparent) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.professional-theme .via-violet-500 {
+  --tw-gradient-to: color-mix(in srgb, var(--theme-primary) 0%, transparent) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--theme-primary-dark) var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+.professional-theme .to-indigo-500 {
+  --tw-gradient-to: var(--theme-accent) var(--tw-gradient-to-position) !important;
+}
+
+.professional-theme .bg-emerald-500,
+.professional-theme .bg-emerald-600 {
+  background-color: var(--theme-success) !important;
+}
+
+.professional-theme .text-emerald-600,
+.professional-theme .text-emerald-700 {
+  color: var(--theme-success) !important;
+}
+
 @layer utilities {
   .font-display {
     font-family: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;

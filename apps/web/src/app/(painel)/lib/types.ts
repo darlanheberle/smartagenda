@@ -37,6 +37,17 @@ export type Service = {
   active: boolean;
 };
 
+export type ProfessionalBranding = {
+  logoUrl?: string | null;
+  themePrimary: string;
+  themePrimaryDark: string;
+  themeAccent: string;
+  themeBackground: string;
+  themeSurface: string;
+  themeText: string;
+  themeSuccess: string;
+};
+
 export type AvailabilityRule = {
   id?: string;
   weekday: number;
@@ -74,6 +85,8 @@ export type AccountProfessional = {
   specialty?: string;
   gmail: string;
   whatsappNumber: string;
+  timezone?: string;
+  branding?: ProfessionalBranding;
 };
 
 export type PanelData = {

@@ -106,6 +106,17 @@ export type CreateAvailabilityInput = {
 
 export type UpdateAvailabilityInput = Partial<Omit<CreateAvailabilityInput, "professionalId">>;
 
+export type ProfessionalBrandingInput = {
+  logoUrl?: string | null;
+  themePrimary?: string | null;
+  themePrimaryDark?: string | null;
+  themeAccent?: string | null;
+  themeBackground?: string | null;
+  themeSurface?: string | null;
+  themeText?: string | null;
+  themeSuccess?: string | null;
+};
+
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
@@ -146,6 +157,17 @@ export class DatabaseService implements OnModuleInit {
     await this.pool.query(`
       alter table professionals
       add column if not exists password_hash text
+    `);
+    await this.pool.query(`
+      alter table professionals
+      add column if not exists logo_url text,
+      add column if not exists theme_primary text,
+      add column if not exists theme_primary_dark text,
+      add column if not exists theme_accent text,
+      add column if not exists theme_background text,
+      add column if not exists theme_surface text,
+      add column if not exists theme_text text,
+      add column if not exists theme_success text
     `);
     await this.pool.query(`
       create table if not exists google_calendar_connections (
@@ -356,6 +378,42 @@ export class DatabaseService implements OnModuleInit {
         returning *
       `,
       [professionalId, passwordHash]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async updateProfessionalBranding(professionalId: string, input: ProfessionalBrandingInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals set
+          logo_url = $2,
+          theme_primary = $3,
+          theme_primary_dark = $4,
+          theme_accent = $5,
+          theme_background = $6,
+          theme_surface = $7,
+          theme_text = $8,
+          theme_success = $9,
+          updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [
+        professionalId,
+        this.normalizeOptionalText(input.logoUrl),
+        this.normalizeOptionalText(input.themePrimary),
+        this.normalizeOptionalText(input.themePrimaryDark),
+        this.normalizeOptionalText(input.themeAccent),
+        this.normalizeOptionalText(input.themeBackground),
+        this.normalizeOptionalText(input.themeSurface),
+        this.normalizeOptionalText(input.themeText),
+        this.normalizeOptionalText(input.themeSuccess)
+      ]
     );
 
     return result.rows[0] as ProfessionalRecord | undefined;

@@ -139,6 +139,14 @@ export class ProfessionalRegistryService implements OnApplicationBootstrap {
       gmail: record.gmail,
       timezone: record.timezone,
       appointmentDurationMinutes: record.appointment_duration_minutes,
+      logoUrl: record.logo_url,
+      themePrimary: record.theme_primary,
+      themePrimaryDark: record.theme_primary_dark,
+      themeAccent: record.theme_accent,
+      themeBackground: record.theme_background,
+      themeSurface: record.theme_surface,
+      themeText: record.theme_text,
+      themeSuccess: record.theme_success,
       createdAt: new Date(record.created_at).toISOString()
     };
   }
