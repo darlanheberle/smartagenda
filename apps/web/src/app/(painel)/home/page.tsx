@@ -14,9 +14,9 @@ import {
   Wallet
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Card, IconBox, Pill, SectionTitle } from "./components/ui";
-import { firstName, formatCurrency, formatDuration, formatRelativeStart, formatTime } from "./lib/format";
-import { getPanelData } from "./lib/data";
+import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
+import { firstName, formatCurrency, formatDuration, formatRelativeStart, formatTime } from "../lib/format";
+import { getPanelData } from "../lib/data";
 
 export const dynamic = "force-dynamic";
 

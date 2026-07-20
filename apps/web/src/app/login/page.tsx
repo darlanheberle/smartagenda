@@ -229,7 +229,7 @@ function LoginFallback() {
 }
 
 function safeNextPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/home";
 }
 
 async function readError(response: Response) {

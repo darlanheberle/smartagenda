@@ -10,7 +10,7 @@ import type { AccountProfessional, OnboardingStatus, ProfessionalBranding } from
 import { Avatar } from "./ui";
 
 const navItems = [
-  { href: "/", icon: Home, label: "Hoje" },
+  { href: "/home", icon: Home, label: "Hoje" },
   { href: "/agenda", icon: Calendar, label: "Agenda" },
   { href: "/clientes", icon: Users, label: "Clientes" },
   { href: "/financeiro", icon: Wallet, label: "Financeiro" },
@@ -31,13 +31,13 @@ export function PanelShell({
   const pathname = usePathname();
   const themeStyle = buildThemeStyle(account.branding);
 
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <div className="professional-theme min-h-screen bg-slate-50 text-slate-950" style={themeStyle}>
       <header className="fixed inset-x-0 top-0 z-40 bg-slate-50/95 px-4 py-4 pt-safe backdrop-blur md:hidden">
         <div className="flex items-center justify-between gap-3">
-          <Link className="flex min-h-11 items-center gap-3" href="/">
+          <Link className="flex min-h-11 items-center gap-3" href="/home">
             <BrandMark account={account} size="sm" />
             <span>
               <span className="block font-display text-base font-bold text-slate-900">SmartAgenda</span>
@@ -58,7 +58,7 @@ export function PanelShell({
       </header>
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200/80 bg-white px-4 py-5 md:flex md:flex-col">
-        <Link className="flex min-h-12 items-center gap-3 rounded-3xl px-2" href="/">
+        <Link className="flex min-h-12 items-center gap-3 rounded-3xl px-2" href="/home">
           <BrandMark account={account} />
           <span>
             <span className="block font-display text-lg font-bold">SmartAgenda</span>
