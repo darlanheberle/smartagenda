@@ -52,9 +52,6 @@ type AvailabilityForm = {
   endTime: string;
   lunchStart: string;
   lunchEnd: string;
-  slotIntervalMinutes: string;
-  bufferMinutes: string;
-  minimumNoticeMinutes: string;
   active: boolean;
   exists: boolean;
 };
@@ -633,12 +630,9 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
           endTime: targetRule.endTime,
           lunchStart: targetRule.lunchStart || null,
           lunchEnd: targetRule.lunchEnd || null,
-          slotIntervalMinutes:
-            targetRule.slotIntervalMinutes === "auto"
-              ? null
-              : Number.parseInt(targetRule.slotIntervalMinutes, 10),
-          bufferMinutes: Number.parseInt(targetRule.bufferMinutes, 10) || 0,
-          minimumNoticeMinutes: Number.parseInt(targetRule.minimumNoticeMinutes, 10) || 0,
+          slotIntervalMinutes: null,
+          bufferMinutes: 0,
+          minimumNoticeMinutes: 120,
           active: targetRule.active
         };
 
@@ -730,38 +724,9 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
           />
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-bold uppercase text-slate-500">Inicios a cada</span>
-            <select
-              className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
-              onChange={(event) =>
-                updateRule(selectedRule.weekday, { slotIntervalMinutes: event.target.value })
-              }
-              value={selectedRule.slotIntervalMinutes}
-            >
-              <option value="auto">Automatico</option>
-              <option value="15">15 min</option>
-              <option value="30">30 min</option>
-              <option value="45">45 min</option>
-              <option value="60">60 min</option>
-            </select>
-          </label>
-          <NumberField
-            label="Pausa apos atendimento"
-            onChange={(value) => updateRule(selectedRule.weekday, { bufferMinutes: value })}
-            value={selectedRule.bufferMinutes}
-          />
-          <NumberField
-            label="Antecedencia minima"
-            onChange={(value) => updateRule(selectedRule.weekday, { minimumNoticeMinutes: value })}
-            value={selectedRule.minimumNoticeMinutes}
-          />
-        </div>
-
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-slate-500">
-            Automatico usa a duracao do servico escolhido no WhatsApp mais a pausa apos o atendimento.
+            O periodo de almoco nao aparece na agenda nem nas opcoes enviadas pelo WhatsApp.
           </p>
           <button
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
@@ -807,28 +772,6 @@ function TimeField({
   );
 }
 
-function NumberField({
-  label,
-  onChange,
-  value
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-bold uppercase text-slate-500">{label}</span>
-      <input
-        className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-white px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
-        inputMode="numeric"
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      />
-    </label>
-  );
-}
-
 function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[] {
   return weekdays.map((weekday) => {
     const rule = rules.find((item) => item.weekday === weekday.value);
@@ -839,9 +782,6 @@ function defaultAvailabilityForms(rules: AvailabilityRule[]): AvailabilityForm[]
       endTime: trimTime(rule?.end_time) || "18:00",
       lunchStart: trimTime(rule?.lunch_start) || "12:00",
       lunchEnd: trimTime(rule?.lunch_end) || "13:00",
-      slotIntervalMinutes: rule?.slot_interval_minutes ? String(rule.slot_interval_minutes) : "auto",
-      bufferMinutes: String(rule?.buffer_minutes ?? 0),
-      minimumNoticeMinutes: String(rule?.minimum_notice_minutes ?? 120),
       active: rule?.active ?? (weekday.value >= 1 && weekday.value <= 5),
       exists: Boolean(rule)
     };
@@ -855,9 +795,6 @@ function defaultAllAvailabilityForm(): AvailabilityForm {
     endTime: "18:00",
     lunchStart: "12:00",
     lunchEnd: "13:00",
-    slotIntervalMinutes: "auto",
-    bufferMinutes: "0",
-    minimumNoticeMinutes: "120",
     active: true,
     exists: false
   };
