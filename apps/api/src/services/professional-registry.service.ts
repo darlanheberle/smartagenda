@@ -139,6 +139,7 @@ export class ProfessionalRegistryService implements OnApplicationBootstrap {
       gmail: record.gmail,
       timezone: record.timezone,
       appointmentDurationMinutes: record.appointment_duration_minutes,
+      aiEnabled: record.ai_enabled !== false,
       logoUrl: record.logo_url,
       themePrimary: record.theme_primary,
       themePrimaryDark: record.theme_primary_dark,

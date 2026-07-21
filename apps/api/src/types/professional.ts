@@ -16,6 +16,7 @@ export type Professional = {
   gmail: string;
   timezone: string;
   appointmentDurationMinutes: number;
+  aiEnabled?: boolean;
   googleCalendar?: GoogleCalendarConnection;
   logoUrl?: string | null;
   themePrimary?: string | null;
@@ -48,6 +49,7 @@ export type ProfessionalRecord = {
   gmail: string;
   timezone: string;
   appointment_duration_minutes: number;
+  ai_enabled: boolean;
   whatsapp_status: string;
   whatsapp_connected_at?: string | null;
   onboarding_completed_at?: string | null;

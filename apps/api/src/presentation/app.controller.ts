@@ -146,6 +146,46 @@ export class AppController {
     return this.toProfessionalBranding(professional);
   }
 
+  @Get("profile/assistant")
+  async professionalAssistant(@Req() request: Request) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    const professional = await this.database.getProfessional(professionalId);
+
+    if (!professional) {
+      throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    return {
+      enabled: professional.ai_enabled !== false,
+      updatedAt: professional.updated_at
+    };
+  }
+
+  @Patch("profile/assistant")
+  async updateProfessionalAssistant(
+    @Req() request: Request,
+    @Body() input: { enabled?: boolean }
+  ) {
+    if (typeof input.enabled !== "boolean") {
+      throw new BadRequestException("enabled precisa ser verdadeiro ou falso.");
+    }
+
+    const professionalId = this.auth.requireProfessionalId(request);
+    const professional = await this.database.updateProfessionalAiEnabled(
+      professionalId,
+      input.enabled
+    );
+
+    if (!professional) {
+      throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    return {
+      enabled: professional.ai_enabled !== false,
+      updatedAt: professional.updated_at
+    };
+  }
+
   @Post("auth/logout")
   logout(@Res({ passthrough: true }) response: Response) {
     this.auth.clearSession(response);
@@ -757,6 +797,7 @@ export class AppController {
       gmail: professional.gmail,
       whatsappNumber: professional.whatsapp_number,
       timezone: professional.timezone,
+      aiEnabled: professional.ai_enabled !== false,
       branding: this.toProfessionalBranding(professional)
     };
   }

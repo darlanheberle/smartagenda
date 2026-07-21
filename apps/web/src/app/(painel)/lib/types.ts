@@ -86,6 +86,7 @@ export type AccountProfessional = {
   gmail: string;
   whatsappNumber: string;
   timezone?: string;
+  aiEnabled?: boolean;
   branding?: ProfessionalBranding;
 };
 

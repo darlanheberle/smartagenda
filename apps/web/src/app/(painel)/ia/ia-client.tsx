@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Loader2, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Avatar, Card, Pill, SectionTitle } from "../components/ui";
@@ -8,18 +8,58 @@ import { formatTime } from "../lib/format";
 import type { Appointment, Client, Dashboard } from "../lib/types";
 
 export function IAClient({
+  apiUrl,
   appointments,
   clients,
   dashboard,
+  initialEnabled,
   ready
 }: {
+  apiUrl: string;
   appointments: Appointment[];
   clients: Client[];
   dashboard: Dashboard;
+  initialEnabled: boolean;
   ready: boolean;
 }) {
-  const [active, setActive] = useState(ready);
+  const [active, setActive] = useState(initialEnabled);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: "error" | "success"; text: string }>();
   const completed = appointments.filter((appointment) => appointment.status === "completed").length;
+  const operational = active && ready;
+
+  async function toggleAssistant() {
+    const nextActive = !active;
+    setSaving(true);
+    setFeedback(undefined);
+
+    try {
+      const response = await fetch(`${apiUrl}/profile/assistant`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ enabled: nextActive })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const result = (await response.json()) as { enabled: boolean };
+      setActive(result.enabled);
+      setFeedback({
+        tone: "success",
+        text: result.enabled ? "Assistente ativado com sucesso." : "Assistente pausado com sucesso."
+      });
+    } catch (error) {
+      setFeedback({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Nao foi possivel alterar o assistente."
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -29,27 +69,64 @@ export function IAClient({
         <p className="mt-1 text-sm text-slate-500">Acompanhamento das conversas e automacao de agendamentos.</p>
       </header>
 
-      <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 p-5 text-white shadow-xl shadow-emerald-200">
+      <section
+        className={`rounded-3xl bg-gradient-to-br p-5 text-white shadow-xl ${
+          operational
+            ? "from-emerald-500 to-teal-600 shadow-emerald-200"
+            : active
+              ? "from-amber-500 to-amber-600 shadow-amber-200"
+              : "from-slate-700 to-slate-900 shadow-slate-200"
+        }`}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-white/75">Controle da IA</p>
-            <h2 className="mt-3 font-display text-2xl font-bold">{active ? "Ativa e respondendo" : "Pausada"}</h2>
+            <h2 className="mt-3 font-display text-2xl font-bold">
+              {operational ? "Ativa e respondendo" : active ? "Aguardando configuracao" : "Pausada"}
+            </h2>
           </div>
           <button
             aria-label={active ? "Pausar IA" : "Ativar IA"}
+            aria-checked={active}
             className={`relative h-8 w-14 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-600 ${
               active ? "bg-white" : "bg-white/30"
-            }`}
-            onClick={() => setActive((current) => !current)}
+            } disabled:cursor-wait disabled:opacity-70`}
+            disabled={saving}
+            onClick={() => void toggleAssistant()}
+            role="switch"
             type="button"
           >
-            <span
-              className={`absolute top-1 size-6 rounded-full transition-all ${
-                active ? "left-7 bg-emerald-500" : "left-1 bg-white"
-              }`}
-            />
+            {saving ? (
+              <Loader2
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin text-emerald-600"
+                size={18}
+              />
+            ) : (
+              <span
+                className={`absolute top-1 size-6 rounded-full transition-[left,background-color] ${
+                  active ? "left-7 bg-emerald-500" : "left-1 bg-white"
+                }`}
+              />
+            )}
           </button>
         </div>
+        <p className="mt-2 text-sm text-white/75" aria-live="polite">
+          {feedback?.tone === "success"
+            ? feedback.text
+            : operational
+              ? "Novas mensagens do WhatsApp serao atendidas automaticamente."
+              : active
+                ? "Conclua as integracoes pendentes para iniciar o atendimento."
+                : "Novas mensagens nao receberao resposta automatica."}
+        </p>
+        {feedback?.tone === "error" ? (
+          <p
+            className="mt-2 rounded-2xl bg-rose-950/35 px-3 py-2 text-sm font-medium text-white"
+            role="alert"
+          >
+            {feedback.text}
+          </p>
+        ) : null}
         <div className="mt-5 flex items-center gap-3">
           <span className="grid size-12 place-items-center rounded-2xl bg-white/20">
             <Sparkles size={24} />
@@ -143,3 +220,14 @@ const fallbackClients: Client[] = [
   { id: "fallback-1", name: "Cliente novo", updated_at: new Date().toISOString() },
   { id: "fallback-2", name: "Lead WhatsApp", updated_at: new Date().toISOString() }
 ];
+
+async function readError(response: Response) {
+  const text = await response.text();
+
+  try {
+    const payload = JSON.parse(text) as { message?: string };
+    return payload.message || "Nao foi possivel alterar o assistente.";
+  } catch {
+    return text || "Nao foi possivel alterar o assistente.";
+  }
+}

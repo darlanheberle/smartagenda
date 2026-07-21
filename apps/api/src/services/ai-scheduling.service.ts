@@ -93,6 +93,19 @@ export class AiSchedulingService {
     }
 
     const pendingKey = `${professional.id}:${incoming.customerPhone}`;
+    const storedProfessional = await this.database.getProfessional(professional.id);
+
+    if (storedProfessional?.ai_enabled === false) {
+      this.pendingChoices.delete(pendingKey);
+      return {
+        received: true,
+        ignored: true,
+        status: "assistant_paused",
+        professionalId: professional.id,
+        instanceName: incoming.instanceName
+      };
+    }
+
     const pending = this.pendingChoices.get(pendingKey);
 
     if (pending && this.isRestartCommand(incoming.text)) {

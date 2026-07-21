@@ -160,6 +160,10 @@ export class DatabaseService implements OnModuleInit {
     `);
     await this.pool.query(`
       alter table professionals
+      add column if not exists ai_enabled boolean not null default true
+    `);
+    await this.pool.query(`
+      alter table professionals
       add column if not exists logo_url text,
       add column if not exists theme_primary text,
       add column if not exists theme_primary_dark text,
@@ -383,6 +387,24 @@ export class DatabaseService implements OnModuleInit {
     return result.rows[0] as ProfessionalRecord | undefined;
   }
 
+  async updateProfessionalAiEnabled(professionalId: string, enabled: boolean) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals
+        set ai_enabled = $2, updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [professionalId, enabled]
+    );
+
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
   async updateProfessionalBranding(professionalId: string, input: ProfessionalBrandingInput) {
     if (!this.pool || !this.ready) {
       return undefined;
@@ -500,7 +522,8 @@ export class DatabaseService implements OnModuleInit {
         gmail: row.gmail,
         timezone: row.timezone,
         appointmentDurationMinutes: row.appointment_duration_minutes,
-        whatsappStatus: row.whatsapp_status
+        whatsappStatus: row.whatsapp_status,
+        aiEnabled: row.ai_enabled !== false
       },
       googleConnected: Boolean(row.google_connected),
       whatsappConnected: Boolean(row.whatsapp_connected),

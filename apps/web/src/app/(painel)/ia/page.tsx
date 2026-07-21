@@ -4,7 +4,16 @@ import { getPanelData } from "../lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function IAPage() {
-  const { appointments, clients, dashboard, onboarding } = await getPanelData();
+  const { account, apiUrl, appointments, clients, dashboard, onboarding } = await getPanelData();
 
-  return <IAClient appointments={appointments} clients={clients} dashboard={dashboard} ready={onboarding.ready} />;
+  return (
+    <IAClient
+      apiUrl={apiUrl}
+      appointments={appointments}
+      clients={clients}
+      dashboard={dashboard}
+      initialEnabled={account.aiEnabled !== false}
+      ready={onboarding.ready}
+    />
+  );
 }
