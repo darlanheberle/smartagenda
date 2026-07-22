@@ -22,7 +22,7 @@ export class EvolutionService {
       instanceName: input.instanceName,
       webhookUrl: input.webhookUrl
     });
-    const connection = await this.connectInstance(input.instanceName);
+    const connection = await this.connectInstance(input.instanceName, input.phone);
 
     return {
       provider: "evolution-api",
@@ -178,14 +178,19 @@ export class EvolutionService {
     return this.parseEvolutionResponse(response, "instance_create_error");
   }
 
-  async connectInstance(instanceName: string) {
+  async connectInstance(instanceName: string, phone?: string) {
     const config = this.getConfig();
 
     if (!config) {
       return this.missingConfig();
     }
 
-    const response = await fetch(`${config.baseUrl}/instance/connect/${instanceName}`, {
+    const url = new URL(`${config.baseUrl}/instance/connect/${encodeURIComponent(instanceName)}`);
+    if (phone) {
+      url.searchParams.set("number", phone.replace(/\D/g, ""));
+    }
+
+    const response = await fetch(url, {
       method: "GET",
       headers: { apikey: config.apiKey }
     });

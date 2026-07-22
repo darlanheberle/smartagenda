@@ -338,7 +338,10 @@ export class AppController {
   ) {
     const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
     const professional = this.professionals.getById(professionalId);
-    const connection = await this.evolution.connectInstance(professional.evolutionInstanceName);
+    const connection = await this.evolution.connectInstance(
+      professional.evolutionInstanceName,
+      professional.whatsappNumber
+    );
 
     return {
       provider: "evolution-api",
@@ -377,8 +380,19 @@ export class AppController {
   }
 
   @Get("integrations/google/callback")
-  googleCallback(@Query("code") code: string, @Query("state") state: string) {
-    return this.calendar.handleGoogleCallback({ code, state });
+  async googleCallback(
+    @Query("code") code: string,
+    @Query("state") state: string,
+    @Res() response: Response
+  ) {
+    const result = await this.calendar.handleGoogleCallback({ code, state });
+
+    if (result.status === "connected") {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.agendasmart.com.br";
+      return response.redirect(`${appUrl.replace(/\/$/, "")}/onboarding?step=google&connected=1`);
+    }
+
+    return response.status(400).json(result);
   }
 
   @Get("calendar/availability")
