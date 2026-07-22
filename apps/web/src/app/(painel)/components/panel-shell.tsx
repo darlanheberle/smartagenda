@@ -1,9 +1,9 @@
 "use client";
 
-import { Bell, Bot, Calendar, Home, NotebookTabs, Palette, Users, Wallet, Wrench } from "lucide-react";
+import { Bell, Bot, Calendar, Home, NotebookTabs, Palette, Settings2, Users, Wallet, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LogoutButton } from "../../components/logout-button";
 import { firstName } from "../lib/format";
 import type { AccountProfessional, OnboardingStatus, ProfessionalBranding } from "../lib/types";
@@ -52,7 +52,7 @@ export function PanelShell({
               <Bell size={18} />
               <span className="absolute right-3 top-3 size-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
             </button>
-            <Avatar name={account.name} size="sm" />
+            <AccountMenu account={account} />
           </div>
         </div>
       </header>
@@ -129,6 +129,72 @@ export function PanelShell({
           })}
         </div>
       </nav>
+    </div>
+  );
+}
+
+function AccountMenu({ account }: { account: AccountProfessional }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("touchstart", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("touchstart", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Abrir informacoes da conta"
+        className="grid size-11 place-items-center rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <Avatar name={account.name} size="sm" />
+      </button>
+
+      {open ? (
+        <div
+          aria-label="Informacoes da conta"
+          className="absolute right-0 top-[calc(100%+0.625rem)] z-50 w-72 max-w-[calc(100vw-2rem)] rounded-3xl border border-slate-100 bg-white p-4 shadow-xl shadow-slate-200/70"
+          role="dialog"
+        >
+          <p className="text-xs font-semibold uppercase text-slate-400">Sua conta</p>
+          <div className="mt-3 flex items-center gap-3">
+            <Avatar name={account.name} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">{account.name}</p>
+              <p className="mt-1 truncate text-xs text-slate-500">{account.gmail}</p>
+            </div>
+          </div>
+          <Link
+            className="mt-4 flex min-h-11 items-center gap-2 rounded-2xl bg-slate-50 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            href="/configuracoes"
+            onClick={() => setOpen(false)}
+          >
+            <Settings2 size={17} />
+            Configuracoes da conta
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
