@@ -3,1824 +3,645 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agenda Smart | IA que responde, qualifica e agenda pelo WhatsApp</title>
-  <meta name="description" content="Agenda Smart e um agente de vendas com IA para WhatsApp que responde leads em segundos, qualifica e agenda horarios automaticamente.">
+  <meta name="theme-color" content="#f7faf9">
+  <title>SmartAgenda | Agendamentos automáticos pelo WhatsApp</title>
+  <meta name="description" content="O SmartAgenda atende seus clientes no WhatsApp, mostra horários livres e cria os compromissos no seu Google Agenda.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #070908;
-      --bg-2: #101411;
-      --paper: #f4f0df;
-      --paper-dim: #d8d1b9;
-      --ink: #080b09;
-      --muted: #96a097;
-      --line: rgba(244, 240, 223, 0.16);
-      --line-strong: rgba(244, 240, 223, 0.3);
-      --acid: #ccff00;
-      --mint: #31d583;
-      --orange: #ff7a1a;
-      --red: #ff4b3e;
-      --panel: rgba(244, 240, 223, 0.055);
-      --panel-strong: rgba(244, 240, 223, 0.11);
-      --shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
-      --radius: 22px;
-      --font-display: "Archivo Black", Impact, sans-serif;
-      --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light;
+      --ink: #102a2d;
+      --ink-soft: #365357;
+      --muted: #6d8386;
+      --line: #dce8e6;
+      --paper: #ffffff;
+      --wash: #f7faf9;
+      --mint-wash: #eaf8f4;
+      --teal: #087f6b;
+      --teal-dark: #075f52;
+      --cyan: #0e9ec0;
+      --amber: #f5b73b;
+      --coral: #ef6f61;
+      --violet: #7256d9;
+      --shadow: 0 24px 70px rgba(22, 72, 72, 0.12);
+      --shadow-soft: 0 10px 30px rgba(22, 72, 72, 0.08);
+      --display: "Sora", system-ui, sans-serif;
+      --body: "Inter", system-ui, sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
     body {
       margin: 0;
       overflow-x: hidden;
-      background:
-        radial-gradient(circle at 18% 8%, rgba(204, 255, 0, 0.16), transparent 28rem),
-        radial-gradient(circle at 92% 18%, rgba(255, 122, 26, 0.12), transparent 24rem),
-        linear-gradient(180deg, #070908 0%, #101411 48%, #070908 100%);
-      color: var(--paper);
-      font-family: var(--font-body);
-      cursor: none;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: 80;
-      pointer-events: none;
-      opacity: 0.13;
-      background-image:
-        repeating-radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.55) 0 0.7px, transparent 0.8px 2.2px);
-      mix-blend-mode: overlay;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    button,
-    input {
-      font: inherit;
-    }
-
-    button {
-      border: 0;
-      cursor: none;
-    }
-
-    .cursor-dot,
-    .cursor-ring {
-      position: fixed;
-      left: 0;
-      top: 0;
-      z-index: 1000;
-      pointer-events: none;
-      transform: translate(-50%, -50%);
-      border-radius: 999px;
-      transition: opacity 160ms ease, width 160ms ease, height 160ms ease, border-color 160ms ease;
-    }
-
-    .cursor-dot {
-      width: 7px;
-      height: 7px;
-      background: var(--acid);
-      box-shadow: 0 0 22px rgba(204, 255, 0, 0.8);
-    }
-
-    .cursor-ring {
-      width: 36px;
-      height: 36px;
-      border: 1px solid rgba(204, 255, 0, 0.55);
-    }
-
-    .cursor-ring.is-hovering {
-      width: 58px;
-      height: 58px;
-      border-color: rgba(255, 122, 26, 0.8);
-    }
-
-    .site-shell {
-      width: min(100% - 28px, 1240px);
-      margin: 0 auto;
-    }
-
-    .nav {
-      position: fixed;
-      left: 50%;
-      top: 14px;
-      z-index: 50;
-      width: min(100% - 28px, 1240px);
-      transform: translateX(-50%);
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 18px;
-      min-height: 64px;
-      padding: 10px 12px 10px 16px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(7, 9, 8, 0.74);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
-    }
-
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 900;
-      letter-spacing: -0.04em;
-      text-transform: lowercase;
-    }
-
-    .logo-mark {
-      display: grid;
-      width: 37px;
-      height: 37px;
-      place-items: center;
-      border-radius: 11px;
-      background: var(--acid);
+      background: var(--wash);
       color: var(--ink);
-      font-family: var(--font-display);
-      font-size: 18px;
-      box-shadow: inset 0 -3px 0 rgba(8, 11, 9, 0.22);
+      font-family: var(--body);
+      -webkit-font-smoothing: antialiased;
     }
 
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(244, 240, 223, 0.04);
-    }
+    a { color: inherit; text-decoration: none; }
+    button { color: inherit; font: inherit; }
+    img { display: block; max-width: 100%; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { font-family: var(--display); letter-spacing: 0; }
+    :focus-visible { outline: 3px solid rgba(14, 158, 192, 0.34); outline-offset: 3px; }
 
-    .nav-links a {
-      padding: 9px 13px;
-      border-radius: 999px;
-      color: var(--paper-dim);
-      font-size: 13px;
-      font-weight: 700;
-      transition: color 180ms ease, background 180ms ease;
-    }
-
-    .nav-links a:hover,
-    .nav-links a:focus-visible {
-      background: rgba(244, 240, 223, 0.1);
-      color: var(--paper);
-      outline: none;
-    }
-
-    .nav-actions {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 9px;
-    }
-
-    .system-link {
-      padding: 10px 13px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--paper-dim);
-      font-size: 13px;
-      font-weight: 800;
-      transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
-    }
-
-    .system-link:hover,
-    .system-link:focus-visible {
-      border-color: var(--line-strong);
-      background: rgba(244, 240, 223, 0.08);
-      color: var(--paper);
-      outline: none;
-    }
-
-    .btn {
-      position: relative;
+    .wrap { width: min(100% - 32px, 1120px); margin-inline: auto; }
+    .section { padding: 84px 0; }
+    .eyebrow {
       display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: var(--teal-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 24px; height: 2px; background: var(--amber); }
+    .section-title { max-width: 760px; margin-bottom: 16px; font-size: clamp(32px, 5vw, 54px); line-height: 1.05; }
+    .section-copy { max-width: 660px; margin-bottom: 0; color: var(--ink-soft); font-size: 18px; line-height: 1.65; }
+
+    .topbar {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 50;
+      border-bottom: 1px solid rgba(220, 232, 230, .88);
+      background: rgba(247, 250, 249, .92);
+      backdrop-filter: blur(18px);
+    }
+    .nav { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: inline-flex; min-height: 44px; align-items: center; gap: 11px; font-family: var(--display); font-weight: 700; }
+    .brand-mark {
+      position: relative;
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--teal);
+      box-shadow: 0 8px 18px rgba(8, 127, 107, .24);
+    }
+    .brand-mark::before {
+      content: "";
+      width: 20px;
+      height: 23px;
+      border: 2px solid white;
+      border-radius: 3px;
+      background: repeating-linear-gradient(to bottom, transparent 0 5px, rgba(255,255,255,.65) 5px 6px);
+    }
+    .brand-mark::after { content: ""; position: absolute; left: 7px; top: 10px; width: 5px; height: 2px; background: white; box-shadow: 0 6px white, 0 12px white; }
+    .nav-links { display: flex; align-items: center; gap: 28px; color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+    .nav-links a { min-height: 44px; display: inline-flex; align-items: center; }
+    .nav-links a:hover { color: var(--teal); }
+    .nav-actions { display: flex; align-items: center; gap: 10px; }
+    .login-link { display: inline-flex; min-height: 44px; align-items: center; padding: 0 14px; font-size: 14px; font-weight: 700; }
+    .button {
+      display: inline-flex;
+      min-height: 50px;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      min-height: 48px;
+      border: 0;
+      border-radius: 14px;
       padding: 0 20px;
-      border-radius: 999px;
-      font-weight: 900;
-      letter-spacing: -0.02em;
-      transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms ease, background 180ms ease;
-      will-change: transform;
+      font-weight: 700;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
     }
-
-    .btn-primary {
-      background: var(--acid);
-      color: var(--ink);
-      box-shadow: 0 14px 38px rgba(204, 255, 0, 0.2), inset 0 -4px 0 rgba(8, 11, 9, 0.2);
-    }
-
-    .btn-primary:hover,
-    .btn-primary:focus-visible {
-      transform: translateY(-2px);
-      box-shadow: 0 18px 52px rgba(204, 255, 0, 0.28), inset 0 -4px 0 rgba(8, 11, 9, 0.2);
-      outline: none;
-    }
-
-    .btn-dark {
-      border: 1px solid var(--line-strong);
-      background: rgba(244, 240, 223, 0.08);
-      color: var(--paper);
-    }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: var(--teal); color: white; box-shadow: 0 12px 28px rgba(8, 127, 107, .22); }
+    .button-primary:hover { background: var(--teal-dark); box-shadow: 0 16px 34px rgba(8, 127, 107, .28); }
+    .button-secondary { border: 1px solid var(--line); background: white; color: var(--ink); box-shadow: var(--shadow-soft); }
 
     .hero {
       position: relative;
-      display: grid;
-      grid-template-columns: minmax(0, 1.06fr) minmax(340px, 0.94fr);
-      gap: 44px;
-      align-items: end;
-      min-height: 100vh;
-      padding: 148px 0 66px;
-    }
-
-    .hero-copy {
-      min-width: 0;
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      width: fit-content;
-      margin-bottom: 24px;
-      padding: 8px 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(244, 240, 223, 0.06);
-      color: var(--paper-dim);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .tag::before {
-      content: "";
-      width: 9px;
-      height: 9px;
-      border-radius: 999px;
-      background: var(--mint);
-      box-shadow: 0 0 16px rgba(49, 213, 131, 0.8);
-    }
-
-    h1,
-    h2,
-    h3 {
-      margin: 0;
-      font-family: var(--font-display);
-      font-weight: 400;
-      letter-spacing: -0.07em;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      max-width: 900px;
-      font-size: clamp(54px, 9vw, 132px);
-      line-height: 0.84;
-    }
-
-    h1 .acid {
-      color: var(--acid);
-      text-shadow: 0 0 36px rgba(204, 255, 0, 0.24);
-    }
-
-    .hero-sub {
-      max-width: 670px;
-      margin: 26px 0 30px;
-      color: var(--paper-dim);
-      font-size: clamp(18px, 2.1vw, 24px);
-      line-height: 1.38;
-      letter-spacing: -0.03em;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .micro-proof {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-top: 26px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .avatars {
-      display: flex;
-    }
-
-    .avatar {
-      display: grid;
-      width: 32px;
-      height: 32px;
-      margin-left: -8px;
-      place-items: center;
-      border: 2px solid var(--bg);
-      border-radius: 999px;
-      background: var(--paper);
-      color: var(--ink);
-      font-size: 11px;
-      font-weight: 900;
-    }
-
-    .avatar:first-child {
-      margin-left: 0;
-    }
-
-    .phone-stage {
-      position: relative;
-      min-width: 0;
-    }
-
-    .phone-stage::before {
-      content: "";
-      position: absolute;
-      inset: auto -3% -5% 8%;
-      height: 54%;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(204, 255, 0, 0.2), transparent 64%);
-      filter: blur(18px);
-      transform: rotate(-8deg);
-    }
-
-    .phone {
-      position: relative;
-      width: min(100%, 430px);
-      margin-left: auto;
+      padding: 136px 0 72px;
       overflow: hidden;
-      border: 1px solid var(--line-strong);
-      border-radius: 38px;
-      background: #0b0f0d;
-      box-shadow: var(--shadow), inset 0 0 0 10px #111613;
-    }
-
-    .phone-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 22px 24px 13px;
-      border-bottom: 1px solid rgba(244, 240, 223, 0.1);
-    }
-
-    .contact {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-    }
-
-    .contact-photo {
-      display: grid;
-      width: 38px;
-      height: 38px;
-      place-items: center;
-      border-radius: 13px;
-      background: linear-gradient(135deg, var(--mint), var(--acid));
-      color: var(--ink);
-      font-weight: 900;
-    }
-
-    .contact strong,
-    .contact span {
-      display: block;
-    }
-
-    .contact strong {
-      font-size: 14px;
-    }
-
-    .contact span {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .typing {
-      display: inline-flex;
-      gap: 3px;
-    }
-
-    .typing i {
-      width: 5px;
-      height: 5px;
-      border-radius: 999px;
-      background: var(--mint);
-      animation: typing 1s infinite ease-in-out;
-    }
-
-    .typing i:nth-child(2) {
-      animation-delay: 0.15s;
-    }
-
-    .typing i:nth-child(3) {
-      animation-delay: 0.3s;
-    }
-
-    .chat {
-      min-height: 540px;
-      padding: 24px 18px 22px;
-      background:
-        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        #0d1210;
-      background-size: 28px 28px;
-    }
-
-    .bubble {
-      width: fit-content;
-      max-width: 82%;
-      margin: 0 0 12px;
-      padding: 12px 13px;
-      border-radius: 16px;
-      opacity: 0;
-      transform: translateY(12px) scale(0.98);
-      animation: bubbleIn 640ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
-    .bubble.lead {
-      border-bottom-left-radius: 4px;
-      background: rgba(244, 240, 223, 0.12);
-      color: var(--paper);
-    }
-
-    .bubble.ai {
-      margin-left: auto;
-      border-bottom-right-radius: 4px;
-      background: #d7ff54;
-      color: var(--ink);
-      font-weight: 700;
-    }
-
-    .bubble:nth-child(1) { animation-delay: 200ms; }
-    .bubble:nth-child(2) { animation-delay: 1150ms; }
-    .bubble:nth-child(3) { animation-delay: 2150ms; }
-    .bubble:nth-child(4) { animation-delay: 3300ms; }
-    .bubble:nth-child(5) { animation-delay: 4500ms; }
-    .bubble:nth-child(6) { animation-delay: 5650ms; }
-
-    .chat-input {
-      display: flex;
-      gap: 8px;
-      margin-top: 20px;
-      padding: 8px;
-      border: 1px solid rgba(244, 240, 223, 0.12);
-      border-radius: 999px;
-      background: rgba(7, 9, 8, 0.72);
-    }
-
-    .chat-input span {
-      flex: 1;
-      padding: 9px 12px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .chat-input button {
-      display: grid;
-      width: 36px;
-      height: 36px;
-      place-items: center;
-      border-radius: 999px;
-      background: var(--acid);
-      color: var(--ink);
-      font-weight: 900;
-    }
-
-    .ticker-wrap {
-      overflow: hidden;
-      border-block: 1px solid var(--line);
-      background: var(--acid);
-      color: var(--ink);
-    }
-
-    .ticker {
-      display: flex;
-      width: max-content;
-      animation: marquee 24s linear infinite;
-    }
-
-    .ticker span {
-      padding: 14px 18px;
-      font-family: var(--font-display);
-      font-size: clamp(18px, 3vw, 34px);
-      letter-spacing: -0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .section {
-      padding: 102px 0;
-    }
-
-    .section-head {
-      display: grid;
-      grid-template-columns: minmax(0, 0.9fr) minmax(260px, 0.45fr);
-      gap: 28px;
-      align-items: end;
-      margin-bottom: 38px;
-    }
-
-    .kicker {
-      margin: 0 0 12px;
-      color: var(--acid);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    h2 {
-      max-width: 920px;
-      font-size: clamp(42px, 7vw, 94px);
-      line-height: 0.9;
-    }
-
-    .section-head p,
-    .lead-text {
-      margin: 0;
-      color: var(--paper-dim);
-      font-size: 17px;
-      line-height: 1.55;
-    }
-
-    .proof {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 26px;
-      align-items: center;
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-    }
-
-    .logos {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(112px, 1fr));
-      gap: 10px;
-    }
-
-    .logo-card {
-      display: flex;
-      min-height: 84px;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(244, 240, 223, 0.04);
-      color: var(--paper-dim);
-      font-weight: 900;
-      letter-spacing: -0.04em;
-    }
-
-    .logo-card svg {
-      width: 26px;
-      height: 26px;
-      margin-right: 9px;
-      color: var(--acid);
-    }
-
-    .stat {
-      min-width: 230px;
-      text-align: right;
-    }
-
-    .stat strong {
-      display: block;
-      color: var(--acid);
-      font-family: var(--font-display);
-      font-size: 58px;
-      line-height: 0.9;
-      letter-spacing: -0.07em;
-    }
-
-    .stat span {
-      color: var(--paper-dim);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .pain-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: rgba(244, 240, 223, 0.04);
-    }
-
-    .pain {
-      min-height: 330px;
-      padding: 28px;
-      border-right: 1px solid var(--line);
-    }
-
-    .pain:last-child {
-      border-right: 0;
-    }
-
-    .pain small {
-      color: var(--acid);
-      font-weight: 900;
-      letter-spacing: 0.14em;
-    }
-
-    .pain h3 {
-      margin-top: 78px;
-      font-size: clamp(30px, 4vw, 54px);
-      line-height: 0.92;
-    }
-
-    .pain p {
-      margin: 18px 0 0;
-      color: var(--paper-dim);
-      font-size: 15px;
-      line-height: 1.45;
-    }
-
-    .timeline {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-      counter-reset: step;
-    }
-
-    .step {
-      position: relative;
-      min-height: 310px;
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-      overflow: hidden;
-    }
-
-    .step::before {
-      counter-increment: step;
-      content: "0" counter(step);
-      position: absolute;
-      right: 22px;
-      top: 12px;
-      color: rgba(244, 240, 223, 0.08);
-      font-family: var(--font-display);
-      font-size: 112px;
-      letter-spacing: -0.1em;
-    }
-
-    .step-line {
-      position: relative;
-      width: 100%;
-      height: 8px;
-      margin: 8px 0 86px;
-      border-radius: 999px;
-      background: rgba(244, 240, 223, 0.12);
-    }
-
-    .step-line::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      width: 62%;
-      border-radius: inherit;
-      background: var(--acid);
-      animation: scan 2.4s infinite ease-in-out;
-    }
-
-    .step h3 {
-      font-size: 30px;
-      line-height: 0.98;
-    }
-
-    .step p {
-      color: var(--paper-dim);
-      line-height: 1.5;
-    }
-
-    .feature {
-      display: grid;
-      grid-template-columns: minmax(0, 0.84fr) minmax(320px, 1fr);
-      gap: 34px;
-      align-items: center;
-      padding: 46px 0;
-      border-top: 1px solid var(--line);
-    }
-
-    .feature:nth-child(even) {
-      grid-template-columns: minmax(320px, 1fr) minmax(0, 0.84fr);
-    }
-
-    .feature:nth-child(even) .feature-copy {
-      order: 2;
-    }
-
-    .feature-copy h3 {
-      font-size: clamp(34px, 5vw, 68px);
-      line-height: 0.92;
-    }
-
-    .feature-copy p {
-      max-width: 560px;
-      color: var(--paper-dim);
-      font-size: 17px;
-      line-height: 1.55;
-    }
-
-    .mock {
-      position: relative;
-      min-height: 360px;
-      padding: 22px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background:
-        linear-gradient(135deg, rgba(244, 240, 223, 0.08), rgba(244, 240, 223, 0.025)),
-        #0b0f0d;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .mock-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .lights {
-      display: flex;
-      gap: 7px;
-    }
-
-    .lights i {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: var(--line-strong);
-    }
-
-    .lights i:nth-child(1) { background: var(--red); }
-    .lights i:nth-child(2) { background: var(--orange); }
-    .lights i:nth-child(3) { background: var(--mint); }
-
-    .lead-board {
-      display: grid;
-      gap: 10px;
-    }
-
-    .lead-row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: center;
-      padding: 14px;
-      border-radius: 16px;
-      background: rgba(244, 240, 223, 0.07);
-      animation: lift 3.2s infinite ease-in-out;
-    }
-
-    .lead-row:nth-child(2) { animation-delay: 0.35s; }
-    .lead-row:nth-child(3) { animation-delay: 0.7s; }
-
-    .lead-row strong,
-    .lead-row span {
-      display: block;
-    }
-
-    .lead-row span {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .score {
-      display: grid;
-      width: 46px;
-      height: 46px;
-      place-items: center;
-      border-radius: 14px;
-      background: var(--acid);
-      color: var(--ink);
-      font-weight: 900;
-    }
-
-    .agenda-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .slot {
-      min-height: 74px;
-      padding: 11px;
-      border: 1px solid rgba(244, 240, 223, 0.12);
-      border-radius: 14px;
-      color: var(--paper-dim);
-      font-size: 12px;
-    }
-
-    .slot.hot {
-      background: var(--acid);
-      color: var(--ink);
-      animation: pulse 2.4s infinite ease-in-out;
-    }
-
-    .money-lines {
-      display: grid;
-      gap: 14px;
-      margin-top: 18px;
-    }
-
-    .money-line {
-      display: grid;
-      grid-template-columns: 0.7fr 1fr auto;
-      gap: 10px;
-      align-items: center;
-      color: var(--paper-dim);
-      font-size: 13px;
-    }
-
-    .bar {
-      height: 12px;
-      border-radius: 999px;
-      background: rgba(244, 240, 223, 0.11);
-      overflow: hidden;
-    }
-
-    .bar i {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: var(--mint);
-      animation: fill 3s infinite ease-in-out;
-    }
-
-    .testimonials {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-    }
-
-    .quote {
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-    }
-
-    .quote p {
-      margin: 0 0 28px;
-      font-size: 20px;
-      line-height: 1.35;
-      letter-spacing: -0.04em;
-    }
-
-    .quote strong {
-      display: block;
-      margin-bottom: 4px;
-    }
-
-    .quote span {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .pricing {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
-      align-items: stretch;
-    }
-
-    .pricing-top {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: center;
-      margin-bottom: 28px;
-    }
-
-    .toggle {
-      display: inline-grid;
-      grid-template-columns: 1fr 1fr;
-      padding: 5px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(244, 240, 223, 0.06);
-    }
-
-    .toggle button {
-      min-width: 110px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--paper-dim);
-      font-weight: 900;
-    }
-
-    .toggle button.is-active {
-      background: var(--paper);
-      color: var(--ink);
-    }
-
-    .plan {
-      position: relative;
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-    }
-
-    .plan.featured {
-      border-color: rgba(204, 255, 0, 0.62);
-      background: linear-gradient(180deg, rgba(204, 255, 0, 0.16), rgba(244, 240, 223, 0.07));
-      box-shadow: 0 24px 80px rgba(204, 255, 0, 0.12);
-    }
-
-    .badge {
-      position: absolute;
-      right: 18px;
-      top: 18px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: var(--acid);
-      color: var(--ink);
-      font-size: 11px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .plan h3 {
-      font-size: 32px;
-    }
-
-    .price {
-      margin: 28px 0 8px;
-      color: var(--acid);
-      font-family: var(--font-display);
-      font-size: 54px;
-      letter-spacing: -0.08em;
-    }
-
-    .period {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .plan ul {
-      display: grid;
-      gap: 12px;
-      margin: 28px 0;
-      padding: 0;
-      list-style: none;
-      color: var(--paper-dim);
-    }
-
-    .plan li::before {
-      content: "+";
-      margin-right: 9px;
-      color: var(--acid);
-      font-weight: 900;
-    }
-
-    .plan .btn {
-      width: 100%;
-    }
-
-    .faq {
-      border-top: 1px solid var(--line);
-    }
-
-    .faq-item {
       border-bottom: 1px solid var(--line);
+      background-color: #f1fbf8;
+      background-image: linear-gradient(rgba(8,127,107,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(8,127,107,.05) 1px, transparent 1px);
+      background-size: 40px 40px;
     }
-
-    .faq-button {
-      display: grid;
-      width: 100%;
-      grid-template-columns: 1fr auto;
-      gap: 24px;
-      align-items: center;
-      padding: 24px 0;
-      background: transparent;
-      color: var(--paper);
-      text-align: left;
-      font-size: clamp(20px, 3vw, 34px);
-      font-weight: 900;
-      letter-spacing: -0.05em;
-    }
-
-    .faq-button span:last-child {
-      display: grid;
-      width: 34px;
-      height: 34px;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      transition: transform 220ms ease, background 220ms ease;
-    }
-
-    .faq-item.is-open .faq-button span:last-child {
-      transform: rotate(45deg);
-      background: var(--acid);
-      color: var(--ink);
-    }
-
-    .faq-panel {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 280ms ease;
-    }
-
-    .faq-panel p {
-      max-width: 780px;
-      margin: 0;
-      padding: 0 0 24px;
-      color: var(--paper-dim);
-      line-height: 1.6;
-    }
-
-    .final-cta {
-      position: relative;
-      overflow: hidden;
-      padding: 64px;
-      border-radius: 34px;
-      background: var(--paper);
-      color: var(--ink);
-    }
-
-    .final-cta::after {
-      content: "30 DIAS";
+    .hero::after {
+      content: "";
       position: absolute;
-      right: -22px;
-      bottom: -8px;
-      color: rgba(8, 11, 9, 0.06);
-      font-family: var(--font-display);
-      font-size: clamp(90px, 19vw, 260px);
-      line-height: 0.8;
-      letter-spacing: -0.1em;
+      inset: auto 0 0;
+      height: 190px;
+      background: var(--wash);
+      clip-path: polygon(0 62%, 100% 0, 100% 100%, 0 100%);
     }
+    .hero-copy { position: relative; z-index: 2; max-width: 850px; }
+    .hero h1 { margin-bottom: 22px; font-size: clamp(44px, 7.6vw, 84px); line-height: .99; }
+    .hero h1 span { color: var(--teal); }
+    .hero-lead { max-width: 740px; margin-bottom: 28px; color: var(--ink-soft); font-size: clamp(18px, 2.3vw, 23px); line-height: 1.52; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    .trust-line { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 22px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
+    .trust-line li { display: flex; align-items: center; gap: 7px; }
+    .trust-line li::before { content: "✓"; display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: white; color: var(--teal); box-shadow: 0 3px 12px rgba(8,127,107,.12); }
 
-    .final-cta > * {
+    .product-demo {
       position: relative;
-      z-index: 1;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr);
+      margin-top: 54px;
+      overflow: hidden;
+      border: 1px solid rgba(8, 127, 107, .18);
+      border-radius: 24px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+    .demo-bar { grid-column: 1 / -1; display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--line); background: #fbfdfc; }
+    .demo-dots { display: flex; gap: 7px; }
+    .demo-dots i { width: 9px; height: 9px; border-radius: 50%; background: #cfddda; }
+    .demo-dots i:nth-child(1) { background: var(--coral); }
+    .demo-dots i:nth-child(2) { background: var(--amber); }
+    .demo-dots i:nth-child(3) { background: #53c994; }
+    .demo-bar strong { font-size: 12px; color: var(--muted); }
+    .conversation { padding: 26px; background: #f4f7f6; }
+    .whatsapp-head { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
+    .wa-avatar { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 14px; background: var(--teal); color: white; font-family: var(--display); font-weight: 700; }
+    .whatsapp-head strong, .whatsapp-head span { display: block; }
+    .whatsapp-head span { margin-top: 3px; color: var(--teal); font-size: 12px; font-weight: 600; }
+    .messages { display: grid; gap: 10px; }
+    .message { width: fit-content; max-width: 78%; margin: 0; padding: 11px 13px; border-radius: 15px; font-size: 14px; line-height: 1.45; box-shadow: 0 3px 12px rgba(16,42,45,.05); }
+    .message.client { border-bottom-left-radius: 4px; background: white; }
+    .message.assistant { margin-left: auto; border-bottom-right-radius: 4px; background: #dff7e9; }
+    .message strong { color: var(--teal-dark); }
+    .demo-result { padding: 28px; border-left: 1px solid var(--line); background: white; }
+    .demo-result h2 { margin-bottom: 8px; font-size: 24px; }
+    .demo-result > p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .result-list { display: grid; gap: 12px; margin-top: 24px; }
+    .result-item { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--wash); }
+    .result-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: var(--mint-wash); color: var(--teal); font-weight: 800; }
+    .result-item strong, .result-item span { display: block; }
+    .result-item strong { font-size: 13px; }
+    .result-item span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+
+    .profession-strip { border-block: 1px solid var(--line); background: white; }
+    .profession-track { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 22px; overflow-x: auto; color: var(--ink-soft); scrollbar-width: none; }
+    .profession-track::-webkit-scrollbar { display: none; }
+    .profession-track span { flex: none; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .profession-track span::before { content: "•"; margin-right: 22px; color: var(--amber); }
+    .profession-track span:first-child::before { display: none; }
+
+    .explain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
+    .explain-card { min-height: 280px; padding: 26px; border: 1px solid var(--line); border-radius: 20px; background: white; box-shadow: var(--shadow-soft); }
+    .step-number { display: grid; width: 48px; height: 48px; margin-bottom: 54px; place-items: center; border-radius: 14px; background: var(--mint-wash); color: var(--teal); font-family: var(--display); font-weight: 700; }
+    .explain-card:nth-child(2) .step-number { background: #fff4d8; color: #9b6910; }
+    .explain-card:nth-child(3) .step-number { background: #eeeafd; color: var(--violet); }
+    .explain-card h3 { margin-bottom: 10px; font-size: 21px; }
+    .explain-card p { margin-bottom: 0; color: var(--ink-soft); line-height: 1.6; }
+
+    .comparison-section { background: var(--ink); color: white; }
+    .comparison-section .eyebrow { color: #8ee4d4; }
+    .comparison-section .section-copy { color: #b6c9ca; }
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 42px; }
+    .compare-card { padding: 30px; border: 1px solid rgba(255,255,255,.12); border-radius: 20px; background: rgba(255,255,255,.05); }
+    .compare-card.good { border-color: rgba(94,211,177,.32); background: rgba(8,127,107,.15); }
+    .compare-label { display: inline-flex; margin-bottom: 26px; border-radius: 999px; padding: 7px 11px; background: rgba(255,255,255,.08); color: #b6c9ca; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .compare-card.good .compare-label { background: rgba(94,211,177,.14); color: #9df0df; }
+    .compare-list { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; }
+    .compare-list li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; color: #dce8e8; line-height: 1.5; }
+    .compare-list li::before { content: "×"; display: grid; width: 24px; height: 24px; place-items: center; border-radius: 8px; background: rgba(239,111,97,.14); color: #ff9c90; font-weight: 800; }
+    .good .compare-list li::before { content: "✓"; background: rgba(94,211,177,.14); color: #8ee4d4; }
+
+    .feature-layout { display: grid; grid-template-columns: minmax(0, .76fr) minmax(420px, 1.24fr); gap: 54px; align-items: center; }
+    .plain-list { display: grid; gap: 14px; margin: 30px 0 0; padding: 0; list-style: none; }
+    .plain-list li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; color: var(--ink-soft); line-height: 1.55; }
+    .plain-list li::before { content: "✓"; display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: var(--mint-wash); color: var(--teal); font-weight: 800; }
+    .dashboard {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+    .dashboard-top { display: flex; min-height: 58px; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); }
+    .dashboard-logo { font-family: var(--display); font-size: 13px; font-weight: 700; }
+    .dashboard-user { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: #def1f6; color: var(--cyan); font-size: 11px; font-weight: 700; }
+    .dashboard-body { padding: 20px; background: #f4f9f8; }
+    .next-appointment { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding: 20px; border-radius: 18px; background: var(--cyan); color: white; }
+    .next-appointment small { display: block; margin-bottom: 8px; opacity: .82; }
+    .next-appointment strong { display: block; font-family: var(--display); font-size: 20px; }
+    .next-appointment span { display: block; margin-top: 4px; font-size: 13px; opacity: .88; }
+    .next-time { font-family: var(--display); font-size: 30px; font-weight: 700; }
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+    .kpi { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+    .kpi strong { display: block; font-family: var(--display); font-size: 22px; }
+    .kpi span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .today-list { display: grid; gap: 9px; margin-top: 12px; }
+    .today-row { display: grid; grid-template-columns: 50px 1fr auto; gap: 10px; align-items: center; padding: 12px; border-radius: 14px; background: white; font-size: 12px; }
+    .today-row strong { font-size: 13px; }
+    .today-row span { color: var(--muted); }
+    .status { border-radius: 999px; padding: 5px 8px; background: var(--mint-wash); color: var(--teal); font-size: 10px; font-weight: 700; }
+
+    .setup { background: #fff9eb; border-block: 1px solid #f0dfb8; }
+    .setup-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 54px; align-items: start; }
+    .setup-steps { display: grid; gap: 12px; }
+    .setup-step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 18px; border: 1px solid #ead9ad; border-radius: 18px; background: rgba(255,255,255,.76); }
+    .setup-step b { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: var(--amber); color: #3e2a05; font-family: var(--display); }
+    .setup-step strong, .setup-step span { display: block; }
+    .setup-step span { margin-top: 5px; color: #6f6146; font-size: 14px; line-height: 1.5; }
+
+    .pricing-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .billing-toggle { display: flex; flex: none; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    .billing-toggle button { min-height: 42px; border: 0; border-radius: 10px; padding: 0 14px; background: transparent; cursor: pointer; font-weight: 700; }
+    .billing-toggle button.active { background: var(--ink); color: white; }
+    .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 40px; }
+    .plan { position: relative; display: flex; min-height: 480px; flex-direction: column; padding: 26px; border: 1px solid var(--line); border-radius: 22px; background: white; box-shadow: var(--shadow-soft); }
+    .plan.featured { border: 2px solid var(--teal); box-shadow: 0 22px 54px rgba(8,127,107,.15); }
+    .plan-badge { position: absolute; right: 18px; top: 18px; border-radius: 999px; padding: 6px 9px; background: var(--mint-wash); color: var(--teal); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .plan h3 { margin-bottom: 18px; font-size: 20px; }
+    .price { display: flex; align-items: baseline; gap: 3px; margin-bottom: 5px; font-family: var(--display); font-size: 17px; font-weight: 600; }
+    .price span { font-size: 40px; }
+    .period { min-height: 38px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .plan ul { display: grid; gap: 12px; margin: 24px 0 28px; padding: 22px 0 0; border-top: 1px solid var(--line); list-style: none; color: var(--ink-soft); font-size: 14px; }
+    .plan li::before { content: "✓"; margin-right: 8px; color: var(--teal); font-weight: 800; }
+    .plan .button { width: 100%; margin-top: auto; }
+
+    .faq-layout { display: grid; grid-template-columns: .72fr 1.28fr; gap: 54px; align-items: start; }
+    .faq { display: grid; gap: 10px; }
+    details { border: 1px solid var(--line); border-radius: 16px; background: white; }
+    summary { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 18px; cursor: pointer; font-weight: 700; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--teal); font-size: 24px; font-weight: 400; }
+    details[open] summary::after { content: "−"; }
+    details p { margin: -2px 18px 18px; color: var(--ink-soft); line-height: 1.65; }
+
+    .final { padding: 74px 0; background: var(--teal); color: white; }
+    .final-inner { display: grid; grid-template-columns: 1fr auto; gap: 36px; align-items: center; }
+    .final h2 { max-width: 720px; margin-bottom: 14px; font-size: clamp(34px, 5vw, 56px); line-height: 1.06; }
+    .final p { max-width: 650px; margin-bottom: 0; color: #cef3eb; font-size: 17px; line-height: 1.6; }
+    .final .button { background: white; color: var(--teal-dark); box-shadow: 0 14px 34px rgba(0,0,0,.14); }
+    footer { padding: 34px 0 96px; background: #071f22; color: #abc1c3; }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 13px; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
+    .footer-links a:hover { color: white; }
+
+    .mobile-cta { display: none; }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 600ms ease, transform 600ms ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .product-demo, .feature-layout, .setup-grid, .faq-layout { grid-template-columns: 1fr; }
+      .demo-result { border-top: 1px solid var(--line); border-left: 0; }
+      .explain-grid, .plans { grid-template-columns: 1fr; }
+      .explain-card { min-height: 0; }
+      .step-number { margin-bottom: 30px; }
+      .comparison { grid-template-columns: 1fr; }
+      .dashboard { width: min(100%, 660px); margin-inline: auto; }
+      .pricing-head { align-items: start; flex-direction: column; }
+      .plan { min-height: 0; }
+      .final-inner { grid-template-columns: 1fr; }
+      .final .button { width: fit-content; }
     }
 
-    .final-cta h2 {
-      max-width: 860px;
-      color: var(--ink);
-    }
-
-    .final-cta p {
-      max-width: 620px;
-      color: rgba(8, 11, 9, 0.7);
-      font-size: 18px;
-      line-height: 1.55;
-    }
-
-    footer {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 18px;
-      padding: 34px 0 48px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .reveal {
-      opacity: 0;
-      transform: translateY(28px);
-      transition: opacity 720ms cubic-bezier(0.23, 1, 0.32, 1), transform 720ms cubic-bezier(0.23, 1, 0.32, 1);
-    }
-
-    .reveal.is-visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @keyframes bubbleIn {
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+    @media (max-width: 640px) {
+      body { padding-bottom: 70px; }
+      .wrap { width: min(100% - 24px, 1120px); }
+      .section { padding: 64px 0; }
+      .topbar .button { display: none; }
+      .login-link { padding-inline: 8px; }
+      .brand { font-size: 15px; }
+      .brand-mark { width: 38px; height: 38px; }
+      .hero { padding: 112px 0 54px; }
+      .hero h1 { font-size: clamp(40px, 13vw, 58px); }
+      .hero-lead { font-size: 17px; }
+      .hero-actions .button { width: 100%; }
+      .hero-actions .button-secondary { display: none; }
+      .product-demo { margin-top: 24px; border-radius: 19px; }
+      .demo-bar { padding-inline: 13px; }
+      .conversation, .demo-result { padding: 18px; }
+      .message { max-width: 90%; font-size: 13px; }
+      .profession-track { justify-content: flex-start; }
+      .section-title { font-size: 32px; }
+      .section-copy { font-size: 16px; }
+      .compare-card { padding: 22px; }
+      .setup-grid { gap: 30px; }
+      .billing-toggle { width: 100%; }
+      .billing-toggle button { flex: 1; }
+      .next-appointment { padding: 17px; }
+      .next-time { font-size: 24px; }
+      .today-row { grid-template-columns: 44px 1fr; }
+      .today-row .status { display: none; }
+      .final { padding: 58px 0; }
+      .final .button { width: 100%; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+      .mobile-cta {
+        position: fixed;
+        inset: auto 0 0;
+        z-index: 60;
+        display: block;
+        padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: rgba(255,255,255,.94);
+        backdrop-filter: blur(16px);
       }
-    }
-
-    @keyframes typing {
-      0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
-      40% { transform: translateY(-4px); opacity: 1; }
-    }
-
-    @keyframes marquee {
-      to { transform: translateX(-50%); }
-    }
-
-    @keyframes scan {
-      0%, 100% { transform: translateX(0); width: 38%; }
-      50% { transform: translateX(92%); width: 52%; }
-    }
-
-    @keyframes lift {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 rgba(204, 255, 0, 0); }
-      50% { box-shadow: 0 0 36px rgba(204, 255, 0, 0.28); }
-    }
-
-    @keyframes fill {
-      0% { width: 28%; }
-      55% { width: var(--w); }
-      100% { width: var(--w); }
-    }
-
-    @media (max-width: 1040px) {
-      body {
-        cursor: auto;
-      }
-
-      button,
-      a {
-        cursor: pointer;
-      }
-
-      .cursor-dot,
-      .cursor-ring {
-        display: none;
-      }
-
-      .nav {
-        grid-template-columns: 1fr auto;
-      }
-
-      .nav-links {
-        display: none;
-      }
-
-      .hero,
-      .feature,
-      .feature:nth-child(even),
-      .section-head,
-      .proof {
-        grid-template-columns: 1fr;
-      }
-
-      .feature:nth-child(even) .feature-copy {
-        order: 0;
-      }
-
-      .phone {
-        margin: 0 auto;
-      }
-
-      .logos,
-      .pain-grid,
-      .timeline,
-      .testimonials,
-      .pricing {
-        grid-template-columns: 1fr;
-      }
-
-      .pain {
-        min-height: auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .pain:last-child {
-        border-bottom: 0;
-      }
-
-      .stat {
-        text-align: left;
-      }
-    }
-
-    @media (max-width: 680px) {
-      .site-shell {
-        width: min(100% - 18px, 1240px);
-      }
-
-      .nav {
-        top: 8px;
-        width: min(100% - 18px, 1240px);
-        min-height: 58px;
-      }
-
-      .system-link {
-        display: none;
-      }
-
-      .nav-actions .btn {
-        min-height: 40px;
-        padding: 0 13px;
-        font-size: 12px;
-      }
-
-      .hero {
-        padding-top: 112px;
-        gap: 34px;
-      }
-
-      h1 {
-        font-size: clamp(48px, 15vw, 76px);
-      }
-
-      .hero-actions .btn {
-        width: 100%;
-      }
-
-      .chat {
-        min-height: 500px;
-      }
-
-      .section {
-        padding: 74px 0;
-      }
-
-      .proof,
-      .final-cta {
-        padding: 24px;
-      }
-
-      .logos {
-        grid-template-columns: 1fr;
-      }
-
-      .agenda-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .toggle {
-        width: 100%;
-      }
-
-      .toggle button {
-        min-width: 0;
-      }
+      .mobile-cta .button { width: 100%; min-height: 48px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-      }
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+      .reveal { opacity: 1; transform: none; }
     }
   </style>
 </head>
 <body>
-  <div class="cursor-dot" aria-hidden="true"></div>
-  <div class="cursor-ring" aria-hidden="true"></div>
+  <header class="topbar">
+    <nav class="nav wrap" aria-label="Navegação principal">
+      <a class="brand" href="#inicio" aria-label="SmartAgenda - início">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>SmartAgenda</span>
+      </a>
+      <div class="nav-links">
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#por-dentro">Por dentro</a>
+        <a href="#planos">Planos</a>
+      </div>
+      <div class="nav-actions">
+        <a class="login-link" href="/login">Entrar</a>
+        <a class="button button-primary" href="/onboarding">Começar grátis</a>
+      </div>
+    </nav>
+  </header>
 
-  <nav class="nav" aria-label="Navegacao principal">
-    <a class="logo magnetic" href="#top" aria-label="Agenda Smart">
-      <span class="logo-mark">as</span>
-      <span>agenda smart</span>
-    </a>
-    <div class="nav-links">
-      <a href="#como-funciona">Como funciona</a>
-      <a href="#features">Produto</a>
-      <a href="#precos">Precos</a>
-    </div>
-    <div class="nav-actions">
-      <a class="system-link magnetic" href="https://www.agendasmart.com.br/login">Acesso ao sistema</a>
-      <a class="btn btn-primary magnetic" href="#precos">Testar gratis</a>
-    </div>
-  </nav>
-
-  <main id="top">
-    <section class="site-shell hero">
-      <div class="hero-copy reveal">
-        <div class="tag">IA comercial para WhatsApp</div>
-        <h1>Voce perde agenda quando demora a responder no <span class="acid">WhatsApp.</span></h1>
-        <p class="hero-sub">
-          A Agenda Smart responde leads em segundos, entende o que a pessoa quer,
-          qualifica o atendimento e agenda horarios sem o profissional largar o trabalho.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary magnetic" href="#precos">Testar gratis por 30 dias</a>
-          <a class="btn btn-dark magnetic" href="#como-funciona">Ver como fecha agenda</a>
-        </div>
-        <div class="micro-proof">
-          <div class="avatars" aria-hidden="true">
-            <span class="avatar">DR</span>
-            <span class="avatar">CL</span>
-            <span class="avatar">ST</span>
+  <main>
+    <section class="hero" id="inicio">
+      <div class="wrap">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">Seu WhatsApp vira recepção</span>
+          <h1>Sua agenda atendida pelo <span>WhatsApp.</span></h1>
+          <p class="hero-lead">O SmartAgenda conversa com o cliente, pergunta o serviço, mostra horários realmente livres e cria o compromisso no seu Google Agenda. Tudo sozinho, mesmo enquanto você está atendendo.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/onboarding">Testar grátis por 30 dias <span aria-hidden="true">→</span></a>
+            <a class="button button-secondary" href="#demonstracao">Ver uma conversa funcionando</a>
           </div>
-          <span>Feito para clinicas, studios, consultorios e profissionais com horario marcado.</span>
-        </div>
-      </div>
-
-      <div class="phone-stage reveal">
-        <div class="phone" aria-label="Mockup de conversa no WhatsApp">
-          <div class="phone-top">
-            <div class="contact">
-              <span class="contact-photo">IA</span>
-              <span>
-                <strong>Agenda Smart</strong>
-                <span>online agora</span>
-              </span>
-            </div>
-            <span class="typing" aria-label="Digitando">
-              <i></i><i></i><i></i>
-            </span>
-          </div>
-          <div class="chat">
-            <p class="bubble lead">Oi, vi o perfil da clinica. Tem avaliacao ainda essa semana?</p>
-            <p class="bubble ai">Oi, Camila. Tenho sim. Voce prefere consulta presencial ou online?</p>
-            <p class="bubble lead">Presencial. Pode ser depois das 18h.</p>
-            <p class="bubble ai">Perfeito. Encontrei quinta 18:30 e sexta 19:00. Qual fica melhor?</p>
-            <p class="bubble lead">Quinta 18:30.</p>
-            <p class="bubble ai">Agendado. Enviei confirmacao e lembrete automatico. Valor da avaliacao: R$ 120,00.</p>
-            <div class="chat-input" aria-hidden="true">
-              <span>Mensagem automatica pronta...</span>
-              <button type="button">></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="ticker-wrap" aria-hidden="true">
-      <div class="ticker">
-        <span>responde em segundos / qualifica o lead / agenda no Google Agenda / lembra pelo WhatsApp / vende enquanto voce atende /</span>
-        <span>responde em segundos / qualifica o lead / agenda no Google Agenda / lembra pelo WhatsApp / vende enquanto voce atende /</span>
-      </div>
-    </div>
-
-    <section class="site-shell section reveal" aria-labelledby="social-title">
-      <div class="proof">
-        <div>
-          <p class="kicker" id="social-title">Prova social</p>
-          <div class="logos" aria-label="Empresas brasileiras ficticias que usam Agenda Smart">
-            <div class="logo-card">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="currentColor"/></svg>
-              OdontoSul
-            </div>
-            <div class="logo-card">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="7" fill="currentColor"/></svg>
-              Studio Lume
-            </div>
-            <div class="logo-card">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 6l15 28H5L20 6z" fill="currentColor"/></svg>
-              ClinMais
-            </div>
-            <div class="logo-card">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 20c0-7 5-12 12-12s12 5 12 12-5 12-12 12S8 27 8 20z" fill="none" stroke="currentColor" stroke-width="7"/></svg>
-              FormaFit
-            </div>
-            <div class="logo-card">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30V10h24v20H8zm6-6h12v-8H14v8z" fill="currentColor"/></svg>
-              CasaPsi
-            </div>
-          </div>
-        </div>
-        <div class="stat">
-          <strong><span data-count="7000">0</span>+</strong>
-          <span>agendamentos no ultimo ano</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="site-shell section" id="problema" aria-labelledby="problema-title">
-      <div class="section-head reveal">
-        <div>
-          <p class="kicker">O problema</p>
-          <h2 id="problema-title">Lead quente esfria rapido.</h2>
-        </div>
-        <p>Quem chama no WhatsApp quer resolver agora. Se a resposta chega tarde, a agenda vai para outro profissional.</p>
-      </div>
-      <div class="pain-grid reveal">
-        <article class="pain">
-          <small>01</small>
-          <h3>Voce atende. O lead espera.</h3>
-          <p>Enquanto voce esta em consulta, corte, aula ou reuniao, novas oportunidades ficam sem resposta.</p>
-        </article>
-        <article class="pain">
-          <small>02</small>
-          <h3>Horario vira conversa infinita.</h3>
-          <p>Vai e volta de mensagem, print de agenda, audio, esquecimento. Tudo antes de confirmar.</p>
-        </article>
-        <article class="pain">
-          <small>03</small>
-          <h3>Faturamento some no improviso.</h3>
-          <p>Sem registro claro de servico, valor e cliente, fica dificil saber o que entrou e o que ficou pendente.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="site-shell section" id="como-funciona" aria-labelledby="como-title">
-      <div class="section-head reveal">
-        <div>
-          <p class="kicker">Como funciona</p>
-          <h2 id="como-title">A venda entra. A IA conduz. A agenda confirma.</h2>
-        </div>
-        <p>Sem trocar sua rotina: WhatsApp para conversar, Google Agenda para organizar, painel para enxergar o negocio.</p>
-      </div>
-      <div class="timeline reveal">
-        <article class="step">
-          <div class="step-line"></div>
-          <h3>Responde no primeiro minuto</h3>
-          <p>A IA recebe o lead, pergunta nome, entende o servico desejado e mantem a conversa ativa.</p>
-        </article>
-        <article class="step">
-          <div class="step-line"></div>
-          <h3>Consulta sua disponibilidade</h3>
-          <p>Ela respeita duracao do servico, pausas, antecedencia minima e horarios livres no Google Agenda.</p>
-        </article>
-        <article class="step">
-          <div class="step-line"></div>
-          <h3>Agenda e lembra</h3>
-          <p>Cria o evento real, manda confirmacao e reduz faltas com lembretes automaticos.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="site-shell section" id="features" aria-labelledby="features-title">
-      <div class="section-head reveal">
-        <div>
-          <p class="kicker">Produto</p>
-          <h2 id="features-title">Nao e chatbot. E operador comercial.</h2>
-        </div>
-        <p>Feito para vender horarios, organizar clientes e dar previsibilidade para quem vive de agenda cheia.</p>
-      </div>
-
-      <article class="feature reveal">
-        <div class="feature-copy">
-          <h3>Qualifica antes de ocupar sua agenda.</h3>
-          <p>O agente pergunta o essencial, identifica o interesse e separa lead pronto de curiosidade. Menos conversa perdida, mais horario confirmado.</p>
-        </div>
-        <div class="mock" aria-label="Mockup de painel de leads">
-          <div class="mock-toolbar">
-            <span>Leads em atendimento</span>
-            <span class="lights"><i></i><i></i><i></i></span>
-          </div>
-          <div class="lead-board">
-            <div class="lead-row">
-              <span><strong>Mariana A.</strong><span>Quer avaliacao presencial hoje</span></span>
-              <span class="score">98</span>
-            </div>
-            <div class="lead-row">
-              <span><strong>Rafael P.</strong><span>Pediu preco e disponibilidade</span></span>
-              <span class="score">84</span>
-            </div>
-            <div class="lead-row">
-              <span><strong>Bianca L.</strong><span>Retorno para proxima semana</span></span>
-              <span class="score">77</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="feature reveal">
-        <div class="feature-copy">
-          <h3>Agenda real, sem calendario paralelo.</h3>
-          <p>A Agenda Smart usa o Google Agenda do profissional. O cliente escolhe o horario, o sistema cria o evento e evita conflito automaticamente.</p>
-        </div>
-        <div class="mock" aria-label="Mockup de agenda">
-          <div class="mock-toolbar">
-            <span>Disponibilidade da semana</span>
-            <span>Google Agenda</span>
-          </div>
-          <div class="agenda-grid">
-            <div class="slot">Seg<br>09:00</div>
-            <div class="slot hot">Ter<br>14:30</div>
-            <div class="slot">Qua<br>10:00</div>
-            <div class="slot hot">Qui<br>18:30</div>
-            <div class="slot">Sex<br>08:00</div>
-            <div class="slot">Sex<br>16:00</div>
-            <div class="slot hot">Sab<br>11:30</div>
-            <div class="slot">Dom<br>fechado</div>
-          </div>
-        </div>
-      </article>
-
-      <article class="feature reveal">
-        <div class="feature-copy">
-          <h3>Enxerga dinheiro antes do fim do mes.</h3>
-          <p>Cada servico tem duracao e preco. O painel mostra previsao, pendencias e clientes que precisam de acompanhamento.</p>
-        </div>
-        <div class="mock" aria-label="Mockup financeiro">
-          <div class="mock-toolbar">
-            <span>Financeiro previsto</span>
-            <span>Hoje</span>
-          </div>
-          <div class="money-lines">
-            <div class="money-line"><span>Confirmado</span><span class="bar"><i style="--w: 92%"></i></span><strong>R$ 4.860</strong></div>
-            <div class="money-line"><span>Pendente</span><span class="bar"><i style="--w: 54%"></i></span><strong>R$ 1.220</strong></div>
-            <div class="money-line"><span>Recuperado</span><span class="bar"><i style="--w: 71%"></i></span><strong>R$ 2.040</strong></div>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="site-shell section" aria-labelledby="depoimentos-title">
-      <div class="section-head reveal">
-        <div>
-          <p class="kicker">Resultados</p>
-          <h2 id="depoimentos-title">Gente ocupada nao quer mais responder manualmente.</h2>
-        </div>
-        <p>Depoimentos ficticios, baseados nos ganhos esperados de uma operacao com resposta rapida e agenda organizada.</p>
-      </div>
-      <div class="testimonials reveal">
-        <article class="quote">
-          <p>"Eu parei de perder lead do horario de almoco. A IA responde, filtra e ja deixa a consulta pronta."</p>
-          <strong>Dra. Renata Alves</strong>
-          <span>Dentista, Curitiba - +R$ 8.400 em 60 dias</span>
-        </article>
-        <article class="quote">
-          <p>"Antes eu respondia de noite. Agora o aluno chega com aula marcada e objetivo definido."</p>
-          <strong>Caio Martins</strong>
-          <span>Personal trainer, Florianopolis - +R$ 5.900 no mes</span>
-        </article>
-        <article class="quote">
-          <p>"Meu WhatsApp virou uma recepcao. O painel mostra quem marcou, quem faltou e o que falta receber."</p>
-          <strong>Juliana Prado</strong>
-          <span>Esteticista, Sao Paulo - +R$ 12.300 no trimestre</span>
-        </article>
-      </div>
-    </section>
-
-    <section class="site-shell section" id="precos" aria-labelledby="precos-title">
-      <div class="pricing-top reveal">
-        <div>
-          <p class="kicker">Precos</p>
-          <h2 id="precos-title">Comece pequeno. Escale quando lotar.</h2>
-        </div>
-        <div class="toggle" role="group" aria-label="Alternar periodicidade">
-          <button type="button" class="is-active" data-billing="monthly">Mensal</button>
-          <button type="button" data-billing="annual">Anual -20%</button>
-        </div>
-      </div>
-      <div class="pricing reveal">
-        <article class="plan" data-base-price="19.90">
-          <h3>Inicio</h3>
-          <div class="price">R$ <span data-price>19,90</span></div>
-          <div class="period" data-period>/mes</div>
-          <ul>
-            <li>1 profissional</li>
-            <li>WhatsApp conectado</li>
-            <li>Google Agenda</li>
-            <li>Servicos e horarios</li>
+          <ul class="trust-line">
+            <li>Seu WhatsApp</li>
+            <li>Seu Google Agenda</li>
+            <li>Configuração guiada</li>
           </ul>
-          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/onboarding">Comecar</a>
+        </div>
+
+        <div class="product-demo reveal" id="demonstracao" aria-label="Exemplo de agendamento feito pelo SmartAgenda">
+          <div class="demo-bar">
+            <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <strong>EXEMPLO DE ATENDIMENTO AUTOMÁTICO</strong>
+          </div>
+          <div class="conversation">
+            <div class="whatsapp-head">
+              <span class="wa-avatar">SA</span>
+              <span><strong>Clínica da Ana</strong><span>respondendo agora</span></span>
+            </div>
+            <div class="messages">
+              <p class="message client">Oi, gostaria de marcar um horário.</p>
+              <p class="message assistant">Olá! Primeiro, qual é o seu nome?</p>
+              <p class="message client">Marina.</p>
+              <p class="message assistant">Prazer, Marina. Você quer <strong>Consulta</strong> ou <strong>Retorno</strong>?</p>
+              <p class="message client">Consulta. Pode ser quinta?</p>
+              <p class="message assistant">Tenho quinta às <strong>14:00</strong> ou <strong>16:30</strong>. Qual prefere?</p>
+              <p class="message client">16:30.</p>
+              <p class="message assistant">Pronto! Consulta confirmada para quinta às 16:30. ✅</p>
+            </div>
+          </div>
+          <aside class="demo-result">
+            <span class="eyebrow">O que o sistema fez</span>
+            <h2>Da mensagem ao horário marcado.</h2>
+            <p>Sem você parar o atendimento para abrir o celular.</p>
+            <div class="result-list">
+              <div class="result-item"><span class="result-icon">1</span><span><strong>Salvou a cliente</strong><span>Nome e telefone vinculados</span></span></div>
+              <div class="result-item"><span class="result-icon">2</span><span><strong>Conferiu a agenda</strong><span>Só mostrou horários disponíveis</span></span></div>
+              <div class="result-item"><span class="result-icon">3</span><span><strong>Criou o compromisso</strong><span>Direto no Google Agenda</span></span></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <div class="profession-strip" aria-label="Profissionais que podem usar o SmartAgenda">
+      <div class="profession-track wrap">
+        <span>Dentistas</span><span>Psicólogos</span><span>Barbeiros</span><span>Esteticistas</span><span>Personal trainers</span><span>Consultores</span><span>Professores</span>
+      </div>
+    </div>
+
+    <section class="section wrap" id="como-funciona">
+      <div class="reveal">
+        <span class="eyebrow">Entenda em 30 segundos</span>
+        <h2 class="section-title">O cliente conversa normalmente. O SmartAgenda organiza tudo por trás.</h2>
+        <p class="section-copy">Para quem chama no WhatsApp, nada muda. Para você, acaba o vai e volta de mensagens procurando um horário.</p>
+      </div>
+      <div class="explain-grid">
+        <article class="explain-card reveal">
+          <span class="step-number">01</span>
+          <h3>O cliente chama</h3>
+          <p>O assistente pergunta o nome e qual serviço a pessoa deseja marcar.</p>
         </article>
-        <article class="plan featured" data-base-price="34.90">
-          <span class="badge">Mais escolhido</span>
+        <article class="explain-card reveal">
+          <span class="step-number">02</span>
+          <h3>A agenda é consultada</h3>
+          <p>O sistema olha seus horários de atendimento e os compromissos que já estão no Google.</p>
+        </article>
+        <article class="explain-card reveal">
+          <span class="step-number">03</span>
+          <h3>O horário fica marcado</h3>
+          <p>O cliente escolhe, recebe a confirmação e o compromisso aparece na sua agenda.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="comparison-section section">
+      <div class="wrap">
+        <div class="reveal">
+          <span class="eyebrow">Menos trabalho manual</span>
+          <h2 class="section-title">Você cuida do atendimento. O SmartAgenda cuida das mensagens.</h2>
+          <p class="section-copy">Feito para profissionais que perdem tempo respondendo as mesmas perguntas todos os dias.</p>
+        </div>
+        <div class="comparison">
+          <article class="compare-card reveal">
+            <span class="compare-label">Sem o SmartAgenda</span>
+            <ul class="compare-list">
+              <li>Responder mensagens entre um cliente e outro.</li>
+              <li>Procurar horário livre olhando a agenda.</li>
+              <li>Copiar nome, telefone, serviço e valor para outro lugar.</li>
+              <li>Lembrar cada pessoa do atendimento manualmente.</li>
+            </ul>
+          </article>
+          <article class="compare-card good reveal">
+            <span class="compare-label">Com o SmartAgenda</span>
+            <ul class="compare-list">
+              <li>O WhatsApp responde na hora, inclusive fora do expediente.</li>
+              <li>Apenas horários realmente disponíveis são oferecidos.</li>
+              <li>Cliente, serviço e compromisso ficam organizados juntos.</li>
+              <li>Confirmações e lembretes são enviados automaticamente.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="por-dentro">
+      <div class="feature-layout">
+        <div class="reveal">
+          <span class="eyebrow">Tudo em uma tela</span>
+          <h2 class="section-title">Abra o painel e saiba como está o seu dia.</h2>
+          <p class="section-copy">Sem planilha, papel ou conversa perdida. Você acompanha o próximo atendimento, os clientes e os valores previstos.</p>
+          <ul class="plain-list">
+            <li>Agenda do dia com horários e serviços.</li>
+            <li>Cadastro automático de cada cliente pelo telefone.</li>
+            <li>Valor recebido e o que ainda está pendente.</li>
+            <li>Controle para ativar ou pausar o assistente.</li>
+          </ul>
+        </div>
+        <div class="dashboard reveal" aria-label="Exemplo do painel do SmartAgenda">
+          <div class="dashboard-top"><span class="dashboard-logo">▣ SmartAgenda</span><span class="dashboard-user">AN</span></div>
+          <div class="dashboard-body">
+            <div class="next-appointment">
+              <span><small>Próximo atendimento · em 22 min</small><strong>Camila Nunes</strong><span>Consulta · 60 min</span></span>
+              <strong class="next-time">13:00</strong>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><strong>6</strong><span>atendimentos hoje</span></div>
+              <div class="kpi"><strong>R$ 520</strong><span>faturamento previsto</span></div>
+              <div class="kpi"><strong>82%</strong><span>da agenda ocupada</span></div>
+              <div class="kpi"><strong>R$ 310</strong><span>a receber</span></div>
+            </div>
+            <div class="today-list">
+              <div class="today-row"><strong>14:30</strong><span><strong>Rafael Lima</strong><br>Corte de cabelo</span><span class="status">Confirmado</span></div>
+              <div class="today-row"><strong>16:00</strong><span><strong>Marina Souza</strong><br>Retorno</span><span class="status">Confirmado</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="setup section">
+      <div class="setup-grid wrap">
+        <div class="reveal">
+          <span class="eyebrow">Sem complicação</span>
+          <h2 class="section-title">Você não precisa entender de tecnologia.</h2>
+          <p class="section-copy">A configuração inicial mostra uma etapa por vez e explica exatamente onde tocar.</p>
+        </div>
+        <div class="setup-steps">
+          <div class="setup-step reveal"><b>1</b><span><strong>Crie sua conta</strong><span>Informe seu nome, profissão, Gmail e número profissional.</span></span></div>
+          <div class="setup-step reveal"><b>2</b><span><strong>Conecte o WhatsApp</strong><span>Use o código de pareamento ou leia o QR Code seguindo as instruções da tela.</span></span></div>
+          <div class="setup-step reveal"><b>3</b><span><strong>Autorize o Google Agenda</strong><span>Entre com o Gmail da sua agenda e permita que o SmartAgenda crie os compromissos.</span></span></div>
+          <div class="setup-step reveal"><b>4</b><span><strong>Cadastre serviços e horários</strong><span>Defina o que você atende, quanto tempo leva, preço e dias de funcionamento.</span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="planos">
+      <div class="pricing-head reveal">
+        <div>
+          <span class="eyebrow">Planos simples</span>
+          <h2 class="section-title">Comece com o que precisa hoje.</h2>
+          <p class="section-copy">Teste por 30 dias e veja o SmartAgenda trabalhando na sua rotina.</p>
+        </div>
+        <div class="billing-toggle" role="group" aria-label="Forma de pagamento">
+          <button class="active" type="button" data-billing="monthly">Mensal</button>
+          <button type="button" data-billing="annual">Anual −20%</button>
+        </div>
+      </div>
+      <div class="plans">
+        <article class="plan reveal" data-base-price="19.90">
+          <h3>Início</h3>
+          <div class="price">R$ <span data-price>19,90</span></div>
+          <div class="period" data-period>por mês</div>
+          <ul><li>1 profissional</li><li>WhatsApp conectado</li><li>Google Agenda</li><li>Serviços e horários</li></ul>
+          <a class="button button-secondary" href="/onboarding">Começar teste</a>
+        </article>
+        <article class="plan featured reveal" data-base-price="34.90">
+          <span class="plan-badge">Mais escolhido</span>
           <h3>Profissional</h3>
           <div class="price">R$ <span data-price>34,90</span></div>
-          <div class="period" data-period>/mes</div>
-          <ul>
-            <li>IA de qualificacao</li>
-            <li>Lembretes automaticos</li>
-            <li>Financeiro previsto</li>
-            <li>Relatorio de clientes</li>
-          </ul>
-          <a class="btn btn-primary magnetic" href="https://www.agendasmart.com.br/onboarding">Testar gratis por 30 dias</a>
+          <div class="period" data-period>por mês</div>
+          <ul><li>Assistente automático</li><li>Lembretes de atendimento</li><li>Controle financeiro</li><li>Histórico de clientes</li></ul>
+          <a class="button button-primary" href="/onboarding">Testar grátis por 30 dias</a>
         </article>
-        <article class="plan" data-base-price="99.90">
+        <article class="plan reveal" data-base-price="99.90">
           <h3>Equipe</h3>
           <div class="price">R$ <span data-price>99,90</span></div>
-          <div class="period" data-period>/mes</div>
-          <ul>
-            <li>Multiplos profissionais</li>
-            <li>Agendas separadas</li>
-            <li>Servicos por colaborador</li>
-            <li>Visao da operacao</li>
-          </ul>
-          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/onboarding">Falar com vendas</a>
+          <div class="period" data-period>por mês</div>
+          <ul><li>Vários profissionais</li><li>Agendas separadas</li><li>Serviços por profissional</li><li>Visão geral da equipe</li></ul>
+          <a class="button button-secondary" href="/onboarding">Conhecer plano</a>
         </article>
       </div>
     </section>
 
-    <section class="site-shell section" aria-labelledby="faq-title">
-      <div class="section-head reveal">
-        <div>
-          <p class="kicker">FAQ</p>
-          <h2 id="faq-title">Perguntas antes de colocar a IA para vender.</h2>
+    <section class="section wrap">
+      <div class="faq-layout">
+        <div class="reveal">
+          <span class="eyebrow">Dúvidas comuns</span>
+          <h2 class="section-title">Antes de começar.</h2>
+          <p class="section-copy">Respostas diretas para você saber exatamente como funciona.</p>
         </div>
-      </div>
-      <div class="faq reveal">
-        <div class="faq-item is-open">
-          <button class="faq-button" type="button" aria-expanded="true">
-            <span>Preciso trocar minha agenda atual?</span><span>+</span>
-          </button>
-          <div class="faq-panel"><p>Nao. A Agenda Smart usa o Google Agenda como fonte principal. O profissional continua trabalhando no calendario que ja conhece.</p></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-button" type="button" aria-expanded="false">
-            <span>A IA responde como se fosse a minha empresa?</span><span>+</span>
-          </button>
-          <div class="faq-panel"><p>Sim. Voce configura servicos, horarios, regras e tom de atendimento. A conversa fica objetiva, educada e focada em agendar.</p></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-button" type="button" aria-expanded="false">
-            <span>Funciona para mais de um profissional?</span><span>+</span>
-          </button>
-          <div class="faq-panel"><p>No plano Equipe, cada profissional pode ter agenda, servicos e disponibilidade proprios, enquanto a clinica acompanha tudo em um painel.</p></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-button" type="button" aria-expanded="false">
-            <span>O cliente precisa instalar algo?</span><span>+</span>
-          </button>
-          <div class="faq-panel"><p>Nao. Ele conversa pelo WhatsApp normalmente. O sistema faz a ponte com a agenda e envia confirmacoes automaticas.</p></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-button" type="button" aria-expanded="false">
-            <span>Posso cancelar se nao gostar?</span><span>+</span>
-          </button>
-          <div class="faq-panel"><p>Sim. O teste gratis dura 30 dias e voce pode cancelar sem multa. A promessa e simples: mais velocidade para responder, mais agenda confirmada.</p></div>
+        <div class="faq reveal">
+          <details open><summary>Preciso trocar meu número de WhatsApp?</summary><p>Não. Você conecta o número profissional que já usa. Seus clientes continuam chamando no mesmo lugar.</p></details>
+          <details><summary>Preciso abandonar o Google Agenda?</summary><p>Não. O Google Agenda continua sendo sua agenda principal. O SmartAgenda apenas consulta os horários e cria os novos compromissos nela.</p></details>
+          <details><summary>O cliente precisa instalar outro aplicativo?</summary><p>Não. Para o cliente, tudo acontece dentro do WhatsApp, como uma conversa normal.</p></details>
+          <details><summary>Funciona para qualquer profissão?</summary><p>Funciona para profissionais que atendem com hora marcada: saúde, beleza, aulas, consultorias, serviços técnicos e muitas outras áreas.</p></details>
+          <details><summary>Posso assumir a conversa quando quiser?</summary><p>Sim. Você pode acompanhar os atendimentos e pausar o assistente pelo painel quando preferir responder pessoalmente.</p></details>
         </div>
       </div>
     </section>
 
-    <section class="site-shell section">
-      <div class="final-cta reveal">
-        <p class="kicker" style="color: #617000;">Garantia simples</p>
-        <h2>Deixe a Agenda Smart tentar salvar seus proximos leads.</h2>
-        <p>Teste por 30 dias. Se a IA nao reduzir seu tempo no WhatsApp e nao organizar melhor seus agendamentos, voce sai sem compromisso.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary magnetic" href="https://www.agendasmart.com.br/onboarding">Testar gratis por 30 dias</a>
-          <a class="btn btn-dark magnetic" href="https://www.agendasmart.com.br/login">Acessar sistema</a>
+    <section class="final">
+      <div class="final-inner wrap reveal">
+        <div>
+          <h2>Seu próximo cliente pode sair do WhatsApp com horário marcado.</h2>
+          <p>Crie sua conta, conecte sua agenda e deixe o SmartAgenda cuidar das mensagens repetitivas por você.</p>
         </div>
+        <a class="button" href="/onboarding">Começar agora <span aria-hidden="true">→</span></a>
       </div>
     </section>
   </main>
 
-  <footer class="site-shell">
-    <span>agenda smart - SaaS ficticio brasileiro para atendimento e agenda com IA.</span>
-    <span>WhatsApp + Google Agenda + inteligencia comercial.</span>
+  <footer>
+    <div class="footer-inner wrap">
+      <span>© 2026 SmartAgenda. Atendimento inteligente para profissionais.</span>
+      <nav class="footer-links" aria-label="Links do rodapé"><a href="/login">Acessar sistema</a><a href="/privacy">Privacidade</a><a href="/terms">Termos de uso</a></nav>
+    </div>
   </footer>
 
+  <div class="mobile-cta"><a class="button button-primary" href="/onboarding">Testar grátis por 30 dias</a></div>
+
   <script>
-    const money = new Intl.NumberFormat("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-
-    document.querySelectorAll(".faq-item").forEach((item) => {
-      const button = item.querySelector(".faq-button");
-      const panel = item.querySelector(".faq-panel");
-
-      const sync = () => {
-        if (item.classList.contains("is-open")) {
-          panel.style.maxHeight = panel.scrollHeight + "px";
-          button.setAttribute("aria-expanded", "true");
-        } else {
-          panel.style.maxHeight = "0px";
-          button.setAttribute("aria-expanded", "false");
-        }
-      };
-
-      button.addEventListener("click", () => {
-        item.classList.toggle("is-open");
-        sync();
-      });
-
-      sync();
-      window.addEventListener("resize", sync);
-    });
-
+    const formatter = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const billingButtons = document.querySelectorAll("[data-billing]");
     const plans = document.querySelectorAll(".plan");
 
-    function setBilling(mode) {
-      billingButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.billing === mode);
-      });
-
-      plans.forEach((plan) => {
-        const base = Number(plan.dataset.basePrice);
-        const monthlyPrice = mode === "annual" ? base * 0.8 : base;
-        const priceTarget = plan.querySelector("[data-price]");
-        const periodTarget = plan.querySelector("[data-period]");
-
-        priceTarget.textContent = money.format(monthlyPrice);
-        periodTarget.textContent = mode === "annual"
-          ? `/mes no anual - R$ ${money.format(monthlyPrice * 12)} por ano`
-          : "/mes";
-      });
-    }
-
     billingButtons.forEach((button) => {
-      button.addEventListener("click", () => setBilling(button.dataset.billing));
+      button.addEventListener("click", () => {
+        const annual = button.dataset.billing === "annual";
+        billingButtons.forEach((item) => item.classList.toggle("active", item === button));
+        plans.forEach((plan) => {
+          const base = Number(plan.dataset.basePrice);
+          const price = annual ? base * .8 : base;
+          plan.querySelector("[data-price]").textContent = formatter.format(price);
+          plan.querySelector("[data-period]").textContent = annual ? `por mês no plano anual · R$ ${formatter.format(price * 12)} por ano` : "por mês";
+        });
+      });
     });
 
-    const revealObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
-          revealObserver.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.16 });
-
-    document.querySelectorAll(".reveal").forEach((element) => revealObserver.observe(element));
-
-    const statObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-
-        const target = entry.target;
-        const final = Number(target.dataset.count);
-        const start = performance.now();
-
-        function tick(now) {
-          const progress = Math.min((now - start) / 1450, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          target.textContent = Math.round(final * eased).toLocaleString("pt-BR");
-
-          if (progress < 1) requestAnimationFrame(tick);
-        }
-
-        requestAnimationFrame(tick);
-        statObserver.unobserve(target);
-      });
-    }, { threshold: 0.7 });
-
-    document.querySelectorAll("[data-count]").forEach((element) => statObserver.observe(element));
-
-    const dot = document.querySelector(".cursor-dot");
-    const ring = document.querySelector(".cursor-ring");
-    let mouseX = 0;
-    let mouseY = 0;
-    let ringX = 0;
-    let ringY = 0;
-
-    window.addEventListener("pointermove", (event) => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-      dot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
-    });
-
-    function animateCursor() {
-      ringX += (mouseX - ringX) * 0.18;
-      ringY += (mouseY - ringY) * 0.18;
-      ring.style.transform = `translate(${ringX}px, ${ringY}px) translate(-50%, -50%)`;
-      requestAnimationFrame(animateCursor);
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        });
+      }, { threshold: .12 });
+      document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
+    } else {
+      document.querySelectorAll(".reveal").forEach((element) => element.classList.add("visible"));
     }
-    animateCursor();
-
-    document.querySelectorAll("a, button").forEach((element) => {
-      element.addEventListener("mouseenter", () => ring.classList.add("is-hovering"));
-      element.addEventListener("mouseleave", () => ring.classList.remove("is-hovering"));
-    });
-
-    document.querySelectorAll(".magnetic").forEach((element) => {
-      element.addEventListener("mousemove", (event) => {
-        const rect = element.getBoundingClientRect();
-        const x = event.clientX - rect.left - rect.width / 2;
-        const y = event.clientY - rect.top - rect.height / 2;
-        element.style.transform = `translate(${x * 0.12}px, ${y * 0.18}px)`;
-      });
-
-      element.addEventListener("mouseleave", () => {
-        element.style.transform = "translate(0, 0)";
-      });
-    });
   </script>
 </body>
 </html>
