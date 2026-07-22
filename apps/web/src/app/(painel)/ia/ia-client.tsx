@@ -1,6 +1,7 @@
 "use client";
 
-import { Bot, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Avatar, Card, Pill, SectionTitle } from "../components/ui";
@@ -13,7 +14,8 @@ export function IAClient({
   clients,
   dashboard,
   initialEnabled,
-  ready
+  ready,
+  whatsappConnected
 }: {
   apiUrl: string;
   appointments: Appointment[];
@@ -21,6 +23,7 @@ export function IAClient({
   dashboard: Dashboard;
   initialEnabled: boolean;
   ready: boolean;
+  whatsappConnected: boolean;
 }) {
   const [active, setActive] = useState(initialEnabled);
   const [saving, setSaving] = useState(false);
@@ -68,6 +71,30 @@ export function IAClient({
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Assistente IA</h1>
         <p className="mt-1 text-sm text-slate-500">Acompanhamento das conversas e automacao de agendamentos.</p>
       </header>
+
+      {!whatsappConnected ? (
+        <section className="overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-emerald-100">
+          <div className="flex items-start gap-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-emerald-600 shadow-sm">
+              <MessageCircle size={23} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Configuracao necessaria</p>
+              <h2 className="mt-2 font-display text-xl font-bold text-slate-950">Conecte seu WhatsApp</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Para a IA atender seus clientes, vincule o numero profissional usando um codigo no celular ou QR Code.
+              </p>
+              <Link
+                className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto"
+                href="/onboarding?step=whatsapp"
+              >
+                Conectar WhatsApp
+                <ArrowRight size={18} />
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section
         className={`rounded-3xl bg-gradient-to-br p-5 text-white shadow-xl ${

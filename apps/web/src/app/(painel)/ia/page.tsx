@@ -14,6 +14,7 @@ export default async function IAPage() {
       dashboard={dashboard}
       initialEnabled={account.aiEnabled !== false}
       ready={onboarding.ready}
+      whatsappConnected={onboarding.whatsappConnected}
     />
   );
 }
