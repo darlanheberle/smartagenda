@@ -17,7 +17,17 @@ export class EvolutionService {
     webhookUrl: string;
     phone?: string;
   }) {
-    const created = await this.createInstance(input.instanceName);
+    const current = await this.getInstanceSummary(input.instanceName);
+    const reset = current && !current.connected
+      ? await this.deleteInstance(input.instanceName)
+      : undefined;
+    const created = current?.connected
+      ? {
+          provider: "evolution-api",
+          status: "already_connected",
+          instanceName: input.instanceName
+        }
+      : await this.createInstance(input.instanceName, input.phone);
     const webhook = await this.setWebhook({
       instanceName: input.instanceName,
       webhookUrl: input.webhookUrl
@@ -28,6 +38,7 @@ export class EvolutionService {
       provider: "evolution-api",
       instanceName: input.instanceName,
       phone: input.phone,
+      reset,
       created,
       webhook,
       connection
@@ -155,7 +166,7 @@ export class EvolutionService {
     };
   }
 
-  async createInstance(instanceName: string) {
+  async createInstance(instanceName: string, phone?: string) {
     const config = this.getConfig();
 
     if (!config) {
@@ -171,11 +182,30 @@ export class EvolutionService {
       body: JSON.stringify({
         instanceName,
         qrcode: true,
-        integration: "WHATSAPP-BAILEYS"
+        integration: "WHATSAPP-BAILEYS",
+        number: phone?.replace(/\D/g, "")
       })
     });
 
     return this.parseEvolutionResponse(response, "instance_create_error");
+  }
+
+  async deleteInstance(instanceName: string) {
+    const config = this.getConfig();
+
+    if (!config) {
+      return this.missingConfig();
+    }
+
+    const response = await fetch(
+      `${config.baseUrl}/instance/delete/${encodeURIComponent(instanceName)}`,
+      {
+        method: "DELETE",
+        headers: { apikey: config.apiKey }
+      }
+    );
+
+    return this.parseEvolutionResponse(response, "instance_delete_error");
   }
 
   async connectInstance(instanceName: string, phone?: string) {
