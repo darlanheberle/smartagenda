@@ -61,6 +61,10 @@ export class ProfessionalRegistryService implements OnApplicationBootstrap {
     return professional;
   }
 
+  rememberRecord(record: ProfessionalRecord) {
+    return this.remember(this.fromRecord(record));
+  }
+
   list(): Professional[] {
     return Array.from(this.professionals.values());
   }

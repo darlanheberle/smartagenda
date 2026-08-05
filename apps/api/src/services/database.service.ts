@@ -164,6 +164,16 @@ export class DatabaseService implements OnModuleInit {
     `);
     await this.pool.query(`
       alter table professionals
+      add column if not exists profile_completed boolean not null default true,
+      add column if not exists google_subject text
+    `);
+    await this.pool.query(`
+      create unique index if not exists professionals_google_subject_unique
+      on professionals (google_subject)
+      where google_subject is not null
+    `);
+    await this.pool.query(`
+      alter table professionals
       add column if not exists logo_url text,
       add column if not exists theme_primary text,
       add column if not exists theme_primary_dark text,
@@ -277,9 +287,10 @@ export class DatabaseService implements OnModuleInit {
           gmail,
           timezone,
           appointment_duration_minutes,
+          profile_completed,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, true, now())
         on conflict (id)
         do update set
           name = excluded.name,
@@ -289,6 +300,7 @@ export class DatabaseService implements OnModuleInit {
           gmail = excluded.gmail,
           timezone = excluded.timezone,
           appointment_duration_minutes = excluded.appointment_duration_minutes,
+          profile_completed = true,
           updated_at = now()
         returning *
       `,
@@ -366,6 +378,69 @@ export class DatabaseService implements OnModuleInit {
       [gmail.toLowerCase().trim()]
     );
 
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async findProfessionalByGoogleSubject(subject: string): Promise<ProfessionalRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      "select * from professionals where google_subject = $1 limit 1",
+      [subject]
+    );
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async createGoogleProfessional(input: {
+    id: string;
+    name: string;
+    gmail: string;
+    googleSubject: string;
+  }) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const pendingPhone = `+000${input.id.replace(/\D/g, "")}`;
+    const result = await this.pool.query(
+      `
+        insert into professionals (
+          id, name, specialty, whatsapp_number, evolution_instance_name,
+          gmail, google_subject, profile_completed
+        )
+        values ($1, $2, null, $3, $4, $5, $6, false)
+        on conflict (google_subject) where google_subject is not null
+        do update set updated_at = now()
+        returning *
+      `,
+      [
+        input.id,
+        input.name.trim(),
+        pendingPhone,
+        `smartagenda-pending-${input.id}`,
+        input.gmail.toLowerCase().trim(),
+        input.googleSubject
+      ]
+    );
+    return result.rows[0] as ProfessionalRecord;
+  }
+
+  async linkGoogleIdentity(professionalId: string, googleSubject: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals
+        set google_subject = $2, updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [professionalId, googleSubject]
+    );
     return result.rows[0] as ProfessionalRecord | undefined;
   }
 
@@ -499,7 +574,9 @@ export class DatabaseService implements OnModuleInit {
 
     const servicesConfigured = row.services_count > 0;
     const availabilityConfigured = row.availability_rules_count > 0;
+    const profileConfigured = Boolean(row.profile_completed);
     const ready =
+      profileConfigured &&
       Boolean(row.google_connected) &&
       Boolean(row.whatsapp_connected) &&
       servicesConfigured &&
@@ -523,9 +600,11 @@ export class DatabaseService implements OnModuleInit {
         timezone: row.timezone,
         appointmentDurationMinutes: row.appointment_duration_minutes,
         whatsappStatus: row.whatsapp_status,
+        profileCompleted: Boolean(row.profile_completed),
         aiEnabled: row.ai_enabled !== false
       },
       googleConnected: Boolean(row.google_connected),
+      profileConfigured,
       whatsappConnected: Boolean(row.whatsapp_connected),
       servicesConfigured,
       availabilityConfigured,

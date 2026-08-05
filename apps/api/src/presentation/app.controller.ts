@@ -14,6 +14,7 @@ import {
   Res
 } from "@nestjs/common";
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { AuthService } from "../services/auth.service";
 import { CalendarService } from "../services/calendar.service";
@@ -62,6 +63,21 @@ export class AppController {
       status: "authenticated",
       professional: this.toAccountProfessional(professional)
     };
+  }
+
+  @Get("auth/google/start")
+  googleLoginStart(@Query("next") requestedNext = "/home", @Res() response: Response) {
+    const state = this.auth.createGoogleOAuthState(response, {
+      purpose: "login",
+      nextPath: this.safeAppPath(requestedNext, "/home")
+    });
+    const googleAuth = this.calendar.createGoogleAuthUrl({ state });
+
+    if (googleAuth.status !== "ready" || !googleAuth.authUrl) {
+      return response.status(400).json(googleAuth);
+    }
+
+    return response.redirect(googleAuth.authUrl);
   }
 
   @Post("auth/activate")
@@ -276,6 +292,53 @@ export class AppController {
     };
   }
 
+  @Post("onboarding/:professionalId/profile")
+  async completeGoogleProfessionalProfile(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string,
+    @Body() input: { name?: string; specialty?: string; whatsappNumber?: string }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    if (!input.name?.trim() || !input.specialty?.trim() || !input.whatsappNumber?.trim()) {
+      throw new BadRequestException("Nome, especialidade e WhatsApp sao obrigatorios.");
+    }
+
+    const stored = await this.database.getProfessional(professionalId);
+    if (!stored) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    const whatsappOwner = await this.database.findProfessionalByWhatsappNumber(
+      input.whatsappNumber
+    );
+    if (whatsappOwner && whatsappOwner.id !== professionalId) {
+      throw new ConflictException({
+        status: "whatsapp_already_registered",
+        message: "Este numero de WhatsApp ja esta cadastrado.",
+        whatsappNumber: whatsappOwner.whatsapp_number,
+        gmail: whatsappOwner.gmail,
+        professionalId: whatsappOwner.id,
+        professionalName: whatsappOwner.name
+      });
+    }
+
+    const professional = await this.persistProfessional({
+      id: professionalId,
+      name: input.name,
+      specialty: input.specialty,
+      whatsappNumber: input.whatsappNumber,
+      gmail: stored.gmail,
+      timezone: stored.timezone,
+      appointmentDurationMinutes: stored.appointment_duration_minutes
+    });
+    await this.createDefaultScheduling(professionalId);
+
+    return {
+      professional,
+      status: await this.database.getOnboardingStatus(professionalId)
+    };
+  }
+
   @Get("onboarding/:professionalId/status")
   async onboardingStatus(
     @Req() request: Request,
@@ -352,9 +415,19 @@ export class AppController {
   }
 
   @Get("professionals/:id/google/auth-url")
-  googleAuthUrl(@Req() request: Request, @Param("id") requestedProfessionalId: string) {
+  googleAuthUrl(
+    @Req() request: Request,
+    @Param("id") requestedProfessionalId: string,
+    @Res({ passthrough: true }) response: Response
+  ) {
     const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
-    return this.calendar.createGoogleAuthUrl(professionalId);
+    const professional = this.professionals.getById(professionalId);
+    const state = this.auth.createGoogleOAuthState(response, {
+      purpose: "connect",
+      professionalId,
+      nextPath: "/onboarding?step=google&connected=1"
+    });
+    return this.calendar.createGoogleAuthUrl({ state, loginHint: professional.gmail });
   }
 
   @Get("integrations/google/start")
@@ -364,7 +437,13 @@ export class AppController {
     @Res() response: Response
   ) {
     this.auth.requireOwnProfessional(request, professionalId);
-    const auth = this.calendar.createGoogleAuthUrl(professionalId);
+    const professional = this.professionals.getById(professionalId);
+    const state = this.auth.createGoogleOAuthState(response, {
+      purpose: "connect",
+      professionalId,
+      nextPath: "/onboarding?step=google&connected=1"
+    });
+    const auth = this.calendar.createGoogleAuthUrl({ state, loginHint: professional.gmail });
 
     if (auth.status !== "ready" || !("authUrl" in auth) || !auth.authUrl) {
       return response.status(400).json(auth);
@@ -381,18 +460,87 @@ export class AppController {
 
   @Get("integrations/google/callback")
   async googleCallback(
-    @Query("code") code: string,
-    @Query("state") state: string,
+    @Req() request: Request,
+    @Query("code") code: string | undefined,
+    @Query("state") state: string | undefined,
+    @Query("error") googleError: string | undefined,
     @Res() response: Response
   ) {
-    const result = await this.calendar.handleGoogleCallback({ code, state });
-
-    if (result.status === "connected") {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.agendasmart.com.br";
-      return response.redirect(`${appUrl.replace(/\/$/, "")}/onboarding?step=google&connected=1`);
+    const oauthState = this.auth.consumeGoogleOAuthState(request, response, state);
+    if (googleError || !code) {
+      return this.redirectGoogleError(
+        response,
+        oauthState.purpose,
+        "Autorizacao cancelada no Google."
+      );
     }
 
-    return response.status(400).json(result);
+    try {
+      const authorization = await this.calendar.exchangeGoogleAuthorizationCode(code);
+
+      if (oauthState.purpose === "connect") {
+        const professionalId = this.auth.requireOwnProfessional(
+          request,
+          oauthState.professionalId
+        );
+        const googleOwner = await this.database.findProfessionalByGoogleSubject(
+          authorization.profile.subject
+        );
+        if (googleOwner && googleOwner.id !== professionalId) {
+          throw new Error("Esta conta Google ja esta vinculada a outro profissional.");
+        }
+
+        await this.calendar.connectGoogleAccount(professionalId, authorization);
+        await this.database.linkGoogleIdentity(
+          professionalId,
+          authorization.profile.subject
+        );
+        return response.redirect(this.appUrl(oauthState.nextPath));
+      }
+
+      let professional = await this.database.findProfessionalByGoogleSubject(
+        authorization.profile.subject
+      );
+      professional ||= await this.database.findProfessionalByGmail(authorization.profile.email);
+
+      if (
+        professional?.google_subject &&
+        professional.google_subject !== authorization.profile.subject
+      ) {
+        throw new Error("Este Gmail ja esta vinculado a outra identidade Google.");
+      }
+
+      if (!professional) {
+        professional = await this.database.createGoogleProfessional({
+          id: randomUUID(),
+          name: authorization.profile.name,
+          gmail: authorization.profile.email,
+          googleSubject: authorization.profile.subject
+        });
+      } else if (!professional.google_subject) {
+        professional =
+          (await this.database.linkGoogleIdentity(
+            professional.id,
+            authorization.profile.subject
+          )) || professional;
+      }
+
+      if (!professional) {
+        throw new Error("Nao foi possivel criar a conta profissional.");
+      }
+
+      this.professionals.rememberRecord(professional);
+      await this.calendar.connectGoogleAccount(professional.id, authorization);
+      this.auth.createSession(response, professional.id);
+
+      const nextPath = professional.profile_completed
+        ? oauthState.nextPath
+        : "/onboarding?step=account&google=1";
+      return response.redirect(this.appUrl(nextPath));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao entrar com o Google.";
+      return this.redirectGoogleError(response, oauthState.purpose, message);
+    }
   }
 
   @Get("calendar/availability")
@@ -811,9 +959,31 @@ export class AppController {
       gmail: professional.gmail,
       whatsappNumber: professional.whatsapp_number,
       timezone: professional.timezone,
+      profileCompleted: professional.profile_completed,
       aiEnabled: professional.ai_enabled !== false,
       branding: this.toProfessionalBranding(professional)
     };
+  }
+
+  private safeAppPath(value: string | undefined, fallback: string) {
+    return value?.startsWith("/") && !value.startsWith("//") ? value : fallback;
+  }
+
+  private appUrl(path: string) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.agendasmart.com.br";
+    return `${appUrl.replace(/\/$/, "")}${this.safeAppPath(path, "/home")}`;
+  }
+
+  private redirectGoogleError(
+    response: Response,
+    purpose: "login" | "connect",
+    message: string
+  ) {
+    const path = purpose === "connect" ? "/onboarding?step=google" : "/login";
+    const separator = path.includes("?") ? "&" : "?";
+    return response.redirect(
+      this.appUrl(`${path}${separator}googleError=${encodeURIComponent(message)}`)
+    );
   }
 
   private toProfessionalBranding(professional: ProfessionalRecord) {

@@ -5,7 +5,15 @@ import { Professional } from "../types/professional";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
+
+export type GoogleAuthorization = {
+  profile: { subject: string; email: string; name: string };
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: string;
+};
 
 type BusyInterval = {
   start: string;
@@ -25,18 +33,19 @@ export class CalendarService {
     private readonly database: DatabaseService
   ) {}
 
-  createGoogleAuthUrl(professionalId: string) {
-    const professional = this.professionals.getById(professionalId);
+  createGoogleAuthUrl(input: { state: string; loginHint?: string }) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-    const scopes =
+    const configuredScopes =
       process.env.GOOGLE_SCOPES ||
       "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy";
+    const scopes = Array.from(
+      new Set(["openid", "email", "profile", ...configuredScopes.split(/\s+/).filter(Boolean)])
+    ).join(" ");
 
     if (!clientId || !redirectUri) {
       return {
         status: "missing_google_oauth_config",
-        professionalId: professional.id,
         message: "Configure GOOGLE_CLIENT_ID e GOOGLE_REDIRECT_URI no .env."
       };
     }
@@ -46,40 +55,34 @@ export class CalendarService {
       redirect_uri: redirectUri,
       response_type: "code",
       access_type: "offline",
-      prompt: "consent",
       scope: scopes,
-      state: professional.id,
-      login_hint: professional.gmail,
+      state: input.state,
       include_granted_scopes: "true"
     });
+    if (input.loginHint) {
+      params.set("login_hint", input.loginHint);
+    }
 
     return {
       status: "ready",
-      professionalId: professional.id,
-      gmail: professional.gmail,
       authUrl: `${GOOGLE_AUTH_URL}?${params.toString()}`
     };
   }
 
-  async handleGoogleCallback(input: { code: string; state: string }) {
-    const professional = this.professionals.getById(input.state);
+  async exchangeGoogleAuthorizationCode(code: string): Promise<GoogleAuthorization> {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
     if (!clientId || !clientSecret || !redirectUri) {
-      return {
-        status: "missing_google_oauth_config",
-        professionalId: professional.id,
-        message: "Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URI."
-      };
+      throw new Error("Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URI.");
     }
 
     const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        code: input.code,
+        code,
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
@@ -88,11 +91,7 @@ export class CalendarService {
     });
 
     if (!tokenResponse.ok) {
-      return {
-        status: "google_token_error",
-        professionalId: professional.id,
-        error: await tokenResponse.text()
-      };
+      throw new Error(`Falha ao obter autorizacao do Google: ${await tokenResponse.text()}`);
     }
 
     const token = (await tokenResponse.json()) as {
@@ -101,18 +100,57 @@ export class CalendarService {
       expires_in?: number;
     };
 
-    const connection = {
-      email: professional.gmail,
-      calendarId: "primary",
+    const profileResponse = await fetch(GOOGLE_USERINFO_URL, {
+      headers: { authorization: `Bearer ${token.access_token}` }
+    });
+    if (!profileResponse.ok) {
+      throw new Error(`Falha ao validar a conta Google: ${await profileResponse.text()}`);
+    }
+
+    const profile = (await profileResponse.json()) as {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+    };
+    if (!profile.sub || !profile.email || profile.email_verified !== true) {
+      throw new Error("O Google nao confirmou um Gmail valido para este acesso.");
+    }
+
+    return {
+      profile: {
+        subject: profile.sub,
+        email: profile.email.toLowerCase().trim(),
+        name: profile.name?.trim() || profile.email.split("@")[0]
+      },
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       expiresAt: token.expires_in
         ? new Date(Date.now() + token.expires_in * 1000).toISOString()
-        : undefined,
+        : undefined
+    };
+  }
+
+  async connectGoogleAccount(professionalId: string, authorization: GoogleAuthorization) {
+    const professional = this.professionals.getById(professionalId);
+    if (professional.gmail.toLowerCase().trim() !== authorization.profile.email) {
+      throw new Error(
+        `Autorize a conta ${professional.gmail}, que foi cadastrada neste profissional.`
+      );
+    }
+
+    const connection = {
+      email: authorization.profile.email,
+      calendarId: "primary",
+      accessToken: authorization.accessToken,
+      refreshToken: authorization.refreshToken,
+      expiresAt: authorization.expiresAt,
       connectedAt: new Date().toISOString()
     };
     await this.database.saveGoogleCalendarConnection(professional.id, connection);
-    const connected = this.professionals.connectGoogleCalendar(professional.id, connection);
+    const storedConnection =
+      (await this.database.getGoogleCalendarConnection(professional.id)) || connection;
+    const connected = this.professionals.connectGoogleCalendar(professional.id, storedConnection);
 
     return {
       status: "connected",

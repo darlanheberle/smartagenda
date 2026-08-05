@@ -9,9 +9,19 @@ type SessionPayload = {
   expiresAt: number;
 };
 
+export type GoogleOAuthStatePayload = {
+  purpose: "login" | "connect";
+  professionalId?: string;
+  nextPath: string;
+  nonce: string;
+  expiresAt: number;
+};
+
 const scrypt = promisify(scryptCallback);
 const sessionCookieName = "smartagenda_session";
+const googleOAuthStateCookieName = "smartagenda_google_oauth_state";
 const sessionDurationMs = 7 * 24 * 60 * 60 * 1000;
+const googleOAuthStateDurationMs = 10 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -87,6 +97,67 @@ export class AuthService {
     });
   }
 
+  createGoogleOAuthState(
+    response: Response,
+    input: Omit<GoogleOAuthStatePayload, "nonce" | "expiresAt">
+  ) {
+    const payload = this.encode({
+      ...input,
+      nonce: randomBytes(24).toString("base64url"),
+      expiresAt: Date.now() + googleOAuthStateDurationMs
+    });
+    const state = `${payload}.${this.sign(payload)}`;
+
+    response.cookie(googleOAuthStateCookieName, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: googleOAuthStateDurationMs
+    });
+
+    return state;
+  }
+
+  consumeGoogleOAuthState(request: Request, response: Response, state?: string) {
+    const cookieState = this.readCookie(request, googleOAuthStateCookieName);
+    response.clearCookie(googleOAuthStateCookieName, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/"
+    });
+
+    if (!state || !cookieState || !this.safeEqual(state, cookieState)) {
+      throw new UnauthorizedException(
+        "A autorizacao do Google expirou ou nao pertence a este acesso."
+      );
+    }
+
+    const [payload, signature] = state.split(".");
+    if (!payload || !signature || !this.safeEqual(signature, this.sign(payload))) {
+      throw new UnauthorizedException("Estado de autorizacao do Google invalido.");
+    }
+
+    try {
+      const parsed = JSON.parse(
+        Buffer.from(payload, "base64url").toString("utf8")
+      ) as GoogleOAuthStatePayload;
+
+      if (
+        parsed.expiresAt <= Date.now() ||
+        !parsed.nonce ||
+        !["login", "connect"].includes(parsed.purpose)
+      ) {
+        throw new Error("expired");
+      }
+
+      return parsed;
+    } catch {
+      throw new UnauthorizedException("A autorizacao do Google expirou. Tente novamente.");
+    }
+  }
+
   requireProfessionalId(request: Request) {
     const token = this.readCookie(request, sessionCookieName);
     const session = token ? this.verifySession(token) : undefined;
@@ -115,10 +186,7 @@ export class AuthService {
     }
 
     const expectedSignature = this.sign(payload);
-    const received = Buffer.from(signature);
-    const expected = Buffer.from(expectedSignature);
-
-    if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+    if (!this.safeEqual(signature, expectedSignature)) {
       return undefined;
     }
 
@@ -130,12 +198,18 @@ export class AuthService {
     }
   }
 
-  private encode(payload: SessionPayload) {
+  private encode(payload: unknown) {
     return Buffer.from(JSON.stringify(payload)).toString("base64url");
   }
 
   private sign(payload: string) {
     return createHmac("sha256", this.secret).update(payload).digest("base64url");
+  }
+
+  private safeEqual(receivedValue: string, expectedValue: string) {
+    const received = Buffer.from(receivedValue);
+    const expected = Buffer.from(expectedValue);
+    return received.length === expected.length && timingSafeEqual(received, expected);
   }
 
   private readCookie(request: Request, name: string) {

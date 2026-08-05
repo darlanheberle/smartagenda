@@ -50,6 +50,8 @@ export type ProfessionalRecord = {
   timezone: string;
   appointment_duration_minutes: number;
   ai_enabled: boolean;
+  profile_completed: boolean;
+  google_subject?: string | null;
   whatsapp_status: string;
   whatsapp_connected_at?: string | null;
   onboarding_completed_at?: string | null;

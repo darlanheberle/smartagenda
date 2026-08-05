@@ -32,7 +32,9 @@ type StepId = "account" | "google" | "whatsapp" | "setup" | "complete";
 type ProfessionalData = {
   id?: string;
   name?: string;
+  specialty?: string;
   gmail?: string;
+  profileCompleted?: boolean;
   whatsappNumber?: string;
   whatsapp_number?: string;
   evolutionInstanceName?: string;
@@ -42,6 +44,7 @@ type ProfessionalData = {
 type OnboardingStatus = {
   professional?: ProfessionalData;
   ready?: boolean;
+  profileConfigured?: boolean;
   googleConnected?: boolean;
   whatsappConnected?: boolean;
   servicesConfigured?: boolean;
@@ -139,7 +142,7 @@ export function OnboardingWizard() {
 
   const completion = useMemo<Record<StepId, boolean>>(
     () => ({
-      account: Boolean(professionalId),
+      account: Boolean(professionalId && status?.profileConfigured !== false),
       google: Boolean(status?.googleConnected),
       whatsapp: Boolean(status?.whatsappConnected),
       setup: Boolean(status?.servicesConfigured && status?.availabilityConfigured),
@@ -272,10 +275,15 @@ export function OnboardingWizard() {
             {currentStep === "account" ? (
               <AccountStep
                 conflictError={error}
+                googleProfessional={
+                  professionalId && status?.profileConfigured === false
+                    ? professional
+                    : undefined
+                }
                 onCreated={(result) => {
                   setCreated(result);
                   setError("");
-                  setCurrentStep("google");
+                  setCurrentStep(result.status?.googleConnected ? "whatsapp" : "google");
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 onError={setError}
@@ -341,15 +349,17 @@ export function OnboardingWizard() {
 
 function AccountStep({
   conflictError,
+  googleProfessional,
   onCreated,
   onError
 }: {
   conflictError: string;
+  googleProfessional?: ProfessionalData;
   onCreated: (result: CreatedProfessional) => void;
   onError: (message: string) => void;
 }) {
-  const [name, setName] = useState("");
-  const [specialty, setSpecialty] = useState("");
+  const [name, setName] = useState(googleProfessional?.name || "");
+  const [specialty, setSpecialty] = useState(googleProfessional?.specialty || "");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [gmail, setGmail] = useState("");
   const [password, setPassword] = useState("");
@@ -357,6 +367,7 @@ function AccountStep({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [conflict, setConflict] = useState<OnboardingConflict>();
+  const isGoogleAccount = Boolean(googleProfessional?.id);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -365,24 +376,33 @@ function AccountStep({
     onError("");
 
     try {
-      if (password !== passwordConfirmation) {
+      if (!isGoogleAccount && password !== passwordConfirmation) {
         throw new Error("As senhas nao conferem. Digite novamente.");
       }
 
-      const response = await fetch(`${apiUrl}/onboarding/professionals`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name,
-          specialty,
-          whatsappNumber,
-          gmail,
-          password,
-          timezone: "America/Sao_Paulo",
-          appointmentDurationMinutes: 60
-        })
-      });
+      const response = await fetch(
+        isGoogleAccount
+          ? `${apiUrl}/onboarding/${googleProfessional?.id}/profile`
+          : `${apiUrl}/onboarding/professionals`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(
+            isGoogleAccount
+              ? { name, specialty, whatsappNumber }
+              : {
+                  name,
+                  specialty,
+                  whatsappNumber,
+                  gmail,
+                  password,
+                  timezone: "America/Sao_Paulo",
+                  appointmentDurationMinutes: 60
+                }
+          )
+        }
+      );
 
       if (!response.ok) {
         const responseText = await response.text();
@@ -404,9 +424,32 @@ function AccountStep({
 
   return (
     <StepCard icon={<UserRound size={22} />} step="Etapa 1 de 5" subtitle="Preencha somente os dados usados no seu atendimento." title="Crie sua conta profissional">
-      <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-        Use o Gmail que possui a agenda do profissional e o numero de WhatsApp que atendera os clientes.
-      </div>
+      {isGoogleAccount ? (
+        <SuccessPanel title="Conta Google e Agenda conectadas">
+          {googleProfessional?.gmail} foi confirmado. Complete somente os dados do atendimento.
+        </SuccessPanel>
+      ) : (
+        <>
+          <a
+            className="app-button-secondary w-full border-slate-200 bg-white text-slate-800 shadow-sm hover:border-violet-200 hover:bg-violet-50"
+            href={`${apiUrl}/auth/google/start?next=${encodeURIComponent("/onboarding")}`}
+          >
+            <GoogleMark />
+            Continuar com Google
+          </a>
+          <p className="mt-3 text-center text-xs leading-5 text-slate-500">
+            Cria sua conta e conecta o Google Agenda em uma unica autorizacao.
+          </p>
+          <div className="my-6 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold uppercase text-slate-400">ou cadastre manualmente</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+            Use o Gmail que possui a agenda do profissional e o numero de WhatsApp que atendera os clientes.
+          </div>
+        </>
+      )}
       <form className="mt-6 space-y-5" onSubmit={submit}>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field hint="Como seus clientes conhecem voce." label="Nome do profissional" htmlFor="name">
@@ -418,20 +461,24 @@ function AccountStep({
           <Field hint="Inclua DDD. Exemplo: 5548999999999." label="WhatsApp profissional" htmlFor="whatsapp">
             <input className="app-input" id="whatsapp" inputMode="tel" onChange={(event) => setWhatsappNumber(event.target.value)} placeholder="5548999999999" required value={whatsappNumber} />
           </Field>
-          <Field hint="Precisa ser a conta da agenda que sera usada." label="Gmail da agenda" htmlFor="gmail">
-            <input className="app-input" id="gmail" inputMode="email" onChange={(event) => setGmail(event.target.value)} placeholder="profissional@gmail.com" required type="email" value={gmail} />
-          </Field>
-          <Field hint="Use pelo menos 8 caracteres." label="Crie uma senha" htmlFor="password">
-            <div className="relative">
-              <input autoComplete="new-password" className="app-input pr-12" id="password" minLength={8} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} />
-              <button aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} className="absolute inset-y-0 right-0 grid w-12 place-items-center text-slate-400 hover:text-slate-700" onClick={() => setShowPassword((current) => !current)} type="button">
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </Field>
-          <Field hint="Repita a mesma senha." label="Confirme a senha" htmlFor="password-confirmation">
-            <input autoComplete="new-password" className="app-input" id="password-confirmation" minLength={8} onChange={(event) => setPasswordConfirmation(event.target.value)} required type={showPassword ? "text" : "password"} value={passwordConfirmation} />
-          </Field>
+          {!isGoogleAccount ? (
+            <>
+              <Field hint="Precisa ser a conta da agenda que sera usada." label="Gmail da agenda" htmlFor="gmail">
+                <input className="app-input" id="gmail" inputMode="email" onChange={(event) => setGmail(event.target.value)} placeholder="profissional@gmail.com" required type="email" value={gmail} />
+              </Field>
+              <Field hint="Use pelo menos 8 caracteres." label="Crie uma senha" htmlFor="password">
+                <div className="relative">
+                  <input autoComplete="new-password" className="app-input pr-12" id="password" minLength={8} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} />
+                  <button aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} className="absolute inset-y-0 right-0 grid w-12 place-items-center text-slate-400 hover:text-slate-700" onClick={() => setShowPassword((current) => !current)} type="button">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </Field>
+              <Field hint="Repita a mesma senha." label="Confirme a senha" htmlFor="password-confirmation">
+                <input autoComplete="new-password" className="app-input" id="password-confirmation" minLength={8} onChange={(event) => setPasswordConfirmation(event.target.value)} required type={showPassword ? "text" : "password"} value={passwordConfirmation} />
+              </Field>
+            </>
+          ) : null}
         </div>
 
         {conflictError ? <ErrorNotice>{conflictError}</ErrorNotice> : null}
@@ -439,7 +486,7 @@ function AccountStep({
 
         <button className="app-button-primary w-full sm:w-auto" disabled={loading} type="submit">
           {loading ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
-          {loading ? "Criando sua conta..." : "Criar conta e continuar"}
+          {loading ? "Salvando sua conta..." : isGoogleAccount ? "Salvar e continuar" : "Criar conta e continuar"}
         </button>
       </form>
     </StepCard>
@@ -823,6 +870,17 @@ function Brand() {
   );
 }
 
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24">
+      <path d="M21.6 12.23c0-.71-.06-1.23-.2-1.78H12v3.42h5.52a4.75 4.75 0 0 1-2.05 3.03l2.93 2.27c1.72-1.58 3.2-3.94 3.2-6.94Z" fill="#4285F4" />
+      <path d="M12 22c2.7 0 4.97-.89 6.63-2.42l-3.16-2.68c-.88.59-2 .94-3.47.94-2.6 0-4.81-1.76-5.6-4.12l-3.03 2.34A10 10 0 0 0 12 22Z" fill="#34A853" />
+      <path d="M6.4 13.72A6 6 0 0 1 6.08 12c0-.6.1-1.18.3-1.72L3.34 7.92A10 10 0 0 0 2 12c0 1.47.32 2.86 1.37 4.08l3.03-2.36Z" fill="#FBBC05" />
+      <path d="M12 6.16c1.47 0 2.78.5 3.82 1.5l2.87-2.86A9.65 9.65 0 0 0 12 2a10 10 0 0 0-8.66 5.92l3.04 2.36C7.18 7.92 9.4 6.16 12 6.16Z" fill="#EA4335" />
+    </svg>
+  );
+}
+
 function OnboardingLoading() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
@@ -844,6 +902,7 @@ function canOpenStep(step: StepId, completion: Record<StepId, boolean>) {
 }
 
 function firstIncompleteStep(status?: OnboardingStatus): StepId {
+  if (status?.profileConfigured === false) return "account";
   if (!status?.googleConnected) return "google";
   if (!status.whatsappConnected) return "whatsapp";
   if (!status.servicesConfigured || !status.availabilityConfigured) return "setup";

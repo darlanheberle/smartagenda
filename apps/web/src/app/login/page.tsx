@@ -30,7 +30,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(searchParams.get("googleError") || "");
   const nextPath = safeNextPath(searchParams.get("next"));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -119,11 +119,28 @@ function LoginForm() {
               <p className="eyebrow">Acesso seguro</p>
               <h2 className="mt-1 text-2xl font-semibold text-balance">Entrar na sua conta</h2>
               <p className="mt-2 text-sm text-[var(--ink-secondary)]">
-                Use o Gmail e a senha cadastrados no SmartAgenda.
+                Acesse com sua conta Google ou use a senha cadastrada no SmartAgenda.
               </p>
             </div>
 
-            <form className="mt-6 space-y-4" onSubmit={submit}>
+            <a
+              className="btn-secondary mt-6 w-full border-black/10 bg-white"
+              href={`${apiUrl}/auth/google/start?next=${encodeURIComponent(nextPath)}`}
+            >
+              <GoogleMark />
+              Continuar com Google
+            </a>
+            <p className="mt-2 text-center text-xs leading-5 text-[var(--ink-muted)]">
+              No primeiro acesso, conecta sua conta e o Google Agenda.
+            </p>
+
+            <div className="my-5 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-black/10" />
+              <span className="text-[11px] font-semibold uppercase text-[var(--ink-muted)]">ou use sua senha</span>
+              <span className="h-px flex-1 bg-black/10" />
+            </div>
+
+            <form className="space-y-4" onSubmit={submit}>
               <Field label="Gmail cadastrado" htmlFor="login-email">
                 <input
                   autoComplete="email"
@@ -200,6 +217,17 @@ function LoginBenefit({ icon, text }: { icon: React.ReactNode; text: string }) {
       </span>
       <span>{text}</span>
     </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24">
+      <path d="M21.6 12.23c0-.71-.06-1.23-.2-1.78H12v3.42h5.52a4.75 4.75 0 0 1-2.05 3.03l2.93 2.27c1.72-1.58 3.2-3.94 3.2-6.94Z" fill="#4285F4" />
+      <path d="M12 22c2.7 0 4.97-.89 6.63-2.42l-3.16-2.68c-.88.59-2 .94-3.47.94-2.6 0-4.81-1.76-5.6-4.12l-3.03 2.34A10 10 0 0 0 12 22Z" fill="#34A853" />
+      <path d="M6.4 13.72A6 6 0 0 1 6.08 12c0-.6.1-1.18.3-1.72L3.34 7.92A10 10 0 0 0 2 12c0 1.47.32 2.86 1.37 4.08l3.03-2.36Z" fill="#FBBC05" />
+      <path d="M12 6.16c1.47 0 2.78.5 3.82 1.5l2.87-2.86A9.65 9.65 0 0 0 12 2a10 10 0 0 0-8.66 5.92l3.04 2.36C7.18 7.92 9.4 6.16 12 6.16Z" fill="#EA4335" />
+    </svg>
   );
 }
 
