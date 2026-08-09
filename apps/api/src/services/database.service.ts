@@ -518,7 +518,7 @@ export class DatabaseService implements OnModuleInit {
 
   async markProfessionalWhatsappStatus(
     professionalId: string,
-    status: "pending" | "instance_created" | "connected" | "error"
+    status: "pending" | "instance_created" | "connected" | "skipped" | "error"
   ) {
     if (!this.pool || !this.ready) {
       return undefined;
@@ -546,6 +546,7 @@ export class DatabaseService implements OnModuleInit {
         professionalId,
         googleConnected: false,
         whatsappConnected: false,
+        whatsappSkipped: false,
         servicesConfigured: false,
         availabilityConfigured: false,
         ready: false
@@ -575,10 +576,11 @@ export class DatabaseService implements OnModuleInit {
     const servicesConfigured = row.services_count > 0;
     const availabilityConfigured = row.availability_rules_count > 0;
     const profileConfigured = Boolean(row.profile_completed);
+    const whatsappSkipped = row.whatsapp_status === "skipped";
     const ready =
       profileConfigured &&
       Boolean(row.google_connected) &&
-      Boolean(row.whatsapp_connected) &&
+      (Boolean(row.whatsapp_connected) || whatsappSkipped) &&
       servicesConfigured &&
       availabilityConfigured;
 
@@ -606,6 +608,7 @@ export class DatabaseService implements OnModuleInit {
       googleConnected: Boolean(row.google_connected),
       profileConfigured,
       whatsappConnected: Boolean(row.whatsapp_connected),
+      whatsappSkipped,
       servicesConfigured,
       availabilityConfigured,
       servicesCount: row.services_count,

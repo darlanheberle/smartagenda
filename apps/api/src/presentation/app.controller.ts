@@ -394,6 +394,21 @@ export class AppController {
     };
   }
 
+  @Post("onboarding/:professionalId/whatsapp/skip")
+  async onboardingWhatsappSkip(
+    @Req() request: Request,
+    @Param("professionalId") requestedProfessionalId: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    await this.database.markProfessionalWhatsappStatus(professionalId, "skipped");
+
+    return {
+      status: "whatsapp_skipped",
+      professionalId,
+      onboarding: await this.database.getOnboardingStatus(professionalId)
+    };
+  }
+
   @Get("onboarding/:professionalId/whatsapp/connect")
   async onboardingWhatsappConnect(
     @Req() request: Request,

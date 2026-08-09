@@ -66,6 +66,7 @@ export async function getPanelData(): Promise<PanelData> {
       {
         googleConnected: false,
         whatsappConnected: false,
+        whatsappSkipped: false,
         servicesConfigured: false,
         availabilityConfigured: false,
         servicesCount: 0,

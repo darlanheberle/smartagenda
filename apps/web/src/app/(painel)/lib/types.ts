@@ -72,6 +72,7 @@ export type OnboardingStatus = {
   };
   googleConnected: boolean;
   whatsappConnected: boolean;
+  whatsappSkipped?: boolean;
   servicesConfigured: boolean;
   availabilityConfigured: boolean;
   servicesCount: number;

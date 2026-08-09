@@ -47,6 +47,7 @@ type OnboardingStatus = {
   profileConfigured?: boolean;
   googleConnected?: boolean;
   whatsappConnected?: boolean;
+  whatsappSkipped?: boolean;
   servicesConfigured?: boolean;
   availabilityConfigured?: boolean;
   servicesCount?: number;
@@ -144,7 +145,7 @@ export function OnboardingWizard() {
     () => ({
       account: Boolean(professionalId && status?.profileConfigured !== false),
       google: Boolean(status?.googleConnected),
-      whatsapp: Boolean(status?.whatsappConnected),
+      whatsapp: Boolean(status?.whatsappConnected || status?.whatsappSkipped),
       setup: Boolean(status?.servicesConfigured && status?.availabilityConfigured),
       complete: Boolean(status?.ready)
     }),
@@ -202,7 +203,10 @@ export function OnboardingWizard() {
       if (options?.advance) {
         if (currentStep === "google" && nextStatus.googleConnected) {
           setCurrentStep("whatsapp");
-        } else if (currentStep === "whatsapp" && nextStatus.whatsappConnected) {
+        } else if (
+          currentStep === "whatsapp" &&
+          (nextStatus.whatsappConnected || nextStatus.whatsappSkipped)
+        ) {
           setCurrentStep("setup");
         }
       }
@@ -313,6 +317,7 @@ export function OnboardingWizard() {
                 }}
                 onVerify={() => void refreshStatus({ advance: true })}
                 professionalId={professionalId}
+                skipped={Boolean(status?.whatsappSkipped)}
                 whatsappNumber={professional?.whatsappNumber || professional?.whatsapp_number || ""}
               />
             ) : null}
@@ -331,7 +336,11 @@ export function OnboardingWizard() {
             ) : null}
 
             {currentStep === "complete" ? (
-              <CompleteStep name={professional?.name || "Profissional"} ready={Boolean(status?.ready)} />
+              <CompleteStep
+                name={professional?.name || "Profissional"}
+                ready={Boolean(status?.ready)}
+                whatsappSkipped={Boolean(status?.whatsappSkipped)}
+              />
             ) : null}
 
             {error && currentStep !== "account" ? <ErrorNotice>{error}</ErrorNotice> : null}
@@ -533,7 +542,7 @@ function GoogleStep({ connected, gmail, googleUrl, loading, onBack, onContinue, 
   );
 }
 
-function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, onVerify, professionalId, whatsappNumber }: {
+function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, onVerify, professionalId, skipped, whatsappNumber }: {
   connected: boolean;
   loadingStatus: boolean;
   onBack: () => void;
@@ -541,11 +550,14 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
   onStatus: (status: OnboardingStatus) => void;
   onVerify: () => void;
   professionalId: string;
+  skipped: boolean;
   whatsappNumber: string;
 }) {
   const [preparing, setPreparing] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [result, setResult] = useState<WhatsappPrepareResult>();
   const [method, setMethod] = useState<"code" | "qr">("code");
+  const [choice, setChoice] = useState<"choose" | "connect">(connected ? "connect" : "choose");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const pairingCode = findEvolutionValue(result, ["pairingCode", "pairing_code"]);
@@ -590,10 +602,72 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
     }
   }
 
+  async function skipWhatsapp() {
+    setSkipping(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiUrl}/onboarding/${professionalId}/whatsapp/skip`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        throw new Error(readApiMessage(await response.text(), "Nao foi possivel salvar sua escolha."));
+      }
+
+      const payload = (await response.json()) as { onboarding?: OnboardingStatus };
+      if (payload.onboarding) {
+        onStatus(payload.onboarding);
+      }
+      onContinue();
+    } catch (skipError) {
+      setError(skipError instanceof Error ? skipError.message : "Nao foi possivel salvar sua escolha.");
+    } finally {
+      setSkipping(false);
+    }
+  }
+
   return (
-    <StepCard icon={<MessageCircle size={22} />} step="Etapa 3 de 5" subtitle={`Vamos vincular o numero ${whatsappNumber || "informado no cadastro"}.`} title="Conecte seu WhatsApp">
+    <StepCard icon={<MessageCircle size={22} />} step="Etapa 3 de 5" subtitle="A conexao e opcional e pode ser feita depois pelo seu painel." title="Como deseja usar o WhatsApp?">
       {connected ? (
         <SuccessPanel title="WhatsApp conectado">O numero esta pronto para receber mensagens e usar o assistente.</SuccessPanel>
+      ) : choice === "choose" ? (
+        <>
+          {skipped ? (
+            <div className="mb-5 rounded-3xl bg-violet-50 p-4 text-violet-950">
+              <p className="font-semibold">WhatsApp ficou para depois</p>
+              <p className="mt-1 text-sm leading-6 text-violet-800">Seu painel continua funcionando. Quando quiser, conecte o numero pela aba IA.</p>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              className="group min-h-44 rounded-3xl border-2 border-violet-200 bg-violet-50 p-5 text-left transition hover:border-violet-400 hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200"
+              onClick={() => setChoice("connect")}
+              type="button"
+            >
+              <span className="grid size-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200"><Smartphone size={20} /></span>
+              <span className="mt-5 block font-display text-lg font-bold text-slate-950">Conectar WhatsApp agora</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-600">Ative o assistente para responder clientes e criar agendamentos automaticamente.</span>
+            </button>
+
+            <button
+              className="group min-h-44 rounded-3xl border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200"
+              disabled={skipping}
+              onClick={() => void skipWhatsapp()}
+              type="button"
+            >
+              <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-600">{skipping ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}</span>
+              <span className="mt-5 block font-display text-lg font-bold text-slate-950">Continuar sem WhatsApp</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-600">Configure servicos e horarios agora. A conexao podera ser feita depois na aba IA.</span>
+            </button>
+          </div>
+
+          <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            Sem a conexao, o assistente ainda nao respondera mensagens pelo WhatsApp.
+          </div>
+        </>
       ) : (
         <>
           <div className="rounded-3xl bg-emerald-50 p-4">
@@ -652,19 +726,30 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
             </div>
           )}
 
+          <button className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-500 hover:text-violet-700" disabled={skipping} onClick={() => void skipWhatsapp()} type="button">
+            {skipping ? <Loader2 className="animate-spin" size={17} /> : <ArrowRight size={17} />}
+            Prefiro configurar depois
+          </button>
+
           {error ? <ErrorNotice>{error}</ErrorNotice> : null}
         </>
       )}
 
-      <StepActions
-        continueDisabled={!connected}
-        continueLabel="Continuar para ajustes"
-        loading={loadingStatus}
-        onBack={onBack}
-        onContinue={onContinue}
-        onVerify={!connected ? onVerify : undefined}
-        verifyLabel="Ja conectei, verificar agora"
-      />
+      {connected || choice === "connect" ? (
+        <StepActions
+          continueDisabled={!connected}
+          continueLabel="Continuar para ajustes"
+          loading={loadingStatus}
+          onBack={onBack}
+          onContinue={onContinue}
+          onVerify={!connected ? onVerify : undefined}
+          verifyLabel="Ja conectei, verificar agora"
+        />
+      ) : (
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <button className="app-button-secondary" onClick={onBack} type="button"><ArrowLeft size={17} />Voltar</button>
+        </div>
+      )}
     </StepCard>
   );
 }
@@ -702,7 +787,7 @@ function SetupStep({ availabilityConfigured, availabilityCount, loading, onBack,
   );
 }
 
-function CompleteStep({ name, ready }: { name: string; ready: boolean }) {
+function CompleteStep({ name, ready, whatsappSkipped }: { name: string; ready: boolean; whatsappSkipped: boolean }) {
   return (
     <StepCard icon={<Rocket size={22} />} step="Etapa 5 de 5" subtitle="A partir de agora voce controla tudo pelo seu painel." title={`Tudo pronto, ${firstName(name)}!`}>
       {ready ? (
@@ -710,7 +795,11 @@ function CompleteStep({ name, ready }: { name: string; ready: boolean }) {
           <div className="rounded-3xl bg-emerald-50 p-6 text-center">
             <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-emerald-600 text-white shadow-lg shadow-emerald-200"><CheckCircle2 size={32} /></span>
             <h3 className="mt-5 font-display text-xl font-bold text-slate-950">Seu SmartAgenda esta ativo</h3>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">O WhatsApp pode atender clientes, consultar horarios e criar eventos no seu Google Agenda.</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+              {whatsappSkipped
+                ? "Seu painel, servicos e Google Agenda estao prontos. Quando quiser, conecte o WhatsApp pela aba IA."
+                : "O WhatsApp pode atender clientes, consultar horarios e criar eventos no seu Google Agenda."}
+            </p>
           </div>
           <Link className="app-button-primary mt-6 w-full" href="/home">
             Ir para meu painel
@@ -904,7 +993,7 @@ function canOpenStep(step: StepId, completion: Record<StepId, boolean>) {
 function firstIncompleteStep(status?: OnboardingStatus): StepId {
   if (status?.profileConfigured === false) return "account";
   if (!status?.googleConnected) return "google";
-  if (!status.whatsappConnected) return "whatsapp";
+  if (!status.whatsappConnected && !status.whatsappSkipped) return "whatsapp";
   if (!status.servicesConfigured || !status.availabilityConfigured) return "setup";
   return "complete";
 }
