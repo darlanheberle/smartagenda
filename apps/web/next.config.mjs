@@ -5,7 +5,7 @@ const nextConfig = {
     return [
       {
         source: "/",
-        destination: "/landing-agenda-smart.html"
+        destination: "/index.html"
       }
     ];
   }
