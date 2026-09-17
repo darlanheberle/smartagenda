@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res
@@ -744,6 +745,236 @@ export class AppController {
     return this.database.deleteService(professionalId, id);
   }
 
+  // ------------------------------------------------------------------
+  // Modo Equipes (feat/modo-equipes)
+  // ------------------------------------------------------------------
+
+  @Get("profile/team-mode")
+  async getTeamMode(@Req() request: Request) {
+    const professionalId = this.auth.requireProfessionalId(request);
+    return { enabled: await this.database.getTeamMode(professionalId) };
+  }
+
+  @Patch("profile/team-mode")
+  async setTeamMode(@Req() request: Request, @Body() input: { enabled?: boolean }) {
+    if (typeof input.enabled !== "boolean") {
+      throw new BadRequestException("enabled precisa ser verdadeiro ou falso.");
+    }
+
+    const professionalId = this.auth.requireProfessionalId(request);
+    const updated = await this.database.setTeamMode(professionalId, input.enabled);
+    return { enabled: updated?.team_mode === true };
+  }
+
+  @Get("team-members")
+  async listTeamMembers(
+    @Req() request: Request,
+    @Query("active") active?: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const members = await this.database.listTeamMembers(professionalId, active === "true");
+    return Promise.all(members.map((member) => this.decorateTeamMember(professionalId, member)));
+  }
+
+  @Post("team-members")
+  async createTeamMember(
+    @Req() request: Request,
+    @Body()
+    input: {
+      professionalId?: string;
+      name?: string;
+      phone?: string | null;
+      email?: string | null;
+      active?: boolean;
+      serviceIds?: string[];
+    }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    if (!input.name?.trim()) {
+      throw new BadRequestException("name e obrigatorio.");
+    }
+
+    const member = await this.database.createTeamMember({
+      professionalId,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      active: input.active
+    });
+
+    if (!member) {
+      throw new BadRequestException("Nao foi possivel cadastrar o profissional.");
+    }
+
+    if (Array.isArray(input.serviceIds)) {
+      await this.database.setTeamMemberServices(professionalId, member.id, input.serviceIds);
+    }
+
+    return this.decorateTeamMember(professionalId, member);
+  }
+
+  @Get("team-members/:id")
+  async getTeamMemberDetail(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const member = await this.database.getTeamMember(professionalId, id);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    return this.decorateTeamMember(professionalId, member);
+  }
+
+  @Patch("team-members/:id")
+  async updateTeamMember(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId: string | undefined,
+    @Body()
+    input: {
+      name?: string;
+      phone?: string | null;
+      email?: string | null;
+      active?: boolean;
+      serviceIds?: string[];
+    }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const member = await this.database.updateTeamMember(professionalId, id, input);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    if (Array.isArray(input.serviceIds)) {
+      await this.database.setTeamMemberServices(professionalId, member.id, input.serviceIds);
+    }
+
+    return this.decorateTeamMember(professionalId, member);
+  }
+
+  @Delete("team-members/:id")
+  async deleteTeamMember(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    return this.database.deactivateTeamMember(professionalId, id);
+  }
+
+  @Get("team-members/:id/services")
+  async getTeamMemberServices(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const member = await this.database.getTeamMember(professionalId, id);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    return { serviceIds: await this.database.listTeamMemberServiceIds(id) };
+  }
+
+  @Put("team-members/:id/services")
+  async setTeamMemberServices(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId: string | undefined,
+    @Body() input: { serviceIds?: string[] }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    if (!Array.isArray(input.serviceIds)) {
+      throw new BadRequestException("serviceIds deve ser uma lista.");
+    }
+
+    const serviceIds = await this.database.setTeamMemberServices(
+      professionalId,
+      id,
+      input.serviceIds
+    );
+
+    if (serviceIds === undefined) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    return { serviceIds };
+  }
+
+  @Get("team-members/:id/availability")
+  async getTeamMemberAvailability(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId?: string
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const member = await this.database.getTeamMember(professionalId, id);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    return this.database.listTeamMemberAvailability(id);
+  }
+
+  @Put("team-members/:id/availability")
+  async setTeamMemberAvailability(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Query("professionalId") requestedProfessionalId: string | undefined,
+    @Body()
+    input: {
+      rules?: Array<{
+        weekday: number;
+        startTime: string;
+        endTime: string;
+        lunchStart?: string;
+        lunchEnd?: string;
+        slotIntervalMinutes?: number | null;
+        bufferMinutes?: number;
+        minimumNoticeMinutes?: number;
+        active?: boolean;
+      }>;
+    }
+  ) {
+    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const member = await this.database.getTeamMember(professionalId, id);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    if (!Array.isArray(input.rules)) {
+      throw new BadRequestException("rules deve ser uma lista.");
+    }
+
+    for (const rule of input.rules) {
+      this.validateAvailabilityInput(rule);
+      await this.database.upsertTeamMemberAvailabilityRule({
+        teamMemberId: id,
+        weekday: rule.weekday,
+        startTime: rule.startTime,
+        endTime: rule.endTime,
+        lunchStart: rule.lunchStart,
+        lunchEnd: rule.lunchEnd,
+        slotIntervalMinutes: rule.slotIntervalMinutes,
+        bufferMinutes: rule.bufferMinutes,
+        minimumNoticeMinutes: rule.minimumNoticeMinutes,
+        active: rule.active
+      });
+    }
+
+    return this.database.listTeamMemberAvailability(id);
+  }
+
   @Get("availability-rules")
   availabilityRules(
     @Req() request: Request,
@@ -874,6 +1105,17 @@ export class AppController {
     }
 
     return this.sanitizeProfessional(professional);
+  }
+
+  private async decorateTeamMember(
+    professionalId: string,
+    member: { id: string; [key: string]: unknown }
+  ) {
+    void professionalId;
+    return {
+      ...member,
+      serviceIds: await this.database.listTeamMemberServiceIds(member.id)
+    };
   }
 
   private validateServiceInput(input: { name?: string; durationMinutes?: number }) {
