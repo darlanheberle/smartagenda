@@ -26,6 +26,28 @@ export type Appointment = {
   google_event_link?: string;
   client_name?: string;
   client_phone?: string;
+  team_member_id?: string | null;
+  team_member_name?: string | null;
+};
+
+export type TeamMember = {
+  id: string;
+  professional_id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  active: boolean;
+  serviceIds?: string[];
+};
+
+export type TeamMemberAvailabilityRule = {
+  id?: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+  lunch_start?: string | null;
+  lunch_end?: string | null;
+  active: boolean;
 };
 
 export type Service = {
@@ -99,5 +121,7 @@ export type PanelData = {
   onboarding: OnboardingStatus;
   services: Service[];
   availabilityRules: AvailabilityRule[];
+  teamMode: boolean;
+  teamMembers: TeamMember[];
   apiUrl: string;
 };

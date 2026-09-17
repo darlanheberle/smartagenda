@@ -8,7 +8,8 @@ import type {
   Dashboard,
   OnboardingStatus,
   PanelData,
-  Service
+  Service,
+  TeamMember
 } from "./types";
 
 async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Promise<T> {
@@ -44,7 +45,16 @@ export async function getPanelData(): Promise<PanelData> {
 
   const account = (await sessionResponse.json()) as { professional: AccountProfessional };
   const professionalId = account.professional.id;
-  const [dashboard, clients, appointments, services, availabilityRules, onboarding] = await Promise.all([
+  const [
+    dashboard,
+    clients,
+    appointments,
+    services,
+    availabilityRules,
+    onboarding,
+    teamModeResponse,
+    teamMembers
+  ] = await Promise.all([
     fetchJson<Dashboard>(
       "/dashboard/today",
       {
@@ -74,7 +84,9 @@ export async function getPanelData(): Promise<PanelData> {
         ready: false
       },
       cookieHeader
-    )
+    ),
+    fetchJson<{ enabled: boolean }>("/profile/team-mode", { enabled: false }, cookieHeader),
+    fetchJson<TeamMember[]>("/team-members", [], cookieHeader)
   ]);
 
   return {
@@ -85,6 +97,8 @@ export async function getPanelData(): Promise<PanelData> {
     dashboard,
     onboarding,
     services,
-    availabilityRules
+    availabilityRules,
+    teamMode: teamModeResponse.enabled,
+    teamMembers
   };
 }

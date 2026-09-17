@@ -1,10 +1,22 @@
 "use client";
 
-import { Check, Clock3, Edit3, Plus, Save, Tag, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import {
+  Check,
+  Clock3,
+  Edit3,
+  Plus,
+  Save,
+  Tag,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  Users
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
-import type { Service } from "../lib/types";
+import type { Service, TeamMember } from "../lib/types";
 import { formatCurrency } from "../lib/format";
+import { EquipeClient } from "./equipe-client";
 
 type ServiceForm = {
   category: string;
@@ -16,8 +28,19 @@ type ServiceForm = {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 
-export function ServicosClient({ initialServices }: { initialServices: Service[] }) {
+export function ServicosClient({
+  initialServices,
+  initialTeamMode,
+  initialTeamMembers
+}: {
+  initialServices: Service[];
+  initialTeamMode: boolean;
+  initialTeamMembers: TeamMember[];
+}) {
   const [services, setServices] = useState(initialServices);
+  const [teamMode, setTeamMode] = useState(initialTeamMode);
+  const [tab, setTab] = useState<"servicos" | "equipe">("servicos");
+  const [teamModeSaving, setTeamModeSaving] = useState(false);
   const [form, setForm] = useState<ServiceForm>({
     category: "",
     name: "",
@@ -43,6 +66,41 @@ export function ServicosClient({ initialServices }: { initialServices: Service[]
     }
 
     setServices((await response.json()) as Service[]);
+  }
+
+  async function toggleTeamMode() {
+    setTeamModeSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const next = !teamMode;
+      const response = await fetch(`${apiUrl}/profile/team-mode`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ enabled: next })
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data = (await response.json()) as { enabled: boolean };
+      setTeamMode(data.enabled);
+      setMessage(
+        data.enabled
+          ? "Modo Equipes ativado. Cadastre os profissionais na aba Equipe."
+          : "Modo Equipes desativado. O robo volta ao fluxo padrao."
+      );
+      if (!data.enabled) {
+        setTab("servicos");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel alterar o Modo Equipes.");
+    } finally {
+      setTeamModeSaving(false);
+    }
   }
 
   async function saveService() {
@@ -141,22 +199,42 @@ export function ServicosClient({ initialServices }: { initialServices: Service[]
         </p>
       </header>
 
-      <section className="grid grid-cols-2 gap-3">
-        <Card className="p-4">
-          <IconBox tone="violet">
-            <Tag size={20} />
-          </IconBox>
-          <p className="mt-4 font-display text-2xl font-bold tabular">{services.length}</p>
-          <p className="text-sm text-slate-500">servicos cadastrados</p>
-        </Card>
-        <Card className="p-4">
-          <IconBox tone="emerald">
-            <Check size={20} />
-          </IconBox>
-          <p className="mt-4 font-display text-2xl font-bold tabular">{activeServices.length}</p>
-          <p className="text-sm text-slate-500">ativos para agenda</p>
-        </Card>
-      </section>
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <IconBox tone={teamMode ? "violet" : "slate"}>
+                <Users size={18} />
+              </IconBox>
+              <p className="font-semibold text-slate-950">Modo Equipes</p>
+            </div>
+            <p className="mt-2 text-sm text-slate-500">
+              Ative para cadastrar profissionais e fazer o robo do WhatsApp perguntar com quem o
+              cliente quer agendar antes de escolher o servico.
+            </p>
+          </div>
+          <button
+            aria-pressed={teamMode}
+            className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 rounded-2xl"
+            disabled={teamModeSaving}
+            onClick={() => void toggleTeamMode()}
+            type="button"
+          >
+            {teamMode ? (
+              <ToggleRight className="text-violet-600" size={40} />
+            ) : (
+              <ToggleLeft className="text-slate-400" size={40} />
+            )}
+          </button>
+        </div>
+      </Card>
+
+      {teamMode ? (
+        <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
+          <TabButton active={tab === "servicos"} label="Servicos" onClick={() => setTab("servicos")} />
+          <TabButton active={tab === "equipe"} label="Equipe" onClick={() => setTab("equipe")} />
+        </div>
+      ) : null}
 
       {message ? (
         <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
@@ -166,129 +244,174 @@ export function ServicosClient({ initialServices }: { initialServices: Service[]
         <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
       ) : null}
 
-      <Card className="p-5">
-        <SectionTitle subtitle="Opcoes que aparecem no fluxo de agendamento pelo WhatsApp." title="Servicos cadastrados" />
-        <div className="mt-5 space-y-3">
-          {services.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-              Nenhum servico cadastrado ainda.
-            </div>
-          ) : (
-            services.map((service) => (
-              <div className="rounded-3xl bg-slate-50 p-4" key={service.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-950">{service.name}</p>
-                      <Pill tone={service.active ? "emerald" : "slate"}>
-                        {service.active ? "Ativo" : "Inativo"}
-                      </Pill>
+      {teamMode && tab === "equipe" ? (
+        <EquipeClient services={services} initialTeamMembers={initialTeamMembers} />
+      ) : (
+        <>
+          <section className="grid grid-cols-2 gap-3">
+            <Card className="p-4">
+              <IconBox tone="violet">
+                <Tag size={20} />
+              </IconBox>
+              <p className="mt-4 font-display text-2xl font-bold tabular">{services.length}</p>
+              <p className="text-sm text-slate-500">servicos cadastrados</p>
+            </Card>
+            <Card className="p-4">
+              <IconBox tone="emerald">
+                <Check size={20} />
+              </IconBox>
+              <p className="mt-4 font-display text-2xl font-bold tabular">{activeServices.length}</p>
+              <p className="text-sm text-slate-500">ativos para agenda</p>
+            </Card>
+          </section>
+
+          <Card className="p-5">
+            <SectionTitle subtitle="Opcoes que aparecem no fluxo de agendamento pelo WhatsApp." title="Servicos cadastrados" />
+            <div className="mt-5 space-y-3">
+              {services.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                  Nenhum servico cadastrado ainda.
+                </div>
+              ) : (
+                services.map((service) => (
+                  <div className="rounded-3xl bg-slate-50 p-4" key={service.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-950">{service.name}</p>
+                          <Pill tone={service.active ? "emerald" : "slate"}>
+                            {service.active ? "Ativo" : "Inativo"}
+                          </Pill>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {service.category || "Sem categoria"} · {service.duration_minutes} min ·{" "}
+                          {formatCurrency(service.price_cents / 100)}
+                        </p>
+                      </div>
+                      <IconBox tone={service.active ? "violet" : "slate"}>
+                        <Clock3 size={18} />
+                      </IconBox>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {service.category || "Sem categoria"} · {service.duration_minutes} min ·{" "}
-                      {formatCurrency(service.price_cents / 100)}
-                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-100 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                        onClick={() => editService(service)}
+                        type="button"
+                      >
+                        <Edit3 size={16} />
+                        Editar
+                      </button>
+                      <button
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                        onClick={() => void toggleService(service)}
+                        type="button"
+                      >
+                        <Trash2 size={16} />
+                        {service.active ? "Inativar" : "Ativar"}
+                      </button>
+                    </div>
                   </div>
-                  <IconBox tone={service.active ? "violet" : "slate"}>
-                    <Clock3 size={18} />
-                  </IconBox>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-100 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                    onClick={() => editService(service)}
-                    type="button"
-                  >
-                    <Edit3 size={16} />
-                    Editar
-                  </button>
-                  <button
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                    onClick={() => void toggleService(service)}
-                    type="button"
-                  >
-                    <Trash2 size={16} />
-                    {service.active ? "Inativar" : "Ativar"}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
+                ))
+              )}
+            </div>
+          </Card>
 
-      <Card className="p-5">
-        <SectionTitle subtitle="Nome, duracao, preco e disponibilidade para agendamento." title="Novo servico" />
-        <div className="mt-5 space-y-4">
-          <Field label="Categoria opcional" htmlFor="service-category">
-            <input
-              className="app-input min-h-14 w-full"
-              id="service-category"
-              onChange={(event) => setForm({ ...form, category: event.target.value })}
-              placeholder="Ex: Cabelo, Unhas, Consulta"
-              value={form.category}
-            />
-          </Field>
+          <Card className="p-5">
+            <SectionTitle subtitle="Nome, duracao, preco e disponibilidade para agendamento." title="Novo servico" />
+            <div className="mt-5 space-y-4">
+              <Field label="Categoria opcional" htmlFor="service-category">
+                <input
+                  className="app-input min-h-14 w-full"
+                  id="service-category"
+                  onChange={(event) => setForm({ ...form, category: event.target.value })}
+                  placeholder="Ex: Cabelo, Unhas, Consulta"
+                  value={form.category}
+                />
+              </Field>
 
-          <Field label="Nome do servico" htmlFor="service-name">
-            <input
-              className="app-input min-h-14 w-full"
-              id="service-name"
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="Ex: Limpeza odontologica"
-              value={form.name}
-            />
-          </Field>
+              <Field label="Nome do servico" htmlFor="service-name">
+                <input
+                  className="app-input min-h-14 w-full"
+                  id="service-name"
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  placeholder="Ex: Limpeza odontologica"
+                  value={form.name}
+                />
+              </Field>
 
-          <Field label="Duracao" htmlFor="service-duration">
-            <input
-              className="app-input min-h-14 w-full"
-              id="service-duration"
-              inputMode="numeric"
-              onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })}
-              value={form.durationMinutes}
-            />
-          </Field>
+              <Field label="Duracao" htmlFor="service-duration">
+                <input
+                  className="app-input min-h-14 w-full"
+                  id="service-duration"
+                  inputMode="numeric"
+                  onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })}
+                  value={form.durationMinutes}
+                />
+              </Field>
 
-          <Field label="Preco" htmlFor="service-price">
-            <input
-              className="app-input min-h-14 w-full"
-              id="service-price"
-              inputMode="decimal"
-              onBlur={() => setForm({ ...form, price: centsToInput(currencyToCents(form.price)) })}
-              onChange={(event) => setForm({ ...form, price: event.target.value })}
-              placeholder="0,00"
-              value={form.price}
-            />
-          </Field>
+              <Field label="Preco" htmlFor="service-price">
+                <input
+                  className="app-input min-h-14 w-full"
+                  id="service-price"
+                  inputMode="decimal"
+                  onBlur={() => setForm({ ...form, price: centsToInput(currencyToCents(form.price)) })}
+                  onChange={(event) => setForm({ ...form, price: event.target.value })}
+                  placeholder="0,00"
+                  value={form.price}
+                />
+              </Field>
 
-          <button
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-            onClick={() => setForm({ ...form, active: !form.active })}
-            type="button"
-          >
-            {form.active ? <ToggleRight className="text-emerald-600" size={20} /> : <ToggleLeft size={20} />}
-            {form.active ? "Servico ativo" : "Servico inativo"}
-          </button>
+              <button
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                onClick={() => setForm({ ...form, active: !form.active })}
+                type="button"
+              >
+                {form.active ? <ToggleRight className="text-emerald-600" size={20} /> : <ToggleLeft size={20} />}
+                {form.active ? "Servico ativo" : "Servico inativo"}
+              </button>
 
-          <button
-            className="app-button-primary w-full"
-            disabled={saving}
-            onClick={() => void saveService()}
-            type="button"
-          >
-            {editingServiceId ? <Save size={17} /> : <Plus size={17} />}
-            {saving ? "Salvando..." : editingServiceId ? "Salvar alteracoes" : "Adicionar servico"}
-          </button>
+              <button
+                className="app-button-primary w-full"
+                disabled={saving}
+                onClick={() => void saveService()}
+                type="button"
+              >
+                {editingServiceId ? <Save size={17} /> : <Plus size={17} />}
+                {saving ? "Salvando..." : editingServiceId ? "Salvar alteracoes" : "Adicionar servico"}
+              </button>
 
-          {editingServiceId ? (
-            <button className="app-button-secondary w-full" onClick={resetForm} type="button">
-              Cancelar edicao
-            </button>
-          ) : null}
-        </div>
-      </Card>
+              {editingServiceId ? (
+                <button className="app-button-secondary w-full" onClick={resetForm} type="button">
+                  Cancelar edicao
+                </button>
+              ) : null}
+            </div>
+          </Card>
+        </>
+      )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  label,
+  onClick
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`min-h-11 flex-1 rounded-xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+        active ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
   );
 }
 

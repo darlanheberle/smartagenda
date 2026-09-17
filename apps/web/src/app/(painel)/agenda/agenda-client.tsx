@@ -393,6 +393,11 @@ export function AgendaClient({
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-slate-950">{appointment.client_name || "Cliente"}</p>
                         <p className="mt-1 text-sm text-slate-500">{appointment.service_name}</p>
+                        {appointment.team_member_name ? (
+                          <p className="mt-0.5 text-xs font-semibold text-violet-700">
+                            Profissional: {appointment.team_member_name}
+                          </p>
+                        ) : null}
                       </div>
                       <Pill tone="violet">
                         {formatTime(appointment.starts_at)}
