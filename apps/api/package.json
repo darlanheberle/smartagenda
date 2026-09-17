@@ -6,7 +6,8 @@
         "start": "nest start",
         "start:dev": "nest start --watch",
         "build": "nest build",
-        "lint": "eslint \"src/**/*.ts\""
+        "lint": "eslint \"src/**/*.ts\"",
+        "test": "jest"
     },
     "dependencies": {
         "@nestjs/common": "^11.1.26",
@@ -20,9 +21,12 @@
         "@nestjs/cli": "^11.0.23",
         "@nestjs/schematics": "^11.0.9",
         "@types/express": "^5.0.0",
+        "@types/jest": "^30.0.0",
         "@types/node": "^22.7.5",
         "@types/pg": "^8.20.0",
         "eslint": "^9.14.0",
+        "jest": "^30.5.1",
+        "ts-jest": "^29.4.12",
         "typescript": "^5.6.3"
     }
 }

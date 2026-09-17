@@ -1,0 +1,149 @@
+import { AiSchedulingService } from "../src/services/ai-scheduling.service";
+import type { EvolutionWebhookPayload } from "../src/types/integrations";
+
+/**
+ * Teste de regressao do fluxo de agendamento do WhatsApp (Modo Equipes DESLIGADO).
+ *
+ * Objetivo: garantir que o comportamento atual continua identico apos a Etapa 1
+ * (contexto da conversa persistido). Roda duas vezes:
+ *  - dbEnabled=false  -> contexto usa o fallback em memoria.
+ *  - dbEnabled=true   -> contexto usa os metodos de conversation_states (fake em memoria).
+ */
+
+const PROFESSIONAL = {
+  id: "pro-1",
+  name: "Salao Teste",
+  evolutionInstanceName: "inst-1",
+  timezone: "America/Sao_Paulo",
+  appointmentDurationMinutes: 30
+};
+
+const SERVICE = {
+  id: "svc-1",
+  professional_id: "pro-1",
+  category: null,
+  name: "Corte",
+  duration_minutes: 30,
+  price_cents: 5000,
+  active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
+function buildAvailabilitySlots() {
+  const slots = [] as { startsAt: string; endsAt: string; label: string }[];
+  for (let dayOffset = -1; dayOffset <= 9; dayOffset += 1) {
+    const start = new Date();
+    start.setDate(start.getDate() + dayOffset);
+    start.setUTCHours(13, 0, 0, 0);
+    slots.push({
+      startsAt: start.toISOString(),
+      endsAt: new Date(start.getTime() + 30 * 60000).toISOString(),
+      label: "slot"
+    });
+  }
+  return slots;
+}
+
+function buildService(dbEnabled: boolean) {
+  const conversationStore = new Map<string, { step: string; state: unknown }>();
+  let clientSaved: { id: string; name: string; phone: string } | undefined;
+
+  const database = {
+    isEnabled: () => dbEnabled,
+    getProfessional: async () => ({ ai_enabled: true }),
+    findClientByPhone: async () => clientSaved,
+    upsertClient: async (input: { name: string; phone?: string }) => {
+      clientSaved = { id: "cli-1", name: input.name, phone: input.phone ?? "" };
+      return clientSaved;
+    },
+    listServices: async () => [SERVICE],
+    getService: async () => SERVICE,
+    getConversationState: async (professionalId: string, phone: string) =>
+      conversationStore.get(`${professionalId}:${phone}`),
+    saveConversationState: async (
+      professionalId: string,
+      phone: string,
+      step: string,
+      state: unknown
+    ) => {
+      conversationStore.set(`${professionalId}:${phone}`, { step, state });
+    },
+    clearConversationState: async (professionalId: string, phone: string) => {
+      conversationStore.delete(`${professionalId}:${phone}`);
+    }
+  };
+
+  const calendar = {
+    getAvailabilityForService: async () => ({ slots: buildAvailabilitySlots() }),
+    createEvent: async () => ({ status: "created", htmlLink: "https://example.com/evt" })
+  };
+
+  const evolution = {
+    sendTextMessage: async () => ({ ok: true })
+  };
+
+  const professionals = {
+    findByEvolutionInstance: () => PROFESSIONAL,
+    getById: () => PROFESSIONAL
+  };
+
+  return new AiSchedulingService(
+    calendar as never,
+    database as never,
+    evolution as never,
+    professionals as never
+  );
+}
+
+function incoming(text: string): EvolutionWebhookPayload {
+  return {
+    instance: "inst-1",
+    data: {
+      key: { remoteJid: "5511999990000@s.whatsapp.net", fromMe: false },
+      message: { conversation: text }
+    }
+  };
+}
+
+describe.each([
+  ["contexto em memoria (sem banco)", false],
+  ["contexto persistido (com banco)", true]
+])("AiSchedulingService - fluxo padrao com %s", (_label, dbEnabled) => {
+  it("pede nome, servico, dia, horario e confirma o agendamento", async () => {
+    const service = buildService(dbEnabled as boolean);
+
+    const askName = (await service.handleIncomingWhatsAppMessage(incoming("Ola"))) as {
+      reply?: string;
+    };
+    expect(askName.reply).toContain("nome completo");
+
+    const askService = (await service.handleIncomingWhatsAppMessage(
+      incoming("Maria Silva")
+    )) as { reply?: string };
+    expect(askService.reply?.toLowerCase()).toContain("servico");
+
+    const askDay = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(askDay.reply?.toLowerCase()).toContain("dia");
+
+    const askSlot = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(askSlot.reply?.toLowerCase()).toContain("horario");
+
+    const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(confirmed.reply?.toLowerCase()).toContain("confirmado");
+  });
+
+  it("nunca pergunta por profissional quando o Modo Equipes esta desligado", async () => {
+    const service = buildService(dbEnabled as boolean);
+    const first = (await service.handleIncomingWhatsAppMessage(incoming("Oi"))) as {
+      reply?: string;
+    };
+    expect(first.reply?.toLowerCase()).not.toContain("profissional");
+  });
+});

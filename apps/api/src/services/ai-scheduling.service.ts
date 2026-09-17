@@ -57,7 +57,8 @@ type PendingFlow =
 
 @Injectable()
 export class AiSchedulingService {
-  private readonly pendingChoices = new Map<string, PendingFlow>();
+  // Fallback em memoria usado apenas quando o banco nao esta configurado (dev/testes).
+  private readonly memoryPending = new Map<string, PendingFlow>();
 
   constructor(
     private readonly calendar: CalendarService,
@@ -65,6 +66,55 @@ export class AiSchedulingService {
     private readonly evolution: EvolutionService,
     private readonly professionals: ProfessionalRegistryService
   ) {}
+
+  // --- Contexto da conversa (Decisao D1-A: persistido no banco) ---
+  // Chave: `${professionalId}:${customerPhone}`. Persiste em conversation_states
+  // quando ha banco; senao mantem em memoria (dev/testes).
+  private splitPendingKey(pendingKey: string) {
+    const separatorIndex = pendingKey.indexOf(":");
+    return {
+      professionalId: pendingKey.slice(0, separatorIndex),
+      customerPhone: pendingKey.slice(separatorIndex + 1)
+    };
+  }
+
+  private async loadPending(pendingKey: string): Promise<PendingFlow | undefined> {
+    if (!this.database.isEnabled()) {
+      return this.memoryPending.get(pendingKey);
+    }
+
+    const { professionalId, customerPhone } = this.splitPendingKey(pendingKey);
+    const stored = await this.database.getConversationState<PendingFlow>(
+      professionalId,
+      customerPhone
+    );
+    return stored?.state;
+  }
+
+  private async savePending(pendingKey: string, flow: PendingFlow): Promise<void> {
+    if (!this.database.isEnabled()) {
+      this.memoryPending.set(pendingKey, flow);
+      return;
+    }
+
+    const { professionalId, customerPhone } = this.splitPendingKey(pendingKey);
+    await this.database.saveConversationState(
+      professionalId,
+      customerPhone,
+      flow.step,
+      flow as unknown as Record<string, unknown>
+    );
+  }
+
+  private async clearPending(pendingKey: string): Promise<void> {
+    if (!this.database.isEnabled()) {
+      this.memoryPending.delete(pendingKey);
+      return;
+    }
+
+    const { professionalId, customerPhone } = this.splitPendingKey(pendingKey);
+    await this.database.clearConversationState(professionalId, customerPhone);
+  }
 
   async handleIncomingWhatsAppMessage(payload: EvolutionWebhookPayload, forcedProfessionalId?: string) {
     const incoming = this.normalizeIncomingMessage(payload);
@@ -96,7 +146,7 @@ export class AiSchedulingService {
     const storedProfessional = await this.database.getProfessional(professional.id);
 
     if (storedProfessional?.ai_enabled === false) {
-      this.pendingChoices.delete(pendingKey);
+      await this.clearPending(pendingKey);
       return {
         received: true,
         ignored: true,
@@ -106,14 +156,14 @@ export class AiSchedulingService {
       };
     }
 
-    const pending = this.pendingChoices.get(pendingKey);
+    const pending = await this.loadPending(pendingKey);
 
     if (pending && this.isRestartCommand(incoming.text)) {
-      this.pendingChoices.delete(pendingKey);
+      await this.clearPending(pendingKey);
       const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
 
       if (!client) {
-        this.pendingChoices.set(pendingKey, { step: "name" });
+        await this.savePending(pendingKey, { step: "name" });
         return this.reply({
           incoming,
           instanceName: professional.evolutionInstanceName,
@@ -161,7 +211,7 @@ export class AiSchedulingService {
     const requestedPeriod = this.parseDateIntent(incoming.text);
 
     if (!client) {
-      this.pendingChoices.set(pendingKey, { step: "name", requestedPeriod });
+      await this.savePending(pendingKey, { step: "name", requestedPeriod });
 
       return this.reply({
         incoming,
@@ -196,7 +246,7 @@ export class AiSchedulingService {
         evolutionInstanceName: string;
       };
   }) {
-    const pending = this.pendingChoices.get(input.pendingKey);
+    const pending = await this.loadPending(input.pendingKey);
     const name = this.normalizeClientName(input.incoming.text);
 
     if (!name) {
@@ -214,7 +264,7 @@ export class AiSchedulingService {
     });
 
     if (!client) {
-      this.pendingChoices.delete(input.pendingKey);
+      await this.clearPending(input.pendingKey);
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
@@ -222,7 +272,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.delete(input.pendingKey);
+    await this.clearPending(input.pendingKey);
 
     return this.startSchedulingFlow({
       incoming: input.incoming,
@@ -255,7 +305,7 @@ export class AiSchedulingService {
     const categories = this.getServiceCategories(services);
 
     if (categories.length > 0) {
-      this.pendingChoices.set(input.pendingKey, {
+      await this.savePending(input.pendingKey, {
         step: "category",
         client: input.client,
         requestedPeriod: input.requestedPeriod,
@@ -270,7 +320,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "service",
       client: input.client,
       requestedPeriod: input.requestedPeriod,
@@ -307,7 +357,7 @@ export class AiSchedulingService {
 
     const services = this.filterServicesByCategory(currentServices, selectedCategory);
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "service",
       client: input.pending.client,
       requestedPeriod: input.pending.requestedPeriod,
@@ -350,7 +400,7 @@ export class AiSchedulingService {
     const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
 
     if (dayOptions.length === 0) {
-      this.pendingChoices.delete(input.pendingKey);
+      await this.clearPending(input.pendingKey);
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
@@ -358,7 +408,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "day",
       client: input.pending.client,
       service: selectedService,
@@ -411,7 +461,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "slot",
       client: input.pending.client,
       service: input.pending.service,
@@ -469,7 +519,7 @@ export class AiSchedulingService {
     const created = event.status === "created";
 
     if (created) {
-      this.pendingChoices.delete(input.pendingKey);
+      await this.clearPending(input.pendingKey);
     }
 
     const link = "htmlLink" in event && event.htmlLink ? `\n\nLink do evento: ${event.htmlLink}` : "";
@@ -542,7 +592,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "day",
       client: input.pending.client,
       service: input.pending.service,
@@ -582,7 +632,7 @@ export class AiSchedulingService {
       });
     }
 
-    this.pendingChoices.set(input.pendingKey, {
+    await this.savePending(input.pendingKey, {
       step: "day",
       client: input.pending.client,
       service: input.pending.service,
