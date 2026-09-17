@@ -69,6 +69,11 @@ type PendingFlow =
       service: ServiceRecord;
       slots: OfferedSlot[];
       team?: TeamContext;
+    }
+  | {
+      // Apos confirmar, pergunta se quer agendar outro servico.
+      step: "post_booking";
+      client: ClientRecord;
     };
 
 @Injectable()
@@ -197,6 +202,10 @@ export class AiSchedulingService {
         service: pending.service,
         requestedPeriod: "requestedPeriod" in pending ? pending.requestedPeriod : undefined
       });
+    }
+
+    if (pending?.step === "post_booking") {
+      return this.handlePostBooking({ incoming, pending, pendingKey, professional });
     }
 
     if (pending?.step === "team_member") {
@@ -688,7 +697,11 @@ export class AiSchedulingService {
     const created = event.status === "created";
 
     if (created) {
-      await this.clearPending(input.pendingKey);
+      // Mantem o cliente no contexto para oferecer um novo agendamento.
+      await this.savePending(input.pendingKey, {
+        step: "post_booking",
+        client: input.pending.client
+      });
     }
 
     const link = "htmlLink" in event && event.htmlLink ? `\n\nLink do evento: ${event.htmlLink}` : "";
@@ -699,8 +712,9 @@ export class AiSchedulingService {
     const professionalLine = input.pending.team
       ? `\nProfissional: ${input.pending.team.teamMemberName}`
       : "";
+    const followUp = "\n\nDeseja agendar mais algum servico?\n1 - Sim\n2 - Nao";
     const body = created
-      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.${professionalLine}\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}`
+      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.${professionalLine}\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}${followUp}`
       : "Nao consegui criar o evento na agenda agora. Vou pedir para o profissional confirmar manualmente.";
 
     return this.reply({
@@ -714,6 +728,45 @@ export class AiSchedulingService {
         service: input.pending.service,
         event
       }
+    });
+  }
+
+  private async handlePostBooking(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "post_booking" }>;
+    pendingKey: string;
+    professional: { id: string; evolutionInstanceName: string };
+  }) {
+    const normalized = this.normalizeText(input.incoming.text);
+    const wantsMore = ["1", "sim", "s", "quero", "claro", "isso"].includes(normalized);
+    const wantsToStop = ["2", "nao", "n", "encerrar", "finalizar", "obrigado", "obrigada"].includes(
+      normalized
+    );
+
+    if (wantsMore) {
+      // Volta ao inicio do agendamento (mantendo o cliente): escolha de servico.
+      return this.startSchedulingFlow({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId: input.professional.id,
+        instanceName: input.professional.evolutionInstanceName,
+        client: input.pending.client
+      });
+    }
+
+    if (wantsToStop) {
+      await this.clearPending(input.pendingKey);
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.professional.evolutionInstanceName,
+        body: `Perfeito, ${input.pending.client.name}! Seu agendamento esta confirmado. Ate breve. 😊`
+      });
+    }
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.professional.evolutionInstanceName,
+      body: "Deseja agendar mais algum servico?\n1 - Sim\n2 - Nao"
     });
   }
 

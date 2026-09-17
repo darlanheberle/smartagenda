@@ -295,4 +295,39 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     expect(invalid.reply?.toLowerCase()).toContain("nao encontrei");
     expect(invalid.reply).toContain("Maria");
   });
+
+  it("apos confirmar, pergunta se quer agendar outro servico e reinicia se sim", async () => {
+    const service = buildTeamService();
+    // Fluxo ate confirmar: nome -> Barba (auto Joao) -> dia -> horario
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("2")); // Barba -> auto Joao -> dia
+    await service.handleIncomingWhatsAppMessage(incoming("2")); // dia -> horario
+    const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(confirmed.reply?.toLowerCase()).toContain("confirmado");
+    expect(confirmed.reply?.toLowerCase()).toContain("mais algum servico");
+
+    // Responde "1" (sim) -> volta para a escolha de servico, sem pedir nome de novo
+    const again = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(again.reply?.toLowerCase()).toContain("servico");
+    expect(again.reply).toContain("Corte");
+    expect(again.reply?.toLowerCase()).not.toContain("nome completo");
+  });
+
+  it("encerra o atendimento quando o cliente responde que nao quer mais", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("2")); // Barba -> auto Joao
+    await service.handleIncomingWhatsAppMessage(incoming("2")); // dia
+    await service.handleIncomingWhatsAppMessage(incoming("1")); // horario -> confirma
+    const done = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
+      reply?: string;
+    };
+    expect(done.reply?.toLowerCase()).toContain("ate breve");
+  });
 });
