@@ -156,10 +156,10 @@ describe.each([
 const MARIA = { id: "tm-maria", name: "Maria", phone: null, email: null, active: true };
 const JOAO = { id: "tm-joao", name: "Joao", phone: null, email: null, active: true };
 
-const JOAO_SERVICES = [
-  { ...SERVICE, id: "svc-corte", name: "Corte" },
-  { ...SERVICE, id: "svc-barba", name: "Barba" }
-];
+// Servicos da empresa. Corte: Maria e Joao. Barba: so Joao.
+const CORTE = { ...SERVICE, id: "svc-corte", name: "Corte" };
+const BARBA = { ...SERVICE, id: "svc-barba", name: "Barba" };
+const COMPANY_SERVICES = [CORTE, BARBA];
 
 function buildTeamService() {
   const conversationStore = new Map<string, { step: string; state: unknown }>();
@@ -169,11 +169,11 @@ function buildTeamService() {
     isEnabled: () => true,
     getTeamMode: async () => true,
     getProfessional: async () => ({ ai_enabled: true }),
-    listTeamMembers: async () => [MARIA, JOAO],
-    listServicesForTeamMember: async (_pid: string, teamMemberId: string) =>
-      teamMemberId === JOAO.id ? JOAO_SERVICES : [{ ...SERVICE, id: "svc-corte", name: "Corte" }],
-    listServices: async () => [SERVICE],
-    getService: async () => JOAO_SERVICES[0],
+    listServices: async () => COMPANY_SERVICES,
+    getService: async (_pid: string, id: string) =>
+      COMPANY_SERVICES.find((service) => service.id === id) || CORTE,
+    listTeamMembersForService: async (_pid: string, serviceId: string) =>
+      serviceId === BARBA.id ? [JOAO] : [MARIA, JOAO],
     findClientByPhone: async () => clientSaved,
     upsertClient: async (input: { name: string; phone?: string }) => {
       clientSaved = { id: "cli-1", name: input.name, phone: input.phone ?? "" };
@@ -214,40 +214,45 @@ function buildTeamService() {
 }
 
 describe("AiSchedulingService - Modo Equipes ligado", () => {
-  it("pergunta o profissional antes de tudo e lista os membros ativos", async () => {
+  it("segue a ordem nome -> servico -> profissional -> dia -> horario", async () => {
     const service = buildTeamService();
-    const res = (await service.handleIncomingWhatsAppMessage(incoming("Ola"))) as {
+
+    // 1) nome primeiro
+    const askName = (await service.handleIncomingWhatsAppMessage(incoming("Ola"))) as {
       reply?: string;
     };
-    expect(res.reply?.toLowerCase()).toContain("profissional");
-    expect(res.reply).toContain("Maria");
-    expect(res.reply).toContain("Joao");
-  });
+    expect(askName.reply?.toLowerCase()).toContain("nome");
+    expect(askName.reply?.toLowerCase()).not.toContain("profissional");
 
-  it("apos escolher Joao, oferece apenas os servicos de Joao", async () => {
-    const service = buildTeamService();
-    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
-    const chose = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
-      reply?: string;
-    };
-    expect(chose.reply).toContain("Joao");
-    expect(chose.reply?.toLowerCase()).toContain("nome");
-
+    // 2) depois o servico (lista os servicos da empresa)
     const askService = (await service.handleIncomingWhatsAppMessage(
-      incoming("Carlos Cliente")
+      incoming("Carlos Souza")
     )) as { reply?: string };
+    expect(askService.reply?.toLowerCase()).toContain("servico");
     expect(askService.reply).toContain("Corte");
     expect(askService.reply).toContain("Barba");
-    expect(askService.reply).not.toContain("Coloracao");
-  });
 
-  it("confirma o agendamento identificando o profissional escolhido", async () => {
-    const service = buildTeamService();
-    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
-    await service.handleIncomingWhatsAppMessage(incoming("2"));
-    await service.handleIncomingWhatsAppMessage(incoming("Carlos Cliente"));
-    await service.handleIncomingWhatsAppMessage(incoming("1"));
-    await service.handleIncomingWhatsAppMessage(incoming("1"));
+    // 3) escolhe Corte -> pergunta o profissional que faz Corte (Maria e Joao)
+    const askPro = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(askPro.reply?.toLowerCase()).toContain("profissional");
+    expect(askPro.reply).toContain("Maria");
+    expect(askPro.reply).toContain("Joao");
+
+    // 4) escolhe profissional -> dia
+    const askDay = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
+      reply?: string;
+    };
+    expect(askDay.reply?.toLowerCase()).toContain("dia");
+
+    // 5) escolhe dia -> horario
+    const askSlot = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
+      reply?: string;
+    };
+    expect(askSlot.reply?.toLowerCase()).toContain("horario");
+
+    // confirma
     const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
       reply?: string;
     };
@@ -255,18 +260,35 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     expect(confirmed.reply).toContain("Joao");
   });
 
-  it("resolve a escolha pelo nome do profissional (item 13)", async () => {
+  it("mostra apenas os profissionais que fazem o servico escolhido", async () => {
     const service = buildTeamService();
     await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    // Barba -> so Joao (auto-selecionado, sem listar Maria)
+    const afterBarba = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
+      reply?: string;
+    };
+    expect(afterBarba.reply).toContain("Joao");
+    expect(afterBarba.reply).not.toContain("Maria");
+  });
+
+  it("resolve o profissional pelo nome (item 13)", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("1")); // Corte -> lista Maria/Joao
     const chose = (await service.handleIncomingWhatsAppMessage(incoming("maria"))) as {
       reply?: string;
     };
     expect(chose.reply).toContain("Maria");
+    expect(chose.reply?.toLowerCase()).toContain("dia");
   });
 
-  it("rejeita opcao invalida sem avancar (item 12)", async () => {
+  it("rejeita profissional invalido sem avancar (item 12)", async () => {
     const service = buildTeamService();
     await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("1")); // Corte -> lista Maria/Joao
     const invalid = (await service.handleIncomingWhatsAppMessage(incoming("9"))) as {
       reply?: string;
     };

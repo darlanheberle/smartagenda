@@ -29,13 +29,8 @@ type TeamContext = {
 
 type PendingFlow =
   | {
-      step: "team_member";
-      requestedPeriod?: DateIntent;
-    }
-  | {
       step: "name";
       requestedPeriod?: DateIntent;
-      team?: TeamContext;
     }
   | {
       step: "category";
@@ -43,7 +38,6 @@ type PendingFlow =
       requestedPeriod?: DateIntent;
       categories: string[];
       services: ServiceRecord[];
-      team?: TeamContext;
     }
   | {
       step: "service";
@@ -51,7 +45,15 @@ type PendingFlow =
       requestedPeriod?: DateIntent;
       category?: string;
       services: ServiceRecord[];
-      team?: TeamContext;
+    }
+  | {
+      // Ordem do fluxo (Modo Equipes): nome -> servico -> PROFISSIONAL -> dia -> horario.
+      // Aqui ja temos o servico escolhido e listamos quem o realiza.
+      step: "team_member";
+      client: ClientRecord;
+      requestedPeriod?: DateIntent;
+      service: ServiceRecord;
+      members: TeamMemberRecord[];
     }
   | {
       step: "day";
@@ -175,18 +177,26 @@ export class AiSchedulingService {
 
     if (pending && this.isRestartCommand(incoming.text)) {
       await this.clearPending(pendingKey);
-
-      if (teamMode) {
-        return this.startTeamMemberSelection({ incoming, pendingKey, professional });
-      }
-
-      return this.continueWithoutTeam({ incoming, pendingKey, professional });
+      return this.startFlow({ incoming, pendingKey, professional });
     }
 
-    // Troca de profissional em qualquer momento do fluxo (item 9).
-    if (teamMode && pending && this.isChangeProfessionalCommand(incoming.text)) {
-      await this.clearPending(pendingKey);
-      return this.startTeamMemberSelection({ incoming, pendingKey, professional });
+    // Troca de profissional em qualquer momento (item 9): volta a escolha de
+    // profissional, mantendo o servico ja selecionado quando houver.
+    if (
+      teamMode &&
+      pending &&
+      "service" in pending &&
+      "client" in pending &&
+      this.isChangeProfessionalCommand(incoming.text)
+    ) {
+      return this.askTeamMemberForService({
+        incoming,
+        pendingKey,
+        professionalId: professional.id,
+        client: pending.client,
+        service: pending.service,
+        requestedPeriod: "requestedPeriod" in pending ? pending.requestedPeriod : undefined
+      });
     }
 
     if (pending?.step === "team_member") {
@@ -220,19 +230,14 @@ export class AiSchedulingService {
       return this.handleSlotChoice({ incoming, pending, pendingKey, professional });
     }
 
-    // Sem contexto: em Modo Equipes, comeca pela escolha do profissional.
-    if (teamMode) {
-      return this.startTeamMemberSelection({ incoming, pendingKey, professional });
-    }
-
-    return this.continueWithoutTeam({ incoming, pendingKey, professional });
+    // Sem contexto: os dois modos comecam igual (nome, se cliente novo -> servico).
+    return this.startFlow({ incoming, pendingKey, professional });
   }
 
-  private async continueWithoutTeam(input: {
+  private async startFlow(input: {
     incoming: IncomingWhatsAppMessage;
     pendingKey: string;
     professional: { id: string; evolutionInstanceName: string };
-    team?: TeamContext;
   }) {
     const client = await this.database.findClientByPhone(
       input.professional.id,
@@ -241,20 +246,12 @@ export class AiSchedulingService {
     const requestedPeriod = this.parseDateIntent(input.incoming.text);
 
     if (!client) {
-      await this.savePending(input.pendingKey, {
-        step: "name",
-        requestedPeriod,
-        team: input.team
-      });
-
-      const greeting = input.team
-        ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\nPara comecar, qual e o seu nome completo?`
-        : "Ola! Para comecar seu atendimento, qual e o seu nome completo?";
+      await this.savePending(input.pendingKey, { step: "name", requestedPeriod });
 
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: greeting
+        body: "Ola! Para comecar seu atendimento, qual e o seu nome completo?"
       });
     }
 
@@ -264,38 +261,64 @@ export class AiSchedulingService {
       professionalId: input.professional.id,
       instanceName: input.professional.evolutionInstanceName,
       client,
-      requestedPeriod,
-      team: input.team,
-      announceTeam: Boolean(input.team)
+      requestedPeriod
     });
   }
 
-  private async startTeamMemberSelection(input: {
+  // Modo Equipes: apos o servico, lista quem realiza aquele servico (item: mostra
+  // os profissionais que prestam o servico). Numeracao corresponde a lista exibida.
+  private async askTeamMemberForService(input: {
     incoming: IncomingWhatsAppMessage;
     pendingKey: string;
-    professional: { id: string; evolutionInstanceName: string };
+    professionalId: string;
+    client: ClientRecord;
+    service: ServiceRecord;
+    requestedPeriod?: DateIntent;
   }) {
-    const members = await this.database.listTeamMembers(input.professional.id, true);
+    const members = await this.database.listTeamMembersForService(
+      input.professionalId,
+      input.service.id,
+      true
+    );
 
-    // Sem profissionais ativos: nao trava o atendimento, segue o fluxo padrao.
+    // Ninguem vinculado ao servico: segue sem profissional (fluxo padrao).
     if (members.length === 0) {
-      return this.continueWithoutTeam(input);
-    }
-
-    // Um unico profissional: seleciona automaticamente, sem perguntar.
-    if (members.length === 1) {
-      return this.continueWithoutTeam({
-        ...input,
-        team: { teamMemberId: members[0].id, teamMemberName: members[0].name }
+      return this.offerDaysForService({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId: input.professionalId,
+        client: input.client,
+        service: input.service,
+        requestedPeriod: input.requestedPeriod
       });
     }
 
-    await this.savePending(input.pendingKey, { step: "team_member" });
+    // Um unico profissional realiza o servico: seleciona e ja segue.
+    if (members.length === 1) {
+      return this.offerDaysForService({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId: input.professionalId,
+        client: input.client,
+        service: input.service,
+        requestedPeriod: input.requestedPeriod,
+        team: { teamMemberId: members[0].id, teamMemberName: members[0].name },
+        announceTeam: true
+      });
+    }
+
+    await this.savePending(input.pendingKey, {
+      step: "team_member",
+      client: input.client,
+      service: input.service,
+      members,
+      requestedPeriod: input.requestedPeriod
+    });
 
     return this.reply({
       incoming: input.incoming,
-      instanceName: input.professional.evolutionInstanceName,
-      body: `Ola! Com qual profissional voce gostaria de agendar?\n\n${this.formatTeamMemberOptions(
+      instanceName: input.incoming.instanceName,
+      body: `${input.client.name}, com qual profissional voce quer fazer ${input.service.name}?\n\n${this.formatTeamMemberOptions(
         members
       )}\n\nResponda com o numero ou o nome.`
     });
@@ -307,24 +330,78 @@ export class AiSchedulingService {
     pendingKey: string;
     professional: { id: string; evolutionInstanceName: string };
   }) {
-    const members = await this.database.listTeamMembers(input.professional.id, true);
-    const selected = this.findSelectedTeamMember(input.incoming.text, members);
+    // Resolve contra a lista exibida naquela conversa (numero ou nome).
+    const selected = this.findSelectedTeamMember(input.incoming.text, input.pending.members);
 
     if (!selected) {
       return this.reply({
         incoming: input.incoming,
-        instanceName: input.professional.evolutionInstanceName,
+        instanceName: input.incoming.instanceName,
         body: `Nao encontrei essa opcao. Escolha um dos profissionais abaixo:\n\n${this.formatTeamMemberOptions(
-          members
+          input.pending.members
         )}`
       });
     }
 
-    return this.continueWithoutTeam({
+    return this.offerDaysForService({
       incoming: input.incoming,
       pendingKey: input.pendingKey,
-      professional: input.professional,
-      team: { teamMemberId: selected.id, teamMemberName: selected.name }
+      professionalId: input.professional.id,
+      client: input.pending.client,
+      service: input.pending.service,
+      requestedPeriod: input.pending.requestedPeriod,
+      team: { teamMemberId: selected.id, teamMemberName: selected.name },
+      announceTeam: true
+    });
+  }
+
+  // Calcula os dias (proximos 7) com horario para o servico (e profissional, se houver).
+  private async offerDaysForService(input: {
+    incoming: IncomingWhatsAppMessage;
+    pendingKey: string;
+    professionalId: string;
+    client: ClientRecord;
+    service: ServiceRecord;
+    requestedPeriod?: DateIntent;
+    team?: TeamContext;
+    announceTeam?: boolean;
+  }) {
+    const searchPeriod = this.toSevenDaySearchPeriod(input.requestedPeriod);
+    const availability = await this.calendar.getAvailabilityForService({
+      professionalId: input.professionalId,
+      serviceId: input.service.id,
+      teamMemberId: input.team?.teamMemberId,
+      ...searchPeriod
+    });
+    const slots = "slots" in availability ? availability.slots : [];
+    const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
+    const announce =
+      input.announceTeam && input.team
+        ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\n`
+        : "";
+
+    if (dayOptions.length === 0) {
+      await this.clearPending(input.pendingKey);
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.incoming.instanceName,
+        body: `${announce}Nao encontrei horarios livres para ${input.service.name} nesse periodo. Voce pode pedir outro dia, por exemplo: "semana que vem" ou "proxima terca".`
+      });
+    }
+
+    await this.savePending(input.pendingKey, {
+      step: "day",
+      client: input.client,
+      service: input.service,
+      requestedPeriod: input.requestedPeriod,
+      dayOptions,
+      team: input.team
+    });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.incoming.instanceName,
+      body: `${announce}${input.client.name}, em qual dia voce prefere fazer ${input.service.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
     });
   }
 
@@ -378,8 +455,7 @@ export class AiSchedulingService {
       professionalId: input.professional.id,
       instanceName: input.professional.evolutionInstanceName,
       client,
-      requestedPeriod: pending?.step === "name" ? pending.requestedPeriod : undefined,
-      team: pending?.step === "name" ? pending.team : undefined
+      requestedPeriod: pending?.step === "name" ? pending.requestedPeriod : undefined
     });
   }
 
@@ -390,20 +466,14 @@ export class AiSchedulingService {
     instanceName: string;
     client: ClientRecord;
     requestedPeriod?: DateIntent;
-    team?: TeamContext;
-    announceTeam?: boolean;
   }) {
-    const services = await this.listBookableServices(input.professionalId, input.team);
-    const announce =
-      input.announceTeam && input.team ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\n` : "";
+    const services = await this.database.listServices(input.professionalId, true);
 
     if (services.length === 0) {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: input.team
-          ? `${input.team.teamMemberName} ainda nao tem servicos disponiveis para agendamento. Vou pedir para a equipe configurar.`
-          : "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
+        body: "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
       });
     }
 
@@ -415,14 +485,13 @@ export class AiSchedulingService {
         client: input.client,
         requestedPeriod: input.requestedPeriod,
         categories,
-        services,
-        team: input.team
+        services
       });
 
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: `${announce}${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
+        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
       });
     }
 
@@ -430,21 +499,14 @@ export class AiSchedulingService {
       step: "service",
       client: input.client,
       requestedPeriod: input.requestedPeriod,
-      services,
-      team: input.team
+      services
     });
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${announce}${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
     });
-  }
-
-  private listBookableServices(professionalId: string, team?: TeamContext) {
-    return team
-      ? this.database.listServicesForTeamMember(professionalId, team.teamMemberId, true)
-      : this.database.listServices(professionalId, true);
   }
 
   private async handleCategoryChoice(input: {
@@ -453,10 +515,7 @@ export class AiSchedulingService {
     pendingKey: string;
     professionalId: string;
   }) {
-    const currentServices = await this.listBookableServices(
-      input.professionalId,
-      input.pending.team
-    );
+    const currentServices = await this.database.listServices(input.professionalId, true);
     const categories = this.getServiceCategories(currentServices);
     const selectedCategory = this.findSelectedCategory(
       input.incoming.text,
@@ -478,8 +537,7 @@ export class AiSchedulingService {
       client: input.pending.client,
       requestedPeriod: input.pending.requestedPeriod,
       category: selectedCategory,
-      services,
-      team: input.pending.team
+      services
     });
 
     return this.reply({
@@ -507,38 +565,28 @@ export class AiSchedulingService {
     }
 
     const requestedPeriod = this.parseDateIntent(input.incoming.text) || input.pending.requestedPeriod;
-    const searchPeriod = this.toSevenDaySearchPeriod(requestedPeriod);
-    const availability = await this.calendar.getAvailabilityForService({
-      professionalId: input.professionalId,
-      serviceId: selectedService.id,
-      teamMemberId: input.pending.team?.teamMemberId,
-      ...searchPeriod
-    });
-    const slots = "slots" in availability ? availability.slots : [];
-    const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
+    const teamMode = await this.database.getTeamMode(input.professionalId);
 
-    if (dayOptions.length === 0) {
-      await this.clearPending(input.pendingKey);
-      return this.reply({
+    // Modo Equipes: depois do servico, pergunta QUEM realiza aquele servico.
+    if (teamMode) {
+      return this.askTeamMemberForService({
         incoming: input.incoming,
-        instanceName: input.incoming.instanceName,
-        body: `Nao encontrei horarios livres para ${selectedService.name} nesse periodo. Voce pode pedir outro dia, por exemplo: "semana que vem" ou "proxima terca".`
+        pendingKey: input.pendingKey,
+        professionalId: input.professionalId,
+        client: input.pending.client,
+        service: selectedService,
+        requestedPeriod
       });
     }
 
-    await this.savePending(input.pendingKey, {
-      step: "day",
+    // Fluxo padrao (sem equipes): servico -> dia.
+    return this.offerDaysForService({
+      incoming: input.incoming,
+      pendingKey: input.pendingKey,
+      professionalId: input.professionalId,
       client: input.pending.client,
       service: selectedService,
-      requestedPeriod,
-      dayOptions,
-      team: input.pending.team
-    });
-
-    return this.reply({
-      incoming: input.incoming,
-      instanceName: input.incoming.instanceName,
-      body: `${input.pending.client.name}, em qual dia voce prefere fazer ${selectedService.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+      requestedPeriod
     });
   }
 
@@ -794,7 +842,7 @@ export class AiSchedulingService {
     professionalId: string,
     pending: Extract<PendingFlow, { step: "service" }>
   ) {
-    const services = await this.listBookableServices(professionalId, pending.team);
+    const services = await this.database.listServices(professionalId, true);
 
     if (!pending.category) {
       return services;
@@ -840,7 +888,7 @@ export class AiSchedulingService {
     });
   }
 
-  private pickSlotsForDay(slots: OfferedSlot[], maxSlots = 10) {
+  private pickSlotsForDay(slots: OfferedSlot[], maxSlots = 48) {
     return slots.slice(0, maxSlots).map((slot) => ({
       startsAt: slot.startsAt,
       label: slot.label

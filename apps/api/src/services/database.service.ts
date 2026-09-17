@@ -1662,6 +1662,31 @@ export class DatabaseService implements OnModuleInit {
     return result.rows as ServiceRecord[];
   }
 
+  async listTeamMembersForService(
+    professionalId: string,
+    serviceId: string,
+    onlyActive = true
+  ): Promise<TeamMemberRecord[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select tm.*
+        from team_members tm
+        join team_member_services tms on tms.team_member_id = tm.id
+        where tm.professional_id = $1
+          and tms.service_id = $2
+          and ($3::boolean = false or tm.active = true)
+        order by tm.active desc, tm.name asc
+      `,
+      [professionalId, serviceId, onlyActive]
+    );
+
+    return result.rows as TeamMemberRecord[];
+  }
+
   async listTeamMemberAvailability(teamMemberId: string): Promise<TeamMemberAvailabilityRule[]> {
     if (!this.pool || !this.ready) {
       return [];
