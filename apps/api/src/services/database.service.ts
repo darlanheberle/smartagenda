@@ -17,6 +17,7 @@ type SaveAppointmentInput = {
   endsAt: string;
   valueCents?: number;
   source?: string;
+  teamMemberId?: string | null;
 };
 
 type UpsertClientInput = {
@@ -37,6 +38,7 @@ type ManualAppointmentInput = {
   valueCents?: number;
   status?: string;
   paymentStatus?: string;
+  teamMemberId?: string | null;
 };
 
 type UpdateAppointmentInput = Partial<ManualAppointmentInput>;
@@ -78,6 +80,48 @@ export type AvailabilityRule = {
   active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type TeamMemberRecord = {
+  id: string;
+  professional_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TeamMemberAvailabilityRule = {
+  id: string;
+  team_member_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+  lunch_start: string | null;
+  lunch_end: string | null;
+  slot_interval_minutes: number | null;
+  buffer_minutes: number;
+  minimum_notice_minutes: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateTeamMemberInput = {
+  professionalId: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  active?: boolean;
+};
+
+export type UpdateTeamMemberInput = Partial<Omit<CreateTeamMemberInput, "professionalId">>;
+
+export type BusyInterval = {
+  start: string;
+  end: string;
 };
 
 export type CreateServiceInput = {
@@ -266,6 +310,66 @@ export class DatabaseService implements OnModuleInit {
     await this.pool.query(`
       alter table services
       add column if not exists category text
+    `);
+    // --- Modo Equipes (feat/modo-equipes) ---
+    await this.pool.query(`
+      alter table professionals
+      add column if not exists team_mode boolean not null default false
+    `);
+    await this.pool.query(`
+      create table if not exists team_members (
+        id text primary key,
+        professional_id text not null,
+        name text not null,
+        phone text,
+        email text,
+        active boolean not null default true,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await this.pool.query(`
+      create index if not exists team_members_professional_idx
+      on team_members (professional_id)
+    `);
+    await this.pool.query(`
+      create table if not exists team_member_services (
+        team_member_id text not null references team_members(id) on delete cascade,
+        service_id text not null references services(id) on delete cascade,
+        primary key (team_member_id, service_id)
+      )
+    `);
+    await this.pool.query(`
+      create table if not exists team_member_availability (
+        id text primary key,
+        team_member_id text not null references team_members(id) on delete cascade,
+        weekday integer not null check (weekday between 0 and 6),
+        start_time time not null,
+        end_time time not null,
+        lunch_start time,
+        lunch_end time,
+        slot_interval_minutes integer,
+        buffer_minutes integer not null default 0,
+        minimum_notice_minutes integer not null default 120,
+        active boolean not null default true,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now(),
+        unique (team_member_id, weekday)
+      )
+    `);
+    await this.pool.query(`
+      alter table appointments
+      add column if not exists team_member_id text
+    `);
+    await this.pool.query(`
+      create table if not exists conversation_states (
+        professional_id text not null,
+        customer_phone text not null,
+        step text not null,
+        state_json jsonb not null default '{}',
+        updated_at timestamptz not null default now(),
+        primary key (professional_id, customer_phone)
+      )
     `);
     this.ready = true;
     await this.ensureDefaultSchedulingData();
@@ -759,9 +863,10 @@ export class DatabaseService implements OnModuleInit {
           ends_at,
           value_cents,
           source,
+          team_member_id,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
         on conflict (professional_id, google_event_id)
         do update set
           client_id = excluded.client_id,
@@ -770,6 +875,7 @@ export class DatabaseService implements OnModuleInit {
           starts_at = excluded.starts_at,
           ends_at = excluded.ends_at,
           value_cents = excluded.value_cents,
+          team_member_id = excluded.team_member_id,
           updated_at = now()
         returning *
       `,
@@ -783,7 +889,8 @@ export class DatabaseService implements OnModuleInit {
         input.startsAt,
         input.endsAt,
         input.valueCents || 0,
-        input.source || "whatsapp"
+        input.source || "whatsapp",
+        input.teamMemberId || null
       ]
     );
 
@@ -811,12 +918,15 @@ export class DatabaseService implements OnModuleInit {
           a.payment_status,
           a.payment_method,
           a.source,
+          a.team_member_id,
           a.created_at,
           c.name as client_name,
           c.phone as client_phone,
-          c.email as client_email
+          c.email as client_email,
+          tm.name as team_member_name
         from appointments a
         left join clients c on c.id = a.client_id
+        left join team_members tm on tm.id = a.team_member_id
         where a.professional_id = $1 and a.id = $2
         limit 1
       `,
@@ -856,10 +966,11 @@ export class DatabaseService implements OnModuleInit {
           status,
           value_cents,
           payment_status,
+          team_member_id,
           source,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'manual', now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'manual', now())
         returning id
       `,
       [
@@ -872,7 +983,8 @@ export class DatabaseService implements OnModuleInit {
         input.endsAt,
         input.status || "scheduled",
         input.valueCents ?? 0,
-        input.paymentStatus || "pending"
+        input.paymentStatus || "pending",
+        input.teamMemberId || null
       ]
     );
 
@@ -914,6 +1026,7 @@ export class DatabaseService implements OnModuleInit {
           status = $7,
           value_cents = $8,
           payment_status = $9,
+          team_member_id = $10,
           updated_at = now()
         where professional_id = $1 and id = $2
       `,
@@ -926,7 +1039,8 @@ export class DatabaseService implements OnModuleInit {
         input.endsAt || current.ends_at,
         input.status || current.status,
         input.valueCents ?? current.value_cents,
-        input.paymentStatus || current.payment_status
+        input.paymentStatus || current.payment_status,
+        input.teamMemberId === undefined ? current.team_member_id : input.teamMemberId
       ]
     );
 
@@ -989,12 +1103,15 @@ export class DatabaseService implements OnModuleInit {
           a.payment_status,
           a.payment_method,
           a.source,
+          a.team_member_id,
           a.created_at,
           c.name as client_name,
           c.phone as client_phone,
-          c.email as client_email
+          c.email as client_email,
+          tm.name as team_member_name
         from appointments a
         left join clients c on c.id = a.client_id
+        left join team_members tm on tm.id = a.team_member_id
         where a.professional_id = $1
         order by a.starts_at desc
         limit $2
@@ -1025,12 +1142,15 @@ export class DatabaseService implements OnModuleInit {
           a.payment_status,
           a.payment_method,
           a.source,
+          a.team_member_id,
           a.created_at,
           c.name as client_name,
           c.phone as client_phone,
-          c.email as client_email
+          c.email as client_email,
+          tm.name as team_member_name
         from appointments a
         left join clients c on c.id = a.client_id
+        left join team_members tm on tm.id = a.team_member_id
         where a.professional_id = $1
           and a.starts_at >= now()
         order by a.starts_at asc
@@ -1316,6 +1436,410 @@ export class DatabaseService implements OnModuleInit {
       minimumNoticeMinutes: input.minimumNoticeMinutes ?? current.minimum_notice_minutes,
       active: input.active ?? current.active
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Modo Equipes (feat/modo-equipes)
+  // ------------------------------------------------------------------
+
+  async getTeamMode(professionalId: string): Promise<boolean> {
+    if (!this.pool || !this.ready) {
+      return false;
+    }
+
+    const result = await this.pool.query(
+      "select team_mode from professionals where id = $1",
+      [professionalId]
+    );
+
+    return result.rows[0]?.team_mode === true;
+  }
+
+  async setTeamMode(professionalId: string, enabled: boolean) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update professionals
+        set team_mode = $2, updated_at = now()
+        where id = $1
+        returning id, team_mode
+      `,
+      [professionalId, enabled]
+    );
+
+    return result.rows[0] as { id: string; team_mode: boolean } | undefined;
+  }
+
+  async listTeamMembers(professionalId: string, onlyActive = false): Promise<TeamMemberRecord[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from team_members
+        where professional_id = $1
+          and ($2::boolean = false or active = true)
+        order by active desc, name asc
+      `,
+      [professionalId, onlyActive]
+    );
+
+    return result.rows as TeamMemberRecord[];
+  }
+
+  async getTeamMember(professionalId: string, teamMemberId: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      "select * from team_members where professional_id = $1 and id = $2",
+      [professionalId, teamMemberId]
+    );
+
+    return result.rows[0] as TeamMemberRecord | undefined;
+  }
+
+  async createTeamMember(input: CreateTeamMemberInput) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        insert into team_members (id, professional_id, name, phone, email, active, updated_at)
+        values ($1, $2, $3, $4, $5, $6, now())
+        returning *
+      `,
+      [
+        randomUUID(),
+        input.professionalId,
+        input.name.trim(),
+        this.normalizeOptionalText(input.phone),
+        this.normalizeOptionalText(input.email),
+        input.active ?? true
+      ]
+    );
+
+    return result.rows[0] as TeamMemberRecord;
+  }
+
+  async updateTeamMember(
+    professionalId: string,
+    teamMemberId: string,
+    input: UpdateTeamMemberInput
+  ) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const current = await this.getTeamMember(professionalId, teamMemberId);
+    if (!current) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update team_members set
+          name = $3,
+          phone = $4,
+          email = $5,
+          active = $6,
+          updated_at = now()
+        where professional_id = $1 and id = $2
+        returning *
+      `,
+      [
+        professionalId,
+        teamMemberId,
+        input.name?.trim() || current.name,
+        input.phone === undefined ? current.phone : this.normalizeOptionalText(input.phone),
+        input.email === undefined ? current.email : this.normalizeOptionalText(input.email),
+        input.active ?? current.active
+      ]
+    );
+
+    return result.rows[0] as TeamMemberRecord;
+  }
+
+  async deactivateTeamMember(professionalId: string, teamMemberId: string) {
+    if (!this.pool || !this.ready) {
+      return { deleted: false };
+    }
+
+    const result = await this.pool.query(
+      `
+        update team_members
+        set active = false, updated_at = now()
+        where professional_id = $1 and id = $2
+        returning id
+      `,
+      [professionalId, teamMemberId]
+    );
+
+    return { deleted: (result.rowCount || 0) > 0 };
+  }
+
+  async listTeamMemberServiceIds(teamMemberId: string): Promise<string[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      "select service_id from team_member_services where team_member_id = $1",
+      [teamMemberId]
+    );
+
+    return result.rows.map((row) => row.service_id as string);
+  }
+
+  async setTeamMemberServices(
+    professionalId: string,
+    teamMemberId: string,
+    serviceIds: string[]
+  ): Promise<string[] | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const member = await this.getTeamMember(professionalId, teamMemberId);
+    if (!member) {
+      return undefined;
+    }
+
+    // Aceita apenas servicos que pertencem a esta empresa (isolamento multi-tenant).
+    const owned = await this.pool.query(
+      "select id from services where professional_id = $1 and id = any($2::text[])",
+      [professionalId, serviceIds]
+    );
+    const validIds = owned.rows.map((row) => row.id as string);
+
+    await this.pool.query("delete from team_member_services where team_member_id = $1", [
+      teamMemberId
+    ]);
+
+    for (const serviceId of validIds) {
+      await this.pool.query(
+        `
+          insert into team_member_services (team_member_id, service_id)
+          values ($1, $2)
+          on conflict do nothing
+        `,
+        [teamMemberId, serviceId]
+      );
+    }
+
+    return validIds;
+  }
+
+  async listServicesForTeamMember(
+    professionalId: string,
+    teamMemberId: string,
+    onlyActive = true
+  ): Promise<ServiceRecord[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select s.*
+        from services s
+        join team_member_services tms on tms.service_id = s.id
+        where s.professional_id = $1
+          and tms.team_member_id = $2
+          and ($3::boolean = false or s.active = true)
+        order by s.active desc, nullif(s.category, '') asc nulls last, s.name asc
+      `,
+      [professionalId, teamMemberId, onlyActive]
+    );
+
+    return result.rows as ServiceRecord[];
+  }
+
+  async listTeamMemberAvailability(teamMemberId: string): Promise<TeamMemberAvailabilityRule[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from team_member_availability
+        where team_member_id = $1
+        order by weekday asc
+      `,
+      [teamMemberId]
+    );
+
+    return result.rows as TeamMemberAvailabilityRule[];
+  }
+
+  async upsertTeamMemberAvailabilityRule(input: {
+    teamMemberId: string;
+    weekday: number;
+    startTime: string;
+    endTime: string;
+    lunchStart?: string | null;
+    lunchEnd?: string | null;
+    slotIntervalMinutes?: number | null;
+    bufferMinutes?: number;
+    minimumNoticeMinutes?: number;
+    active?: boolean;
+  }) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        insert into team_member_availability (
+          id,
+          team_member_id,
+          weekday,
+          start_time,
+          end_time,
+          lunch_start,
+          lunch_end,
+          slot_interval_minutes,
+          buffer_minutes,
+          minimum_notice_minutes,
+          active,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+        on conflict (team_member_id, weekday)
+        do update set
+          start_time = excluded.start_time,
+          end_time = excluded.end_time,
+          lunch_start = excluded.lunch_start,
+          lunch_end = excluded.lunch_end,
+          slot_interval_minutes = excluded.slot_interval_minutes,
+          buffer_minutes = excluded.buffer_minutes,
+          minimum_notice_minutes = excluded.minimum_notice_minutes,
+          active = excluded.active,
+          updated_at = now()
+        returning *
+      `,
+      [
+        randomUUID(),
+        input.teamMemberId,
+        input.weekday,
+        input.startTime,
+        input.endTime,
+        input.lunchStart || null,
+        input.lunchEnd || null,
+        input.slotIntervalMinutes ?? null,
+        input.bufferMinutes || 0,
+        input.minimumNoticeMinutes || 120,
+        input.active ?? true
+      ]
+    );
+
+    return result.rows[0] as TeamMemberAvailabilityRule;
+  }
+
+  /**
+   * Intervalos ocupados de um membro no periodo, derivados dos agendamentos (Decisao D2-A).
+   * Base para permitir atendimento simultaneo de membros diferentes sem conflito entre si.
+   */
+  async listBusyIntervals(
+    professionalId: string,
+    teamMemberId: string,
+    startIso: string,
+    endIso: string
+  ): Promise<BusyInterval[]> {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select starts_at, ends_at
+        from appointments
+        where professional_id = $1
+          and team_member_id = $2
+          and status <> 'cancelled'
+          and starts_at < $4
+          and ends_at > $3
+        order by starts_at asc
+      `,
+      [professionalId, teamMemberId, startIso, endIso]
+    );
+
+    return result.rows.map((row) => ({
+      start: new Date(row.starts_at).toISOString(),
+      end: new Date(row.ends_at).toISOString()
+    }));
+  }
+
+  // ------------------------------------------------------------------
+  // Contexto da conversa do WhatsApp persistido (Decisao D1-A)
+  // ------------------------------------------------------------------
+
+  async getConversationState<T = Record<string, unknown>>(
+    professionalId: string,
+    customerPhone: string
+  ): Promise<{ step: string; state: T } | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select step, state_json
+        from conversation_states
+        where professional_id = $1 and customer_phone = $2
+      `,
+      [professionalId, customerPhone]
+    );
+    const row = result.rows[0];
+
+    if (!row) {
+      return undefined;
+    }
+
+    return { step: row.step as string, state: row.state_json as T };
+  }
+
+  async saveConversationState(
+    professionalId: string,
+    customerPhone: string,
+    step: string,
+    state: Record<string, unknown>
+  ) {
+    if (!this.pool || !this.ready) {
+      return;
+    }
+
+    await this.pool.query(
+      `
+        insert into conversation_states (professional_id, customer_phone, step, state_json, updated_at)
+        values ($1, $2, $3, $4::jsonb, now())
+        on conflict (professional_id, customer_phone)
+        do update set
+          step = excluded.step,
+          state_json = excluded.state_json,
+          updated_at = now()
+      `,
+      [professionalId, customerPhone, step, JSON.stringify(state ?? {})]
+    );
+  }
+
+  async clearConversationState(professionalId: string, customerPhone: string) {
+    if (!this.pool || !this.ready) {
+      return;
+    }
+
+    await this.pool.query(
+      "delete from conversation_states where professional_id = $1 and customer_phone = $2",
+      [professionalId, customerPhone]
+    );
   }
 
   private async ensureDefaultSchedulingData() {
