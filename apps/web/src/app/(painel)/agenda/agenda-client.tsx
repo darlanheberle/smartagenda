@@ -12,10 +12,10 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency, formatTime } from "../lib/format";
-import type { Appointment, AvailabilityRule, Service } from "../lib/types";
+import type { Appointment, AvailabilityRule, Service, TeamMember } from "../lib/types";
 
 const workdayStartHour = 8;
 const workdayEndHour = 18;
@@ -44,6 +44,8 @@ type AgendaEditor = {
   startsAt: string;
   durationMinutes: number;
   priceCents: number;
+  teamMemberId?: string;
+  teamMemberName?: string;
 };
 
 type AvailabilityForm = {
@@ -69,16 +71,25 @@ const weekdays = [
 export function AgendaClient({
   appointments,
   availabilityRules,
-  services
+  services,
+  teamMode = false,
+  teamMembers = []
 }: {
   appointments: Appointment[];
   availabilityRules: AvailabilityRule[];
   services: Service[];
+  teamMode?: boolean;
+  teamMembers?: TeamMember[];
 }) {
   const days = useMemo(() => buildDays(21), []);
   const todayKey = dateKey(new Date());
+  const activeMembers = useMemo(() => teamMembers.filter((member) => member.active), [teamMembers]);
   const [appointmentsState, setAppointmentsState] = useState(appointments);
   const [selectedDayKey, setSelectedDayKey] = useState(todayKey);
+  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(
+    teamMode ? activeMembers[0]?.id || "" : ""
+  );
+  const [memberRules, setMemberRules] = useState<AvailabilityRule[] | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState(
     services.find((service) => service.active)?.id || services[0]?.id || ""
   );
@@ -87,21 +98,68 @@ export function AgendaClient({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const teamActive = teamMode && activeMembers.length > 0;
+  const selectedMember = activeMembers.find((member) => member.id === selectedTeamMemberId);
+
+  // Em Modo Equipes, busca a agenda do profissional selecionado (com fallback nas regras da empresa).
+  useEffect(() => {
+    if (!teamActive || !selectedTeamMemberId) {
+      setMemberRules(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${apiUrl}/team-members/${selectedTeamMemberId}/availability`, {
+          cache: "no-store",
+          credentials: "include"
+        });
+        if (!response.ok) {
+          throw new Error("falha");
+        }
+        const rules = (await response.json()) as AvailabilityRule[];
+        if (!cancelled) {
+          setMemberRules(rules.length > 0 ? rules : null);
+        }
+      } catch {
+        if (!cancelled) {
+          setMemberRules(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [teamActive, selectedTeamMemberId]);
+
   const activeServices = useMemo(
     () => services.filter((service) => service.active),
     [services]
   );
-  const serviceOptions = activeServices.length > 0 ? activeServices : services;
-  const selectedService = serviceOptions.find((service) => service.id === selectedServiceId) || serviceOptions[0];
+  const baseServiceOptions = activeServices.length > 0 ? activeServices : services;
+  // Serviços disponíveis = os do profissional escolhido (Modo Equipes) ou todos.
+  const serviceOptions =
+    teamActive && selectedMember?.serviceIds
+      ? baseServiceOptions.filter((service) => selectedMember.serviceIds?.includes(service.id))
+      : baseServiceOptions;
+  const selectedService =
+    serviceOptions.find((service) => service.id === selectedServiceId) || serviceOptions[0];
   const slotDurationMinutes = selectedService?.duration_minutes || 60;
   const selectedDay = days.find((day) => day.key === selectedDayKey) || days[0];
-  const selectedAvailabilityRule = getAvailabilityRuleForDate(availabilityRules, selectedDay.date);
+  const effectiveRules = teamActive && memberRules ? memberRules : availabilityRules;
+  const selectedAvailabilityRule = getAvailabilityRuleForDate(effectiveRules, selectedDay.date);
   const slots = useMemo(
     () => buildSlots(selectedDay.date, slotDurationMinutes, selectedAvailabilityRule),
     [selectedAvailabilityRule, selectedDay.date, slotDurationMinutes]
   );
+  // Ocupação por profissional: em Modo Equipes só bloqueia os horários do profissional escolhido
+  // (permite dois profissionais no mesmo horário).
   const selectedAppointments = appointmentsState.filter(
-    (appointment) => dateKey(new Date(appointment.starts_at)) === selectedDay.key
+    (appointment) =>
+      dateKey(new Date(appointment.starts_at)) === selectedDay.key &&
+      (!teamActive || !selectedTeamMemberId || appointment.team_member_id === selectedTeamMemberId)
   );
 
   function moveDay(offset: number) {
@@ -124,7 +182,9 @@ export function AgendaClient({
       serviceName: service?.name || "",
       startsAt: slot.startsAt,
       durationMinutes: service?.duration_minutes || 60,
-      priceCents: service?.price_cents || 0
+      priceCents: service?.price_cents || 0,
+      teamMemberId: teamActive ? selectedTeamMemberId || undefined : undefined,
+      teamMemberName: teamActive ? selectedMember?.name : undefined
     });
   }
 
@@ -144,7 +204,9 @@ export function AgendaClient({
       serviceName: appointment.service_name,
       startsAt: appointment.starts_at,
       durationMinutes: service?.duration_minutes || minutesBetween(appointment.starts_at, appointment.ends_at),
-      priceCents: appointment.value_cents || service?.price_cents || 0
+      priceCents: appointment.value_cents || service?.price_cents || 0,
+      teamMemberId: appointment.team_member_id || undefined,
+      teamMemberName: appointment.team_member_name || undefined
     });
   }
 
@@ -202,7 +264,8 @@ export function AgendaClient({
         serviceName: editor.serviceName.trim() || undefined,
         startsAt: editor.startsAt,
         durationMinutes: editor.durationMinutes,
-        valueCents: editor.priceCents
+        valueCents: editor.priceCents,
+        teamMemberId: editor.teamMemberId || undefined
       };
       const response = await fetch(
         editor.mode === "edit" && editor.appointmentId
@@ -349,8 +412,24 @@ export function AgendaClient({
           subtitle={`${slotDurationMinutes} min por encaixe${selectedService ? ` para ${selectedService.name}` : ""}`}
           title={selectedDay.key === todayKey ? "Agenda de hoje" : formatHeaderDay(selectedDay.date)}
         />
-        {serviceOptions.length > 0 ? (
+        {teamActive ? (
           <label className="mt-5 block">
+            <span className="text-sm font-semibold text-slate-700">Profissional</span>
+            <select
+              className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+              onChange={(event) => setSelectedTeamMemberId(event.target.value)}
+              value={selectedTeamMemberId}
+            >
+              {activeMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {serviceOptions.length > 0 ? (
+          <label className="mt-4 block">
             <span className="text-sm font-semibold text-slate-700">Servico para calcular horarios livres</span>
             <select
               className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
@@ -505,6 +584,31 @@ export function AgendaClient({
                   value={editor.clientPhone}
                 />
               </label>
+
+              {teamActive ? (
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Profissional</span>
+                  <select
+                    className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
+                    onChange={(event) => {
+                      const member = activeMembers.find((item) => item.id === event.target.value);
+                      setEditor({
+                        ...editor,
+                        teamMemberId: member?.id,
+                        teamMemberName: member?.name
+                      });
+                    }}
+                    value={editor.teamMemberId || ""}
+                  >
+                    <option value="">Sem profissional</option>
+                    {activeMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
 
               {serviceOptions.length > 0 ? (
                 <label className="block">

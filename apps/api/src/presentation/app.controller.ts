@@ -616,6 +616,7 @@ export class AppController {
       startsAt: string;
       durationMinutes?: number;
       valueCents?: number;
+      teamMemberId?: string | null;
     }
   ) {
     const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
@@ -640,6 +641,7 @@ export class AppController {
       valueCents?: number;
       status?: string;
       paymentStatus?: string;
+      teamMemberId?: string | null;
     }
   ) {
     const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
@@ -658,7 +660,8 @@ export class AppController {
       startsAt: input.startsAt || current.starts_at,
       durationMinutes:
         input.durationMinutes || this.minutesBetween(current.starts_at, current.ends_at),
-      valueCents: input.valueCents ?? current.value_cents
+      valueCents: input.valueCents ?? current.value_cents,
+      teamMemberId: input.teamMemberId === undefined ? current.team_member_id : input.teamMemberId
     });
 
     return this.database.updateAppointment(professionalId, id, {
@@ -1139,6 +1142,7 @@ export class AppController {
       startsAt?: string;
       durationMinutes?: number;
       valueCents?: number;
+      teamMemberId?: string | null;
     }
   ) {
     if (!input.clientName?.trim()) {
@@ -1177,7 +1181,8 @@ export class AppController {
       serviceName,
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
-      valueCents: service?.price_cents ?? input.valueCents ?? 0
+      valueCents: service?.price_cents ?? input.valueCents ?? 0,
+      teamMemberId: input.teamMemberId ?? null
     };
   }
 
