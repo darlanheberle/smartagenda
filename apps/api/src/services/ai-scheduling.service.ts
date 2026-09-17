@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { CalendarService } from "./calendar.service";
-import { ClientRecord, DatabaseService, ServiceRecord } from "./database.service";
+import { ClientRecord, DatabaseService, ServiceRecord, TeamMemberRecord } from "./database.service";
 import { EvolutionService } from "./evolution.service";
 import { ProfessionalRegistryService } from "./professional-registry.service";
 import { EvolutionWebhookPayload, IncomingWhatsAppMessage } from "../types/integrations";
@@ -22,10 +22,20 @@ type DateIntent = {
   label: string;
 };
 
+type TeamContext = {
+  teamMemberId: string;
+  teamMemberName: string;
+};
+
 type PendingFlow =
+  | {
+      step: "team_member";
+      requestedPeriod?: DateIntent;
+    }
   | {
       step: "name";
       requestedPeriod?: DateIntent;
+      team?: TeamContext;
     }
   | {
       step: "category";
@@ -33,6 +43,7 @@ type PendingFlow =
       requestedPeriod?: DateIntent;
       categories: string[];
       services: ServiceRecord[];
+      team?: TeamContext;
     }
   | {
       step: "service";
@@ -40,6 +51,7 @@ type PendingFlow =
       requestedPeriod?: DateIntent;
       category?: string;
       services: ServiceRecord[];
+      team?: TeamContext;
     }
   | {
       step: "day";
@@ -47,12 +59,14 @@ type PendingFlow =
       service: ServiceRecord;
       dayOptions: OfferedDay[];
       requestedPeriod?: DateIntent;
+      team?: TeamContext;
     }
   | {
       step: "slot";
       client: ClientRecord;
       service: ServiceRecord;
       slots: OfferedSlot[];
+      team?: TeamContext;
     };
 
 @Injectable()
@@ -157,27 +171,26 @@ export class AiSchedulingService {
     }
 
     const pending = await this.loadPending(pendingKey);
+    const teamMode = await this.database.getTeamMode(professional.id);
 
     if (pending && this.isRestartCommand(incoming.text)) {
       await this.clearPending(pendingKey);
-      const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
 
-      if (!client) {
-        await this.savePending(pendingKey, { step: "name" });
-        return this.reply({
-          incoming,
-          instanceName: professional.evolutionInstanceName,
-          body: "Vamos recomecar. Qual e o seu nome completo?"
-        });
+      if (teamMode) {
+        return this.startTeamMemberSelection({ incoming, pendingKey, professional });
       }
 
-      return this.startSchedulingFlow({
-        incoming,
-        pendingKey,
-        professionalId: professional.id,
-        instanceName: professional.evolutionInstanceName,
-        client
-      });
+      return this.continueWithoutTeam({ incoming, pendingKey, professional });
+    }
+
+    // Troca de profissional em qualquer momento do fluxo (item 9).
+    if (teamMode && pending && this.isChangeProfessionalCommand(incoming.text)) {
+      await this.clearPending(pendingKey);
+      return this.startTeamMemberSelection({ incoming, pendingKey, professional });
+    }
+
+    if (pending?.step === "team_member") {
+      return this.handleTeamMemberChoice({ incoming, pending, pendingKey, professional });
     }
 
     if (pending?.step === "name") {
@@ -207,26 +220,111 @@ export class AiSchedulingService {
       return this.handleSlotChoice({ incoming, pending, pendingKey, professional });
     }
 
-    const client = await this.database.findClientByPhone(professional.id, incoming.customerPhone);
-    const requestedPeriod = this.parseDateIntent(incoming.text);
+    // Sem contexto: em Modo Equipes, comeca pela escolha do profissional.
+    if (teamMode) {
+      return this.startTeamMemberSelection({ incoming, pendingKey, professional });
+    }
+
+    return this.continueWithoutTeam({ incoming, pendingKey, professional });
+  }
+
+  private async continueWithoutTeam(input: {
+    incoming: IncomingWhatsAppMessage;
+    pendingKey: string;
+    professional: { id: string; evolutionInstanceName: string };
+    team?: TeamContext;
+  }) {
+    const client = await this.database.findClientByPhone(
+      input.professional.id,
+      input.incoming.customerPhone
+    );
+    const requestedPeriod = this.parseDateIntent(input.incoming.text);
 
     if (!client) {
-      await this.savePending(pendingKey, { step: "name", requestedPeriod });
+      await this.savePending(input.pendingKey, {
+        step: "name",
+        requestedPeriod,
+        team: input.team
+      });
+
+      const greeting = input.team
+        ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\nPara comecar, qual e o seu nome completo?`
+        : "Ola! Para comecar seu atendimento, qual e o seu nome completo?";
 
       return this.reply({
-        incoming,
-        instanceName: professional.evolutionInstanceName,
-        body: "Ola! Para comecar seu atendimento, qual e o seu nome completo?"
+        incoming: input.incoming,
+        instanceName: input.professional.evolutionInstanceName,
+        body: greeting
       });
     }
 
     return this.startSchedulingFlow({
-      incoming,
-      pendingKey,
-      professionalId: professional.id,
-      instanceName: professional.evolutionInstanceName,
+      incoming: input.incoming,
+      pendingKey: input.pendingKey,
+      professionalId: input.professional.id,
+      instanceName: input.professional.evolutionInstanceName,
       client,
-      requestedPeriod
+      requestedPeriod,
+      team: input.team,
+      announceTeam: Boolean(input.team)
+    });
+  }
+
+  private async startTeamMemberSelection(input: {
+    incoming: IncomingWhatsAppMessage;
+    pendingKey: string;
+    professional: { id: string; evolutionInstanceName: string };
+  }) {
+    const members = await this.database.listTeamMembers(input.professional.id, true);
+
+    // Sem profissionais ativos: nao trava o atendimento, segue o fluxo padrao.
+    if (members.length === 0) {
+      return this.continueWithoutTeam(input);
+    }
+
+    // Um unico profissional: seleciona automaticamente, sem perguntar.
+    if (members.length === 1) {
+      return this.continueWithoutTeam({
+        ...input,
+        team: { teamMemberId: members[0].id, teamMemberName: members[0].name }
+      });
+    }
+
+    await this.savePending(input.pendingKey, { step: "team_member" });
+
+    return this.reply({
+      incoming: input.incoming,
+      instanceName: input.professional.evolutionInstanceName,
+      body: `Ola! Com qual profissional voce gostaria de agendar?\n\n${this.formatTeamMemberOptions(
+        members
+      )}\n\nResponda com o numero ou o nome.`
+    });
+  }
+
+  private async handleTeamMemberChoice(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: Extract<PendingFlow, { step: "team_member" }>;
+    pendingKey: string;
+    professional: { id: string; evolutionInstanceName: string };
+  }) {
+    const members = await this.database.listTeamMembers(input.professional.id, true);
+    const selected = this.findSelectedTeamMember(input.incoming.text, members);
+
+    if (!selected) {
+      return this.reply({
+        incoming: input.incoming,
+        instanceName: input.professional.evolutionInstanceName,
+        body: `Nao encontrei essa opcao. Escolha um dos profissionais abaixo:\n\n${this.formatTeamMemberOptions(
+          members
+        )}`
+      });
+    }
+
+    return this.continueWithoutTeam({
+      incoming: input.incoming,
+      pendingKey: input.pendingKey,
+      professional: input.professional,
+      team: { teamMemberId: selected.id, teamMemberName: selected.name }
     });
   }
 
@@ -280,7 +378,8 @@ export class AiSchedulingService {
       professionalId: input.professional.id,
       instanceName: input.professional.evolutionInstanceName,
       client,
-      requestedPeriod: pending?.step === "name" ? pending.requestedPeriod : undefined
+      requestedPeriod: pending?.step === "name" ? pending.requestedPeriod : undefined,
+      team: pending?.step === "name" ? pending.team : undefined
     });
   }
 
@@ -291,14 +390,20 @@ export class AiSchedulingService {
     instanceName: string;
     client: ClientRecord;
     requestedPeriod?: DateIntent;
+    team?: TeamContext;
+    announceTeam?: boolean;
   }) {
-    const services = await this.database.listServices(input.professionalId, true);
+    const services = await this.listBookableServices(input.professionalId, input.team);
+    const announce =
+      input.announceTeam && input.team ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\n` : "";
 
     if (services.length === 0) {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
+        body: input.team
+          ? `${input.team.teamMemberName} ainda nao tem servicos disponiveis para agendamento. Vou pedir para a equipe configurar.`
+          : "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
       });
     }
 
@@ -310,13 +415,14 @@ export class AiSchedulingService {
         client: input.client,
         requestedPeriod: input.requestedPeriod,
         categories,
-        services
+        services,
+        team: input.team
       });
 
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
+        body: `${announce}${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
       });
     }
 
@@ -324,14 +430,21 @@ export class AiSchedulingService {
       step: "service",
       client: input.client,
       requestedPeriod: input.requestedPeriod,
-      services
+      services,
+      team: input.team
     });
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      body: `${announce}${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
     });
+  }
+
+  private listBookableServices(professionalId: string, team?: TeamContext) {
+    return team
+      ? this.database.listServicesForTeamMember(professionalId, team.teamMemberId, true)
+      : this.database.listServices(professionalId, true);
   }
 
   private async handleCategoryChoice(input: {
@@ -340,7 +453,10 @@ export class AiSchedulingService {
     pendingKey: string;
     professionalId: string;
   }) {
-    const currentServices = await this.database.listServices(input.professionalId, true);
+    const currentServices = await this.listBookableServices(
+      input.professionalId,
+      input.pending.team
+    );
     const categories = this.getServiceCategories(currentServices);
     const selectedCategory = this.findSelectedCategory(
       input.incoming.text,
@@ -362,7 +478,8 @@ export class AiSchedulingService {
       client: input.pending.client,
       requestedPeriod: input.pending.requestedPeriod,
       category: selectedCategory,
-      services
+      services,
+      team: input.pending.team
     });
 
     return this.reply({
@@ -394,6 +511,7 @@ export class AiSchedulingService {
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: selectedService.id,
+      teamMemberId: input.pending.team?.teamMemberId,
       ...searchPeriod
     });
     const slots = "slots" in availability ? availability.slots : [];
@@ -413,7 +531,8 @@ export class AiSchedulingService {
       client: input.pending.client,
       service: selectedService,
       requestedPeriod,
-      dayOptions
+      dayOptions,
+      team: input.pending.team
     });
 
     return this.reply({
@@ -465,7 +584,8 @@ export class AiSchedulingService {
       step: "slot",
       client: input.pending.client,
       service: input.pending.service,
-      slots: offeredSlots
+      slots: offeredSlots,
+      team: input.pending.team
     });
 
     return this.reply({
@@ -514,7 +634,8 @@ export class AiSchedulingService {
       clientPhone: input.incoming.customerPhone,
       startsAt: selectedSlot.startsAt,
       serviceId: input.pending.service.id,
-      serviceName: input.pending.service.name
+      serviceName: input.pending.service.name,
+      teamMemberId: input.pending.team?.teamMemberId
     });
     const created = event.status === "created";
 
@@ -527,8 +648,11 @@ export class AiSchedulingService {
       input.pending.service.price_cents > 0
         ? `\nValor: ${this.formatCurrency(input.pending.service.price_cents)}`
         : "";
+    const professionalLine = input.pending.team
+      ? `\nProfissional: ${input.pending.team.teamMemberName}`
+      : "";
     const body = created
-      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.\n\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}`
+      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.${professionalLine}\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}`
       : "Nao consegui criar o evento na agenda agora. Vou pedir para o profissional confirmar manualmente.";
 
     return this.reply({
@@ -578,6 +702,7 @@ export class AiSchedulingService {
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: input.pending.service.id,
+      teamMemberId: input.pending.team?.teamMemberId,
       startDate: searchPeriod.startDate,
       daysAhead: searchPeriod.daysAhead
     });
@@ -597,7 +722,8 @@ export class AiSchedulingService {
       client: input.pending.client,
       service: input.pending.service,
       requestedPeriod: input.requestedPeriod,
-      dayOptions
+      dayOptions,
+      team: input.pending.team
     });
 
     return this.reply({
@@ -618,6 +744,7 @@ export class AiSchedulingService {
     const availability = await this.calendar.getAvailabilityForService({
       professionalId: input.professionalId,
       serviceId: input.pending.service.id,
+      teamMemberId: input.pending.team?.teamMemberId,
       startDate: searchPeriod.startDate,
       daysAhead: searchPeriod.daysAhead
     });
@@ -637,7 +764,8 @@ export class AiSchedulingService {
       client: input.pending.client,
       service: input.pending.service,
       requestedPeriod: input.requestedPeriod,
-      dayOptions
+      dayOptions,
+      team: input.pending.team
     });
 
     return this.reply({
@@ -666,7 +794,7 @@ export class AiSchedulingService {
     professionalId: string,
     pending: Extract<PendingFlow, { step: "service" }>
   ) {
-    const services = await this.database.listServices(professionalId, true);
+    const services = await this.listBookableServices(professionalId, pending.team);
 
     if (!pending.category) {
       return services;
@@ -840,6 +968,43 @@ export class AiSchedulingService {
   private isRestartCommand(text: string) {
     const normalized = this.normalizeText(text);
     return ["menu", "reiniciar", "iniciar", "inicio", "comecar", "recomecar"].includes(normalized);
+  }
+
+  // Item 9: comando para trocar o profissional durante o fluxo.
+  private isChangeProfessionalCommand(text: string) {
+    const normalized = this.normalizeText(text);
+    return (
+      normalized.includes("trocar profissional") ||
+      normalized.includes("mudar profissional") ||
+      normalized.includes("outro profissional") ||
+      normalized === "trocar" ||
+      normalized === "profissional"
+    );
+  }
+
+  private formatTeamMemberOptions(members: TeamMemberRecord[]) {
+    return members.map((member, index) => `${index + 1} - ${member.name}`).join("\n");
+  }
+
+  // Itens 11, 12 e 13: resolve a escolha por numero OU nome; ambiguidade => nao seleciona.
+  private findSelectedTeamMember(text: string, members: TeamMemberRecord[]) {
+    const normalized = this.normalizeText(text);
+    const numericChoice = Number.parseInt(normalized, 10);
+
+    if (
+      Number.isInteger(numericChoice) &&
+      numericChoice >= 1 &&
+      numericChoice <= members.length
+    ) {
+      return members[numericChoice - 1];
+    }
+
+    const byName = members.filter((member) => {
+      const name = this.normalizeText(member.name);
+      return name === normalized || name.split(" ")[0] === normalized;
+    });
+
+    return byName.length === 1 ? byName[0] : undefined;
   }
 
   private normalizeClientName(text: string) {

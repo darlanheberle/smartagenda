@@ -51,6 +51,7 @@ function buildService(dbEnabled: boolean) {
 
   const database = {
     isEnabled: () => dbEnabled,
+    getTeamMode: async () => false,
     getProfessional: async () => ({ ai_enabled: true }),
     findClientByPhone: async () => clientSaved,
     upsertClient: async (input: { name: string; phone?: string }) => {
@@ -145,5 +146,131 @@ describe.each([
       reply?: string;
     };
     expect(first.reply?.toLowerCase()).not.toContain("profissional");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Modo Equipes LIGADO
+// ---------------------------------------------------------------------------
+
+const MARIA = { id: "tm-maria", name: "Maria", phone: null, email: null, active: true };
+const JOAO = { id: "tm-joao", name: "Joao", phone: null, email: null, active: true };
+
+const JOAO_SERVICES = [
+  { ...SERVICE, id: "svc-corte", name: "Corte" },
+  { ...SERVICE, id: "svc-barba", name: "Barba" }
+];
+
+function buildTeamService() {
+  const conversationStore = new Map<string, { step: string; state: unknown }>();
+  let clientSaved: { id: string; name: string; phone: string } | undefined;
+
+  const database = {
+    isEnabled: () => true,
+    getTeamMode: async () => true,
+    getProfessional: async () => ({ ai_enabled: true }),
+    listTeamMembers: async () => [MARIA, JOAO],
+    listServicesForTeamMember: async (_pid: string, teamMemberId: string) =>
+      teamMemberId === JOAO.id ? JOAO_SERVICES : [{ ...SERVICE, id: "svc-corte", name: "Corte" }],
+    listServices: async () => [SERVICE],
+    getService: async () => JOAO_SERVICES[0],
+    findClientByPhone: async () => clientSaved,
+    upsertClient: async (input: { name: string; phone?: string }) => {
+      clientSaved = { id: "cli-1", name: input.name, phone: input.phone ?? "" };
+      return clientSaved;
+    },
+    getConversationState: async (professionalId: string, phone: string) =>
+      conversationStore.get(`${professionalId}:${phone}`),
+    saveConversationState: async (
+      professionalId: string,
+      phone: string,
+      step: string,
+      state: unknown
+    ) => {
+      conversationStore.set(`${professionalId}:${phone}`, { step, state });
+    },
+    clearConversationState: async (professionalId: string, phone: string) => {
+      conversationStore.delete(`${professionalId}:${phone}`);
+    }
+  };
+
+  const calendar = {
+    getAvailabilityForService: async () => ({ slots: buildAvailabilitySlots() }),
+    createEvent: async () => ({ status: "created", htmlLink: "https://example.com/evt" })
+  };
+
+  const evolution = { sendTextMessage: async () => ({ ok: true }) };
+  const professionals = {
+    findByEvolutionInstance: () => PROFESSIONAL,
+    getById: () => PROFESSIONAL
+  };
+
+  return new AiSchedulingService(
+    calendar as never,
+    database as never,
+    evolution as never,
+    professionals as never
+  );
+}
+
+describe("AiSchedulingService - Modo Equipes ligado", () => {
+  it("pergunta o profissional antes de tudo e lista os membros ativos", async () => {
+    const service = buildTeamService();
+    const res = (await service.handleIncomingWhatsAppMessage(incoming("Ola"))) as {
+      reply?: string;
+    };
+    expect(res.reply?.toLowerCase()).toContain("profissional");
+    expect(res.reply).toContain("Maria");
+    expect(res.reply).toContain("Joao");
+  });
+
+  it("apos escolher Joao, oferece apenas os servicos de Joao", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    const chose = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
+      reply?: string;
+    };
+    expect(chose.reply).toContain("Joao");
+    expect(chose.reply?.toLowerCase()).toContain("nome");
+
+    const askService = (await service.handleIncomingWhatsAppMessage(
+      incoming("Carlos Cliente")
+    )) as { reply?: string };
+    expect(askService.reply).toContain("Corte");
+    expect(askService.reply).toContain("Barba");
+    expect(askService.reply).not.toContain("Coloracao");
+  });
+
+  it("confirma o agendamento identificando o profissional escolhido", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("2"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Cliente"));
+    await service.handleIncomingWhatsAppMessage(incoming("1"));
+    await service.handleIncomingWhatsAppMessage(incoming("1"));
+    const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
+      reply?: string;
+    };
+    expect(confirmed.reply?.toLowerCase()).toContain("confirmado");
+    expect(confirmed.reply).toContain("Joao");
+  });
+
+  it("resolve a escolha pelo nome do profissional (item 13)", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    const chose = (await service.handleIncomingWhatsAppMessage(incoming("maria"))) as {
+      reply?: string;
+    };
+    expect(chose.reply).toContain("Maria");
+  });
+
+  it("rejeita opcao invalida sem avancar (item 12)", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    const invalid = (await service.handleIncomingWhatsAppMessage(incoming("9"))) as {
+      reply?: string;
+    };
+    expect(invalid.reply?.toLowerCase()).toContain("nao encontrei");
+    expect(invalid.reply).toContain("Maria");
   });
 });

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { ProfessionalRegistryService } from "./professional-registry.service";
-import { AvailabilityRule, DatabaseService } from "./database.service";
+import { AvailabilityRule, DatabaseService, ServiceRecord } from "./database.service";
 import { Professional } from "../types/professional";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -180,6 +181,7 @@ export class CalendarService {
     serviceId?: string;
     startDate?: string;
     daysAhead?: number;
+    teamMemberId?: string;
   }) {
     const professional = await this.loadGoogleCalendarConnection(
       this.professionals.getById(input.professionalId)
@@ -190,6 +192,20 @@ export class CalendarService {
       : (await this.database.listServices(professional.id, true))[0];
     const durationMinutes =
       service?.duration_minutes || professional.appointmentDurationMinutes;
+
+    // Modo Equipes (D2-A + D3-B): agenda do MEMBRO = regras do membro (com fallback
+    // para as da empresa) menos os agendamentos daquele membro (conflito por banco).
+    // Nao depende do Google, permitindo atendimento simultaneo de membros diferentes.
+    if (input.teamMemberId) {
+      return this.getTeamMemberAvailability({
+        professional,
+        teamMemberId: input.teamMemberId,
+        service,
+        durationMinutes,
+        startDate: input.startDate,
+        daysAhead: input.daysAhead
+      });
+    }
 
     if (!professional?.googleCalendar?.accessToken) {
       return this.mockAvailability(professional?.id, "mocked_until_google_connected");
@@ -252,6 +268,54 @@ export class CalendarService {
     };
   }
 
+  private async getTeamMemberAvailability(input: {
+    professional: Professional;
+    teamMemberId: string;
+    service?: ServiceRecord;
+    durationMinutes: number;
+    startDate?: string;
+    daysAhead?: number;
+  }) {
+    const now = new Date();
+    const searchStart = input.startDate ? new Date(input.startDate) : now;
+    const daysAhead =
+      input.daysAhead || Number.parseInt(process.env.GOOGLE_AVAILABILITY_DAYS || "21", 10);
+    const timeMin = searchStart > now ? searchStart.toISOString() : now.toISOString();
+    const timeMax = new Date(searchStart.getTime() + daysAhead * 24 * 60 * 60 * 1000).toISOString();
+
+    const memberRules = await this.database.listTeamMemberAvailability(input.teamMemberId);
+    const rules = memberRules.length
+      ? (memberRules as unknown as AvailabilityRule[])
+      : await this.database.listAvailabilityRules(input.professional.id);
+    const busy = await this.database.listBusyIntervals(
+      input.professional.id,
+      input.teamMemberId,
+      timeMin,
+      timeMax
+    );
+
+    const slots = this.buildAvailableSlots({
+      busy,
+      durationMinutes: input.durationMinutes,
+      timezone: input.professional.timezone,
+      searchStart,
+      daysAhead,
+      rules
+    });
+
+    return {
+      provider: "team-availability",
+      status: "team_mode",
+      professionalId: input.professional.id,
+      teamMemberId: input.teamMemberId,
+      timezone: input.professional.timezone,
+      service: input.service,
+      durationMinutes: input.durationMinutes,
+      slots,
+      busy
+    };
+  }
+
   async createEvent(input: {
     professionalId: string;
     clientName: string;
@@ -259,19 +323,11 @@ export class CalendarService {
     startsAt: string;
     serviceName: string;
     serviceId?: string;
+    teamMemberId?: string;
   }) {
     const professional = await this.loadGoogleCalendarConnection(
       this.professionals.getById(input.professionalId)
     );
-
-    if (!professional.googleCalendar?.accessToken) {
-      return {
-        provider: "google-calendar",
-        status: "mocked_until_google_connected",
-        eventId: "google-event-demo",
-        ...input
-      };
-    }
 
     const service = input.serviceId
       ? await this.database.getService(professional.id, input.serviceId)
@@ -280,11 +336,54 @@ export class CalendarService {
     const serviceName = service?.name || input.serviceName;
     const valueCents =
       service?.price_cents ?? Number.parseInt(process.env.DEFAULT_APPOINTMENT_VALUE_CENTS || "0", 10);
-    const accessToken = await this.getValidAccessToken(professional.id);
     const start = new Date(input.startsAt);
-    const end = new Date(
-      start.getTime() + durationMinutes * 60 * 1000
-    );
+    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+
+    if (!professional.googleCalendar?.accessToken) {
+      // Sem Google conectado: no Modo Equipes ainda persistimos o agendamento no
+      // banco (com team_member_id) para que o conflito por membro funcione (D2-A).
+      if (input.teamMemberId) {
+        const client = await this.database.upsertClient({
+          professionalId: professional.id,
+          name: input.clientName,
+          phone: input.clientPhone
+        });
+        const appointment = client
+          ? await this.database.saveAppointment({
+              professionalId: professional.id,
+              clientId: client.id,
+              googleEventId: `local-${randomUUID()}`,
+              serviceName,
+              startsAt: input.startsAt,
+              endsAt: end.toISOString(),
+              valueCents,
+              source: "whatsapp",
+              teamMemberId: input.teamMemberId
+            })
+          : undefined;
+
+        return {
+          provider: "local",
+          status: "created",
+          eventId: appointment?.google_event_id,
+          savedAppointmentId: appointment?.id,
+          serviceId: service?.id,
+          durationMinutes,
+          priceCents: valueCents,
+          ...input,
+          serviceName
+        };
+      }
+
+      return {
+        provider: "google-calendar",
+        status: "mocked_until_google_connected",
+        eventId: "google-event-demo",
+        ...input
+      };
+    }
+
+    const accessToken = await this.getValidAccessToken(professional.id);
 
     const response = await fetch(
       `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(
@@ -339,7 +438,8 @@ export class CalendarService {
           startsAt: input.startsAt,
           endsAt: end.toISOString(),
           valueCents,
-          source: "whatsapp"
+          source: "whatsapp",
+          teamMemberId: input.teamMemberId
         })
       : undefined;
 
