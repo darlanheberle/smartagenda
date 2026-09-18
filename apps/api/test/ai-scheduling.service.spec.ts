@@ -318,6 +318,43 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     expect(again.reply?.toLowerCase()).not.toContain("nome completo");
   });
 
+  it("voltar no passo de profissional retorna para a escolha de servico", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("1")); // Corte -> profissional
+    const back = (await service.handleIncomingWhatsAppMessage(incoming("voltar"))) as {
+      reply?: string;
+    };
+    expect(back.reply?.toLowerCase()).toContain("servico");
+    expect(back.reply).toContain("Corte");
+    expect(back.reply).toContain("Barba");
+  });
+
+  it("voltar no passo de dia retorna para a escolha de profissional", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    await service.handleIncomingWhatsAppMessage(incoming("Carlos Souza"));
+    await service.handleIncomingWhatsAppMessage(incoming("1")); // Corte -> profissional
+    await service.handleIncomingWhatsAppMessage(incoming("2")); // Maria -> dia
+    const back = (await service.handleIncomingWhatsAppMessage(incoming("voltar"))) as {
+      reply?: string;
+    };
+    expect(back.reply?.toLowerCase()).toContain("profissional");
+    expect(back.reply).toContain("Maria");
+    expect(back.reply).toContain("Joao");
+  });
+
+  it("as mensagens de escolha oferecem voltar e menu", async () => {
+    const service = buildTeamService();
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    const askService = (await service.handleIncomingWhatsAppMessage(
+      incoming("Carlos Souza")
+    )) as { reply?: string };
+    expect(askService.reply?.toLowerCase()).toContain("voltar");
+    expect(askService.reply?.toLowerCase()).toContain("menu");
+  });
+
   it("encerra o atendimento quando o cliente responde que nao quer mais", async () => {
     const service = buildTeamService();
     await service.handleIncomingWhatsAppMessage(incoming("Ola"));

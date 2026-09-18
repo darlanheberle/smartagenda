@@ -185,6 +185,11 @@ export class AiSchedulingService {
       return this.startFlow({ incoming, pendingKey, professional });
     }
 
+    // Voltar uma etapa (item de navegacao presente em todo o chat).
+    if (pending && this.isBackCommand(incoming.text)) {
+      return this.handleGoBack({ incoming, pending, pendingKey, professional });
+    }
+
     // Troca de profissional em qualquer momento (item 9): volta a escolha de
     // profissional, mantendo o servico ja selecionado quando houver.
     if (
@@ -329,7 +334,8 @@ export class AiSchedulingService {
       instanceName: input.incoming.instanceName,
       body: `${input.client.name}, com qual profissional voce quer fazer ${input.service.name}?\n\n${this.formatTeamMemberOptions(
         members
-      )}\n\nResponda com o numero ou o nome.`
+      )}\n\nResponda com o numero ou o nome.`,
+      nav: true
     });
   }
 
@@ -410,7 +416,8 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `${announce}${input.client.name}, em qual dia voce prefere fazer ${input.service.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+      body: `${announce}${input.client.name}, em qual dia voce prefere fazer ${input.service.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`,
+      nav: true
     });
   }
 
@@ -504,7 +511,8 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`
+        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`,
+        nav: true
       });
     }
 
@@ -518,7 +526,8 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`,
+      nav: true
     });
   }
 
@@ -652,7 +661,8 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `Perfeito. Qual horario de ${selectedDay.label} voce prefere?\n\n${this.formatSlotOptions(offeredSlots, "time")}\n\nResponda com o numero do horario.`
+      body: `Perfeito. Qual horario de ${selectedDay.label} voce prefere?\n\n${this.formatSlotOptions(offeredSlots, "time")}\n\nResponda com o numero do horario.`,
+      nav: true
     });
   }
 
@@ -774,22 +784,90 @@ export class AiSchedulingService {
     });
   }
 
+  // Volta uma etapa do fluxo com base no passo atual.
+  private async handleGoBack(input: {
+    incoming: IncomingWhatsAppMessage;
+    pending: PendingFlow;
+    pendingKey: string;
+    professional: { id: string; evolutionInstanceName: string };
+  }) {
+    const p = input.pending;
+    const professionalId = input.professional.id;
+
+    // horario -> volta para a escolha do dia
+    if (p.step === "slot") {
+      return this.offerDaysForService({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId,
+        client: p.client,
+        service: p.service,
+        team: p.team
+      });
+    }
+
+    // dia -> volta para o profissional (se houver) ou para o servico
+    if (p.step === "day") {
+      if (p.team) {
+        return this.askTeamMemberForService({
+          incoming: input.incoming,
+          pendingKey: input.pendingKey,
+          professionalId,
+          client: p.client,
+          service: p.service
+        });
+      }
+      return this.startSchedulingFlow({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId,
+        instanceName: input.professional.evolutionInstanceName,
+        client: p.client
+      });
+    }
+
+    // profissional -> volta para o servico
+    if (p.step === "team_member") {
+      return this.startSchedulingFlow({
+        incoming: input.incoming,
+        pendingKey: input.pendingKey,
+        professionalId,
+        instanceName: input.professional.evolutionInstanceName,
+        client: p.client
+      });
+    }
+
+    // nome/categoria/servico/pos-agendamento -> recomeca do inicio
+    await this.clearPending(input.pendingKey);
+    return this.startFlow({
+      incoming: input.incoming,
+      pendingKey: input.pendingKey,
+      professional: input.professional
+    });
+  }
+
   private async reply(input: {
     incoming: IncomingWhatsAppMessage;
     instanceName: string;
     body: string;
     extra?: Record<string, unknown>;
+    nav?: boolean;
   }) {
+    // Rodape de navegacao: opcao de voltar uma etapa ou recomecar do inicio.
+    const body = input.nav
+      ? `${input.body}\n\n_Responda *voltar* para a etapa anterior ou *menu* para recomecar._`
+      : input.body;
+
     const whatsapp = await this.evolution.sendTextMessage({
       instanceName: input.instanceName,
       phone: input.incoming.customerPhone,
-      message: input.body
+      message: body
     });
 
     return {
       received: true,
       customerPhone: input.incoming.customerPhone,
-      reply: input.body,
+      reply: body,
       whatsapp,
       ...input.extra
     };
@@ -1073,6 +1151,12 @@ export class AiSchedulingService {
   private isRestartCommand(text: string) {
     const normalized = this.normalizeText(text);
     return ["menu", "reiniciar", "iniciar", "inicio", "comecar", "recomecar"].includes(normalized);
+  }
+
+  // Comando de navegacao: voltar uma etapa.
+  private isBackCommand(text: string) {
+    const normalized = this.normalizeText(text);
+    return ["voltar", "volta", "anterior", "0"].includes(normalized);
   }
 
   // Item 9: comando para trocar o profissional durante o fluxo.
