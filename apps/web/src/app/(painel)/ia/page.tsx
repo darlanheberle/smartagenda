@@ -12,6 +12,8 @@ export default async function IAPage() {
       appointments={appointments}
       clients={clients}
       dashboard={dashboard}
+      companyName={account.name}
+      whatsappNumber={account.whatsappNumber}
       initialEnabled={account.aiEnabled !== false}
       ready={onboarding.ready}
       whatsappConnected={onboarding.whatsappConnected}

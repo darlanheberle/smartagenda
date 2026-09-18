@@ -1,6 +1,15 @@
 "use client";
 
-import { ArrowRight, Bot, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Building2,
+  Info,
+  Loader2,
+  MessageCircle,
+  Phone,
+  Sparkles
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -13,6 +22,8 @@ export function IAClient({
   appointments,
   clients,
   dashboard,
+  companyName,
+  whatsappNumber,
   initialEnabled,
   ready,
   whatsappConnected
@@ -21,6 +32,8 @@ export function IAClient({
   appointments: Appointment[];
   clients: Client[];
   dashboard: Dashboard;
+  companyName: string;
+  whatsappNumber?: string;
   initialEnabled: boolean;
   ready: boolean;
   whatsappConnected: boolean;
@@ -71,6 +84,66 @@ export function IAClient({
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Assistente IA</h1>
         <p className="mt-1 text-sm text-slate-500">Acompanhamento das conversas e automacao de agendamentos.</p>
       </header>
+
+      <Card className="p-5">
+        <SectionTitle subtitle="O numero que o robo usa para atender no WhatsApp." title="WhatsApp conectado ao robo" />
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center gap-3 rounded-3xl bg-slate-50 p-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-violet-600 shadow-sm">
+              <Building2 size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase text-slate-400">Empresa</p>
+              <p className="mt-0.5 truncate font-semibold text-slate-950">{companyName}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-3xl bg-slate-50 p-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-violet-600 shadow-sm">
+              <Phone size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase text-slate-400">Numero do WhatsApp</p>
+              <p className="mt-0.5 truncate font-semibold text-slate-950">
+                {formatWhatsapp(whatsappNumber)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
+          <Pill tone={whatsappConnected ? "emerald" : "slate"}>
+            {whatsappConnected ? "Conectado" : "Desconectado"}
+          </Pill>
+          {!whatsappConnected ? (
+            <Link
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-2xl bg-emerald-600 px-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              href="/onboarding?step=whatsapp"
+            >
+              Reconectar WhatsApp
+              <ArrowRight size={15} />
+            </Link>
+          ) : null}
+        </div>
+
+        <div className="mt-4 flex items-start gap-3 rounded-3xl bg-amber-50 p-4">
+          <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-white text-amber-600 shadow-sm">
+            <Info size={18} />
+          </span>
+          <div className="text-sm leading-6 text-amber-900">
+            <p className="font-semibold">Por que o robo pode parar de responder?</p>
+            <p className="mt-1">
+              O robo atende pelo seu WhatsApp como um &quot;aparelho conectado&quot; (igual ao WhatsApp
+              Web). Se o celular deste numero ficar <strong>muitos dias sem internet</strong> (cerca de
+              14 dias) ou o aparelho for <strong>desconectado</strong> nas configuracoes do WhatsApp, essa
+              ligacao cai e o robo <strong>para de responder</strong> ate voce reconectar.
+            </p>
+            <p className="mt-1">
+              Se isso acontecer, e so tocar em <strong>Reconectar WhatsApp</strong> aqui nesta pagina e
+              ler o QR Code com o celular deste numero. Leva menos de um minuto.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {!whatsappConnected ? (
         <section className="overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-emerald-100">
@@ -247,6 +320,26 @@ const fallbackClients: Client[] = [
   { id: "fallback-1", name: "Cliente novo", updated_at: new Date().toISOString() },
   { id: "fallback-2", name: "Lead WhatsApp", updated_at: new Date().toISOString() }
 ];
+
+function formatWhatsapp(value?: string) {
+  if (!value) {
+    return "Nao cadastrado";
+  }
+
+  const digits = value.replace(/\D/g, "");
+  const local = digits.startsWith("55") ? digits.slice(2) : digits;
+  const ddd = local.slice(0, 2);
+  const rest = local.slice(2);
+
+  if (rest.length === 9) {
+    return `+55 (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+  }
+  if (rest.length === 8) {
+    return `+55 (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+  }
+
+  return value;
+}
 
 async function readError(response: Response) {
   const text = await response.text();
