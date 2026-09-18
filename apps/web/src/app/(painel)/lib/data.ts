@@ -45,6 +45,44 @@ export async function getPanelData(): Promise<PanelData> {
 
   const account = (await sessionResponse.json()) as { professional: AccountProfessional };
   const professionalId = account.professional.id;
+
+  // Profissional da equipe: acesso restrito (so a propria agenda/clientes).
+  // Nao carrega dados de administracao (onboarding, equipe, modo equipes).
+  if (account.professional.role === "team_member") {
+    const [dashboard, clients, appointments, services] = await Promise.all([
+      fetchJson<Dashboard>(
+        "/dashboard/today",
+        { appointments: 0, pending: 0, completed: 0, cancellations: 0, expectedRevenue: 0, pendingRevenue: 0 },
+        cookieHeader
+      ),
+      fetchJson<Client[]>("/clients", [], cookieHeader),
+      fetchJson<Appointment[]>("/appointments/upcoming?limit=100", [], cookieHeader),
+      fetchJson<Service[]>("/services", [], cookieHeader)
+    ]);
+
+    return {
+      account: account.professional,
+      apiUrl,
+      appointments,
+      clients,
+      dashboard,
+      onboarding: {
+        googleConnected: true,
+        whatsappConnected: true,
+        whatsappSkipped: false,
+        servicesConfigured: true,
+        availabilityConfigured: true,
+        servicesCount: services.length,
+        availabilityRulesCount: 0,
+        ready: true
+      },
+      services,
+      availabilityRules: [],
+      teamMode: false,
+      teamMembers: []
+    };
+  }
+
   const [
     dashboard,
     clients,

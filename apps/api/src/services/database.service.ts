@@ -89,6 +89,10 @@ export type TeamMemberRecord = {
   phone: string | null;
   email: string | null;
   active: boolean;
+  password_hash?: string | null;
+  activation_token?: string | null;
+  activation_token_expires_at?: string | null;
+  activated_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -331,6 +335,19 @@ export class DatabaseService implements OnModuleInit {
     await this.pool.query(`
       create index if not exists team_members_professional_idx
       on team_members (professional_id)
+    `);
+    // Login proprio por profissional (feat/login-por-profissional).
+    await this.pool.query(`
+      alter table team_members
+      add column if not exists password_hash text,
+      add column if not exists activation_token text,
+      add column if not exists activation_token_expires_at timestamptz,
+      add column if not exists activated_at timestamptz
+    `);
+    await this.pool.query(`
+      create index if not exists team_members_activation_token_idx
+      on team_members (activation_token)
+      where activation_token is not null
     `);
     await this.pool.query(`
       create table if not exists team_member_services (
@@ -1083,7 +1100,7 @@ export class DatabaseService implements OnModuleInit {
     return result.rows;
   }
 
-  async listAppointments(professionalId: string, limit = 100) {
+  async listAppointments(professionalId: string, limit = 100, teamMemberId?: string) {
     if (!this.pool || !this.ready) {
       return [];
     }
@@ -1113,16 +1130,17 @@ export class DatabaseService implements OnModuleInit {
         left join clients c on c.id = a.client_id
         left join team_members tm on tm.id = a.team_member_id
         where a.professional_id = $1
+          and ($3::text is null or a.team_member_id = $3)
         order by a.starts_at desc
         limit $2
       `,
-      [professionalId, limit]
+      [professionalId, limit, teamMemberId ?? null]
     );
 
     return result.rows;
   }
 
-  async listUpcomingAppointments(professionalId: string, limit = 20) {
+  async listUpcomingAppointments(professionalId: string, limit = 20, teamMemberId?: string) {
     if (!this.pool || !this.ready) {
       return [];
     }
@@ -1153,16 +1171,17 @@ export class DatabaseService implements OnModuleInit {
         left join team_members tm on tm.id = a.team_member_id
         where a.professional_id = $1
           and a.starts_at >= now()
+          and ($3::text is null or a.team_member_id = $3)
         order by a.starts_at asc
         limit $2
       `,
-      [professionalId, limit]
+      [professionalId, limit, teamMemberId ?? null]
     );
 
     return result.rows;
   }
 
-  async getTodayDashboard(professionalId: string, timezone: string) {
+  async getTodayDashboard(professionalId: string, timezone: string, teamMemberId?: string) {
     if (!this.pool || !this.ready) {
       return {
         appointments: 0,
@@ -1184,8 +1203,9 @@ export class DatabaseService implements OnModuleInit {
         from appointments
         where professional_id = $1
           and (starts_at at time zone $2)::date = (now() at time zone $2)::date
+          and ($3::text is null or team_member_id = $3)
       `,
-      [professionalId, timezone]
+      [professionalId, timezone, teamMemberId ?? null]
     );
     const row = result.rows[0];
 
@@ -1685,6 +1705,117 @@ export class DatabaseService implements OnModuleInit {
     );
 
     return result.rows as TeamMemberRecord[];
+  }
+
+  // --- Login proprio por profissional ---
+
+  async findTeamMemberByEmail(email: string): Promise<TeamMemberRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from team_members
+        where lower(email) = lower($1)
+          and active = true
+          and password_hash is not null
+        order by updated_at desc
+        limit 1
+      `,
+      [email.trim()]
+    );
+
+    return result.rows[0] as TeamMemberRecord | undefined;
+  }
+
+  async findTeamMemberByActivationToken(token: string): Promise<TeamMemberRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        select *
+        from team_members
+        where activation_token = $1
+          and activation_token_expires_at is not null
+          and activation_token_expires_at > now()
+        limit 1
+      `,
+      [token]
+    );
+
+    return result.rows[0] as TeamMemberRecord | undefined;
+  }
+
+  async setTeamMemberActivationToken(
+    professionalId: string,
+    teamMemberId: string,
+    token: string,
+    expiresAt: string
+  ) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update team_members
+        set activation_token = $3, activation_token_expires_at = $4, updated_at = now()
+        where professional_id = $1 and id = $2
+        returning *
+      `,
+      [professionalId, teamMemberId, token, expiresAt]
+    );
+
+    return result.rows[0] as TeamMemberRecord | undefined;
+  }
+
+  async setTeamMemberPassword(teamMemberId: string, passwordHash: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      `
+        update team_members
+        set
+          password_hash = $2,
+          activation_token = null,
+          activation_token_expires_at = null,
+          activated_at = coalesce(activated_at, now()),
+          updated_at = now()
+        where id = $1
+        returning *
+      `,
+      [teamMemberId, passwordHash]
+    );
+
+    return result.rows[0] as TeamMemberRecord | undefined;
+  }
+
+  async listClientsForTeamMember(professionalId: string, teamMemberId: string) {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select distinct on (c.id)
+          c.id, c.professional_id, c.name, c.phone, c.email, c.notes, c.created_at, c.updated_at
+        from clients c
+        join appointments a on a.client_id = c.id
+        where c.professional_id = $1
+          and a.team_member_id = $2
+        order by c.id, c.updated_at desc
+        limit 100
+      `,
+      [professionalId, teamMemberId]
+    );
+
+    return result.rows;
   }
 
   async listTeamMemberAvailability(teamMemberId: string): Promise<TeamMemberAvailabilityRule[]> {

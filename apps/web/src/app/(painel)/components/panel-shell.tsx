@@ -31,6 +31,13 @@ export function PanelShell({
   const pathname = usePathname();
   const themeStyle = buildThemeStyle(account.branding);
 
+  // Profissional da equipe tem acesso restrito: so Hoje, Agenda e Clientes.
+  const teamMemberHrefs = ["/home", "/agenda", "/clientes"];
+  const visibleNavItems =
+    account.role === "team_member"
+      ? navItems.filter((item) => teamMemberHrefs.includes(item.href))
+      : navItems;
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -67,7 +74,7 @@ export function PanelShell({
         </Link>
 
         <nav className="mt-8 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
 
@@ -108,7 +115,7 @@ export function PanelShell({
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pb-safe pt-2 shadow-[0_-18px_40px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
         <div className="flex gap-1 overflow-x-auto pb-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
 

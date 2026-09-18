@@ -15,11 +15,11 @@ import {
   Res
 } from "@nestjs/common";
 import { Request, Response } from "express";
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { AiSchedulingService } from "../services/ai-scheduling.service";
 import { AuthService } from "../services/auth.service";
 import { CalendarService } from "../services/calendar.service";
-import { DatabaseService } from "../services/database.service";
+import { DatabaseService, TeamMemberRecord } from "../services/database.service";
 import { EvolutionService } from "../services/evolution.service";
 import { ProfessionalRegistryService } from "../services/professional-registry.service";
 import { EvolutionWebhookPayload } from "../types/integrations";
@@ -57,12 +57,51 @@ export class AppController {
       throw new BadRequestException("Email e senha sao obrigatorios.");
     }
 
+    // Tenta primeiro como profissional da equipe (team_member); depois como empresa.
+    const member = await this.auth.authenticateTeamMember(input.email, input.password);
+    if (member) {
+      this.auth.createSession(response, member.professional_id, member.id);
+      return {
+        status: "authenticated",
+        professional: this.toAccountMember(member)
+      };
+    }
+
     const professional = await this.auth.authenticate(input.email, input.password);
     this.auth.createSession(response, professional.id);
 
     return {
       status: "authenticated",
       professional: this.toAccountProfessional(professional)
+    };
+  }
+
+  // Dados do convite (para a pagina de ativacao mostrar de quem e o acesso).
+  @Get("auth/team-activation")
+  async teamActivationInfo(@Query("token") token?: string) {
+    const member = await this.findValidActivationMember(token);
+    return { name: member.name, email: member.email };
+  }
+
+  // O profissional define a propria senha e ja entra logado.
+  @Post("auth/team-activate")
+  async teamActivate(
+    @Body() input: { token?: string; password?: string },
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!input.token || !input.password) {
+      throw new BadRequestException("Token e senha sao obrigatorios.");
+    }
+
+    this.validatePassword(input.password);
+    const member = await this.findValidActivationMember(input.token);
+    const passwordHash = await this.auth.hashPassword(input.password);
+    const updated = await this.database.setTeamMemberPassword(member.id, passwordHash);
+    this.auth.createSession(response, member.professional_id, member.id);
+
+    return {
+      status: "activated",
+      professional: this.toAccountMember(updated || member)
     };
   }
 
@@ -113,9 +152,17 @@ export class AppController {
 
   @Get("auth/me")
   async authenticatedProfessional(@Req() request: Request) {
-    const professionalId = this.auth.requireProfessionalId(request);
-    const professional = await this.database.getProfessional(professionalId);
+    const session = this.auth.requireSession(request);
 
+    if (session.teamMemberId) {
+      const member = await this.database.getTeamMember(session.professionalId, session.teamMemberId);
+      if (!member) {
+        throw new BadRequestException("Profissional da sessao nao encontrado.");
+      }
+      return { professional: this.toAccountMember(member) };
+    }
+
+    const professional = await this.database.getProfessional(session.professionalId);
     if (!professional) {
       throw new BadRequestException("Profissional da sessao nao encontrado.");
     }
@@ -127,7 +174,7 @@ export class AppController {
 
   @Get("profile/branding")
   async professionalBranding(@Req() request: Request) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     const professional = await this.database.getProfessional(professionalId);
 
     if (!professional) {
@@ -152,7 +199,7 @@ export class AppController {
       themeSuccess?: string | null;
     }
   ) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     this.validateBrandingInput(input);
     const professional = await this.database.updateProfessionalBranding(professionalId, input);
 
@@ -165,7 +212,7 @@ export class AppController {
 
   @Get("profile/assistant")
   async professionalAssistant(@Req() request: Request) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     const professional = await this.database.getProfessional(professionalId);
 
     if (!professional) {
@@ -187,7 +234,7 @@ export class AppController {
       throw new BadRequestException("enabled precisa ser verdadeiro ou falso.");
     }
 
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     const professional = await this.database.updateProfessionalAiEnabled(
       professionalId,
       input.enabled
@@ -214,9 +261,9 @@ export class AppController {
     @Req() request: Request,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
-    const professional = this.professionals.getById(professionalId);
-    return this.database.getTodayDashboard(professional.id, professional.timezone);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+    const professional = this.professionals.getById(session.professionalId);
+    return this.database.getTodayDashboard(professional.id, professional.timezone, session.teamMemberId);
   }
 
   @Post("professionals")
@@ -224,19 +271,19 @@ export class AppController {
     @Req() request: Request,
     @Body() input: CreateProfessionalInput
   ) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     return this.persistProfessional({ ...input, id: professionalId });
   }
 
   @Get("professionals")
   listProfessionals(@Req() request: Request) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     return [this.sanitizeProfessional(this.professionals.getById(professionalId))];
   }
 
   @Get("professionals/:id")
   getProfessional(@Req() request: Request, @Param("id") requestedProfessionalId: string) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.sanitizeProfessional(this.professionals.getById(professionalId));
   }
 
@@ -299,7 +346,7 @@ export class AppController {
     @Param("professionalId") requestedProfessionalId: string,
     @Body() input: { name?: string; specialty?: string; whatsappNumber?: string }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     if (!input.name?.trim() || !input.specialty?.trim() || !input.whatsappNumber?.trim()) {
       throw new BadRequestException("Nome, especialidade e WhatsApp sao obrigatorios.");
     }
@@ -345,7 +392,7 @@ export class AppController {
     @Req() request: Request,
     @Param("professionalId") requestedProfessionalId: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     await this.syncWhatsappStatus(professionalId);
     return this.database.getOnboardingStatus(professionalId);
   }
@@ -355,7 +402,7 @@ export class AppController {
     @Req() request: Request,
     @Param("professionalId") requestedProfessionalId: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     await this.createDefaultScheduling(professionalId);
 
     return {
@@ -370,7 +417,7 @@ export class AppController {
     @Req() request: Request,
     @Param("professionalId") requestedProfessionalId: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const professional = this.professionals.getById(professionalId);
     const webhookUrl = `${
       process.env.PUBLIC_API_URL || "https://api.agendasmart.com.br"
@@ -400,7 +447,7 @@ export class AppController {
     @Req() request: Request,
     @Param("professionalId") requestedProfessionalId: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     await this.database.markProfessionalWhatsappStatus(professionalId, "skipped");
 
     return {
@@ -415,7 +462,7 @@ export class AppController {
     @Req() request: Request,
     @Param("professionalId") requestedProfessionalId: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const professional = this.professionals.getById(professionalId);
     const connection = await this.evolution.connectInstance(
       professional.evolutionInstanceName,
@@ -436,7 +483,7 @@ export class AppController {
     @Param("id") requestedProfessionalId: string,
     @Res({ passthrough: true }) response: Response
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const professional = this.professionals.getById(professionalId);
     const state = this.auth.createGoogleOAuthState(response, {
       purpose: "connect",
@@ -452,7 +499,7 @@ export class AppController {
     @Query("professionalId") professionalId = "demo-professional",
     @Res() response: Response
   ) {
-    this.auth.requireOwnProfessional(request, professionalId);
+    this.auth.requireOwner(request);
     const professional = this.professionals.getById(professionalId);
     const state = this.auth.createGoogleOAuthState(response, {
       purpose: "connect",
@@ -470,7 +517,7 @@ export class AppController {
 
   @Get("integrations/evolution/status")
   evolutionStatus(@Req() request: Request) {
-    this.auth.requireProfessionalId(request);
+    this.auth.requireOwner(request);
     return this.evolution.fetchInstances();
   }
 
@@ -495,10 +542,7 @@ export class AppController {
       const authorization = await this.calendar.exchangeGoogleAuthorizationCode(code);
 
       if (oauthState.purpose === "connect") {
-        const professionalId = this.auth.requireOwnProfessional(
-          request,
-          oauthState.professionalId
-        );
+        const professionalId = this.auth.requireOwner(request);
         const googleOwner = await this.database.findProfessionalByGoogleSubject(
           authorization.profile.subject
         );
@@ -565,7 +609,7 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId?: string,
     @Query("serviceId") serviceId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.calendar.getAvailabilityForService({ professionalId, serviceId });
   }
 
@@ -574,8 +618,10 @@ export class AppController {
     @Req() request: Request,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
-    return this.database.listClients(professionalId);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+    return session.teamMemberId
+      ? this.database.listClientsForTeamMember(session.professionalId, session.teamMemberId)
+      : this.database.listClients(session.professionalId);
   }
 
   @Get("appointments")
@@ -584,9 +630,9 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId?: string,
     @Query("limit") limit?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
-    return this.database.listAppointments(professionalId, parsedLimit);
+    return this.database.listAppointments(session.professionalId, parsedLimit, session.teamMemberId);
   }
 
   @Get("appointments/upcoming")
@@ -595,10 +641,11 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId?: string,
     @Query("limit") limit?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
     return this.database.listUpcomingAppointments(
-      professionalId,
-      limit ? Number.parseInt(limit, 10) : 20
+      session.professionalId,
+      limit ? Number.parseInt(limit, 10) : 20,
+      session.teamMemberId
     );
   }
 
@@ -619,7 +666,7 @@ export class AppController {
       teamMemberId?: string | null;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const professionalId = this.auth.requireOwner(request);
     const payload = await this.buildManualAppointmentPayload(professionalId, input);
     return this.database.createManualAppointment(payload);
   }
@@ -644,7 +691,7 @@ export class AppController {
       teamMemberId?: string | null;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const current = await this.database.getAppointment(professionalId, id);
 
     if (!current) {
@@ -677,7 +724,7 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.database.deleteAppointment(professionalId, id);
   }
 
@@ -687,8 +734,9 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId?: string,
     @Query("active") active?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
-    return this.database.listServices(professionalId, active === "true");
+    // Leitura: a equipe tambem le os servicos (para a agenda). Sem escrita.
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+    return this.database.listServices(session.professionalId, active === "true");
   }
 
   @Post("services")
@@ -704,7 +752,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const professionalId = this.auth.requireOwner(request);
     this.validateServiceInput(input);
     return this.database.createService({
       professionalId,
@@ -730,7 +778,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     if (input.durationMinutes !== undefined && input.durationMinutes <= 0) {
       return { status: "validation_error", message: "durationMinutes deve ser maior que zero." };
     }
@@ -744,7 +792,7 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.database.deleteService(professionalId, id);
   }
 
@@ -754,7 +802,7 @@ export class AppController {
 
   @Get("profile/team-mode")
   async getTeamMode(@Req() request: Request) {
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     return { enabled: await this.database.getTeamMode(professionalId) };
   }
 
@@ -764,7 +812,7 @@ export class AppController {
       throw new BadRequestException("enabled precisa ser verdadeiro ou falso.");
     }
 
-    const professionalId = this.auth.requireProfessionalId(request);
+    const professionalId = this.auth.requireOwner(request);
     const updated = await this.database.setTeamMode(professionalId, input.enabled);
     return { enabled: updated?.team_mode === true };
   }
@@ -775,7 +823,7 @@ export class AppController {
     @Query("active") active?: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const members = await this.database.listTeamMembers(professionalId, active === "true");
     return Promise.all(members.map((member) => this.decorateTeamMember(professionalId, member)));
   }
@@ -793,7 +841,7 @@ export class AppController {
       serviceIds?: string[];
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const professionalId = this.auth.requireOwner(request);
     if (!input.name?.trim()) {
       throw new BadRequestException("name e obrigatorio.");
     }
@@ -823,7 +871,7 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const member = await this.database.getTeamMember(professionalId, id);
 
     if (!member) {
@@ -847,7 +895,7 @@ export class AppController {
       serviceIds?: string[];
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const member = await this.database.updateTeamMember(professionalId, id, input);
 
     if (!member) {
@@ -867,8 +915,35 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.database.deactivateTeamMember(professionalId, id);
+  }
+
+  // Gera (ou renova) o link de ativacao de acesso do profissional. So o dono.
+  @Post("team-members/:id/invite")
+  async inviteTeamMember(@Req() request: Request, @Param("id") id: string) {
+    const professionalId = this.auth.requireOwner(request);
+    const member = await this.database.getTeamMember(professionalId, id);
+
+    if (!member) {
+      throw new NotFoundException("Profissional nao encontrado.");
+    }
+
+    if (!member.email) {
+      throw new BadRequestException("Cadastre um e-mail para este profissional antes de gerar o acesso.");
+    }
+
+    const token = randomBytes(24).toString("base64url");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await this.database.setTeamMemberActivationToken(professionalId, id, token, expiresAt);
+
+    return {
+      status: "invite_created",
+      teamMemberId: id,
+      email: member.email,
+      activationUrl: this.appUrl(`/ativar-profissional?token=${token}`),
+      expiresAt
+    };
   }
 
   @Get("team-members/:id/services")
@@ -877,7 +952,7 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const member = await this.database.getTeamMember(professionalId, id);
 
     if (!member) {
@@ -894,7 +969,7 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId: string | undefined,
     @Body() input: { serviceIds?: string[] }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     if (!Array.isArray(input.serviceIds)) {
       throw new BadRequestException("serviceIds deve ser uma lista.");
     }
@@ -918,7 +993,7 @@ export class AppController {
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const member = await this.database.getTeamMember(professionalId, id);
 
     if (!member) {
@@ -948,7 +1023,7 @@ export class AppController {
       }>;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     const member = await this.database.getTeamMember(professionalId, id);
 
     if (!member) {
@@ -983,7 +1058,7 @@ export class AppController {
     @Req() request: Request,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.database.listAvailabilityRules(professionalId);
   }
 
@@ -1004,7 +1079,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const professionalId = this.auth.requireOwner(request);
     this.validateAvailabilityInput(input);
     return this.database.createAvailabilityRule({
       professionalId,
@@ -1037,7 +1112,7 @@ export class AppController {
       active?: boolean;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, requestedProfessionalId);
+    const professionalId = this.auth.requireOwner(request);
     this.validateAvailabilitySettings(input);
     return this.database.updateAvailabilityRule(
       professionalId,
@@ -1059,7 +1134,7 @@ export class AppController {
       serviceId?: string;
     }
   ) {
-    const professionalId = this.auth.requireOwnProfessional(request, input.professionalId);
+    const professionalId = this.auth.requireOwner(request);
     return this.calendar.createEvent({ ...input, professionalId });
   }
 
@@ -1110,14 +1185,22 @@ export class AppController {
     return this.sanitizeProfessional(professional);
   }
 
-  private async decorateTeamMember(
-    professionalId: string,
-    member: { id: string; [key: string]: unknown }
-  ) {
+  // Nunca expor password_hash/activation_token. Traz o status de acesso do membro.
+  private async decorateTeamMember(professionalId: string, member: TeamMemberRecord) {
     void professionalId;
     return {
-      ...member,
-      serviceIds: await this.database.listTeamMemberServiceIds(member.id)
+      id: member.id,
+      professional_id: member.professional_id,
+      name: member.name,
+      phone: member.phone,
+      email: member.email,
+      active: member.active,
+      serviceIds: await this.database.listTeamMemberServiceIds(member.id),
+      access: {
+        hasPassword: Boolean(member.password_hash),
+        activated: Boolean(member.activated_at),
+        invitePending: Boolean(member.activation_token) && !member.password_hash
+      }
     };
   }
 
@@ -1216,6 +1299,7 @@ export class AppController {
   private toAccountProfessional(professional: ProfessionalRecord) {
     return {
       id: professional.id,
+      role: "owner" as const,
       name: professional.name,
       specialty: professional.specialty,
       gmail: professional.gmail,
@@ -1225,6 +1309,49 @@ export class AppController {
       aiEnabled: professional.ai_enabled !== false,
       branding: this.toProfessionalBranding(professional)
     };
+  }
+
+  // Conta de um profissional da equipe (acesso restrito). O `id` continua sendo
+  // o da empresa (tenant) para chamadas por professionalId; o papel e o vinculo
+  // vao em `role` e `teamMemberId`.
+  private toAccountMember(member: {
+    id: string;
+    professional_id: string;
+    name: string;
+    email?: string | null;
+  }) {
+    return {
+      id: member.professional_id,
+      role: "team_member" as const,
+      teamMemberId: member.id,
+      name: member.name,
+      gmail: member.email || "",
+      whatsappNumber: "",
+      aiEnabled: true
+    };
+  }
+
+  private requireScopedSession(request: Request, requestedProfessionalId?: string) {
+    const session = this.auth.requireSession(request);
+
+    if (requestedProfessionalId && requestedProfessionalId !== session.professionalId) {
+      throw new NotFoundException("Recurso nao encontrado para esta sessao.");
+    }
+
+    return session;
+  }
+
+  private async findValidActivationMember(token?: string) {
+    if (!token?.trim()) {
+      throw new BadRequestException("Token de ativacao ausente.");
+    }
+
+    const member = await this.database.findTeamMemberByActivationToken(token);
+    if (!member) {
+      throw new NotFoundException("Link de ativacao invalido ou expirado.");
+    }
+
+    return member;
   }
 
   private safeAppPath(value: string | undefined, fallback: string) {

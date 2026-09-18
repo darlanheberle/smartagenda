@@ -30,6 +30,12 @@ export type Appointment = {
   team_member_name?: string | null;
 };
 
+export type TeamMemberAccess = {
+  hasPassword: boolean;
+  activated: boolean;
+  invitePending: boolean;
+};
+
 export type TeamMember = {
   id: string;
   professional_id: string;
@@ -38,6 +44,7 @@ export type TeamMember = {
   email?: string | null;
   active: boolean;
   serviceIds?: string[];
+  access?: TeamMemberAccess;
 };
 
 export type TeamMemberAvailabilityRule = {
@@ -104,6 +111,8 @@ export type OnboardingStatus = {
 
 export type AccountProfessional = {
   id: string;
+  role?: "owner" | "team_member";
+  teamMemberId?: string;
   name: string;
   specialty?: string;
   gmail: string;

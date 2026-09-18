@@ -6,6 +6,7 @@ import { DatabaseService } from "./database.service";
 
 type SessionPayload = {
   professionalId: string;
+  teamMemberId?: string;
   expiresAt: number;
 };
 
@@ -69,10 +70,23 @@ export class AuthService {
     return professional;
   }
 
-  createSession(response: Response, professionalId: string) {
+  // Login do profissional da equipe (team_member) por e-mail + senha.
+  async authenticateTeamMember(email: string, password: string) {
+    const member = await this.database.findTeamMemberByEmail(email);
+    const passwordValid = await this.verifyPassword(password, member?.password_hash);
+
+    if (!member || !passwordValid) {
+      return undefined;
+    }
+
+    return member;
+  }
+
+  createSession(response: Response, professionalId: string, teamMemberId?: string) {
     const expiresAt = Date.now() + sessionDurationMs;
     const payload = this.encode({
       professionalId,
+      teamMemberId,
       expiresAt
     });
     const signature = this.sign(payload);
@@ -159,11 +173,27 @@ export class AuthService {
   }
 
   requireProfessionalId(request: Request) {
+    return this.requireSession(request).professionalId;
+  }
+
+  // Retorna a sessao completa (empresa dona ou profissional da equipe).
+  requireSession(request: Request): { professionalId: string; teamMemberId?: string } {
     const token = this.readCookie(request, sessionCookieName);
     const session = token ? this.verifySession(token) : undefined;
 
     if (!session) {
       throw new UnauthorizedException("Faca login para acessar o painel.");
+    }
+
+    return { professionalId: session.professionalId, teamMemberId: session.teamMemberId };
+  }
+
+  // Exige sessao de DONO da conta (empresa) - bloqueia profissionais da equipe.
+  requireOwner(request: Request) {
+    const session = this.requireSession(request);
+
+    if (session.teamMemberId) {
+      throw new UnauthorizedException("Acesso restrito ao administrador da conta.");
     }
 
     return session.professionalId;

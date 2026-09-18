@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
+import { Copy, Edit3, KeyRound, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import type { Service, TeamMember, TeamMemberAvailabilityRule } from "../lib/types";
@@ -56,6 +56,39 @@ export function EquipeClient({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [inviteUrls, setInviteUrls] = useState<Record<string, string>>({});
+  const [invitingId, setInvitingId] = useState<string | undefined>();
+
+  async function generateInvite(member: TeamMember) {
+    setError("");
+    setMessage("");
+
+    if (!member.email) {
+      setError("Cadastre um e-mail para este profissional antes de gerar o acesso.");
+      return;
+    }
+
+    setInvitingId(member.id);
+    try {
+      const response = await fetch(`${apiUrl}/team-members/${member.id}/invite`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data = (await response.json()) as { activationUrl: string };
+      setInviteUrls((current) => ({ ...current, [member.id]: data.activationUrl }));
+      setMessage("Link de acesso gerado. Copie e envie ao profissional.");
+      await reloadMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel gerar o link de acesso.");
+    } finally {
+      setInvitingId(undefined);
+    }
+  }
 
   async function reloadMembers() {
     const response = await fetch(`${apiUrl}/team-members`, {
@@ -247,6 +280,13 @@ export function EquipeClient({
                       <Pill tone={member.active ? "emerald" : "slate"}>
                         {member.active ? "Ativo" : "Inativo"}
                       </Pill>
+                      {member.access?.hasPassword ? (
+                        <Pill tone="emerald">Acesso ativo</Pill>
+                      ) : member.access?.invitePending ? (
+                        <Pill tone="violet">Convite pendente</Pill>
+                      ) : (
+                        <Pill tone="slate">Sem acesso</Pill>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-slate-500">{serviceNames(member.serviceIds)}</p>
                   </div>
@@ -272,6 +312,47 @@ export function EquipeClient({
                     {member.active ? "Inativar" : "Ativar"}
                   </button>
                 </div>
+
+                <button
+                  className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-violet-700 shadow-sm ring-1 ring-slate-100 hover:bg-violet-50 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                  disabled={invitingId === member.id}
+                  onClick={() => void generateInvite(member)}
+                  type="button"
+                >
+                  <KeyRound size={16} />
+                  {invitingId === member.id
+                    ? "Gerando..."
+                    : member.access?.hasPassword
+                      ? "Gerar novo link de acesso"
+                      : "Gerar link de acesso"}
+                </button>
+
+                {inviteUrls[member.id] ? (
+                  <div className="mt-2 space-y-2 rounded-2xl bg-white p-3 ring-1 ring-slate-100">
+                    <p className="text-xs font-semibold text-slate-500">
+                      Envie este link para {member.name} definir a senha (valido por 7 dias):
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="min-h-10 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 text-xs text-slate-700 outline-none"
+                        readOnly
+                        value={inviteUrls[member.id]}
+                      />
+                      <button
+                        className="inline-flex min-h-10 items-center gap-1 rounded-xl bg-violet-600 px-3 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(inviteUrls[member.id])
+                            .then(() => setMessage("Link copiado."));
+                        }}
+                        type="button"
+                      >
+                        <Copy size={14} />
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))
           )}
