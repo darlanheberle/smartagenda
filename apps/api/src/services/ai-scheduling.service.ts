@@ -487,8 +487,12 @@ export class AiSchedulingService {
     }
 
     const categories = this.getServiceCategories(services);
+    // So usa a etapa de categoria quando TODOS os servicos tem categoria; caso
+    // contrario, servicos sem categoria ficariam inacessiveis. Nesse caso lista
+    // todos os servicos direto (nome -> servico -> profissional -> dia -> horario).
+    const allCategorized = services.every((service) => Boolean(service.category && service.category.trim()));
 
-    if (categories.length > 0) {
+    if (categories.length > 0 && allCategorized) {
       await this.savePending(input.pendingKey, {
         step: "category",
         client: input.client,

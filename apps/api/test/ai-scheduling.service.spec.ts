@@ -331,3 +331,52 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     expect(done.reply?.toLowerCase()).toContain("ate breve");
   });
 });
+
+describe("AiSchedulingService - etapa de categoria", () => {
+  it("pula a categoria e lista todos os servicos quando ha servico sem categoria", async () => {
+    const conv = new Map<string, { step: string; state: unknown }>();
+    let saved: { id: string; name: string; phone: string } | undefined;
+    const services = [
+      { ...SERVICE, id: "s1", name: "Corte", category: null },
+      { ...SERVICE, id: "s2", name: "Unha mao", category: "Unha" }
+    ];
+    const database = {
+      isEnabled: () => true,
+      getTeamMode: async () => false,
+      getProfessional: async () => ({ ai_enabled: true }),
+      listServices: async () => services,
+      getService: async (_p: string, id: string) => services.find((s) => s.id === id),
+      findClientByPhone: async () => saved,
+      upsertClient: async (i: { name: string; phone?: string }) =>
+        (saved = { id: "c1", name: i.name, phone: i.phone ?? "" }),
+      getConversationState: async (p: string, ph: string) => conv.get(`${p}:${ph}`),
+      saveConversationState: async (p: string, ph: string, step: string, state: unknown) => {
+        conv.set(`${p}:${ph}`, { step, state });
+      },
+      clearConversationState: async (p: string, ph: string) => {
+        conv.delete(`${p}:${ph}`);
+      }
+    };
+    const calendar = {
+      getAvailabilityForService: async () => ({ slots: buildAvailabilitySlots() }),
+      createEvent: async () => ({ status: "created" })
+    };
+    const evolution = { sendTextMessage: async () => ({ ok: true }) };
+    const professionals = { findByEvolutionInstance: () => PROFESSIONAL, getById: () => PROFESSIONAL };
+    const service = new AiSchedulingService(
+      calendar as never,
+      database as never,
+      evolution as never,
+      professionals as never
+    );
+
+    await service.handleIncomingWhatsAppMessage(incoming("Ola"));
+    const r = (await service.handleIncomingWhatsAppMessage(incoming("Cliente Teste"))) as {
+      reply?: string;
+    };
+    expect(r.reply?.toLowerCase()).toContain("servico");
+    expect(r.reply?.toLowerCase()).not.toContain("categoria");
+    expect(r.reply).toContain("Corte");
+    expect(r.reply).toContain("Unha mao");
+  });
+});
