@@ -793,8 +793,11 @@ export class AppController {
     @Query("professionalId") requestedProfessionalId?: string,
     @Query("active") active?: string
   ) {
-    // Leitura: a equipe tambem le os servicos (para a agenda). Sem escrita.
+    // Leitura: o profissional ve apenas os PROPRIOS servicos; o dono ve todos.
     const session = this.requireScopedSession(request, requestedProfessionalId);
+    if (session.teamMemberId) {
+      return this.database.listServicesForTeamMember(session.professionalId, session.teamMemberId, true);
+    }
     return this.database.listServices(session.professionalId, active === "true");
   }
 
