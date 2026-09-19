@@ -68,4 +68,30 @@ describe("AuthService - sessao com papeis", () => {
     });
     expect(await authWithDb.authenticateTeamMember("maria@example.com", "errada")).toBeUndefined();
   });
+
+  it("login por empresa escopa o e-mail (nao mistura entre empresas)", async () => {
+    const passwordHash = await auth.hashPassword("Segredo@123");
+    const database = {
+      // O membro pertence a empresa pro-A; busca escopada a outra empresa nao acha.
+      findTeamMemberByEmail: async (_email: string, professionalId?: string) =>
+        professionalId && professionalId !== "pro-A"
+          ? undefined
+          : {
+              id: "tm-1",
+              professional_id: "pro-A",
+              name: "Maria",
+              email: "maria@example.com",
+              active: true,
+              password_hash: passwordHash
+            }
+    };
+    const authWithDb = new AuthService(database as never);
+
+    expect(
+      await authWithDb.authenticateTeamMember("maria@example.com", "Segredo@123", "pro-A")
+    ).toMatchObject({ professional_id: "pro-A" });
+    expect(
+      await authWithDb.authenticateTeamMember("maria@example.com", "Segredo@123", "pro-B")
+    ).toBeUndefined();
+  });
 });

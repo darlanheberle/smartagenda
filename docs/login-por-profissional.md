@@ -56,6 +56,24 @@ O profissional **define a própria senha**. Fluxo:
 `test/auth.service.spec.ts`: sessão com papéis (owner vs team_member), `requireOwner` bloqueia
 profissional, `authenticateTeamMember` valida a senha.
 
+## Login por empresa (multi-tenant): `/{slug}/login`
+
+Para não misturar acessos entre empresas, cada empresa tem um **slug** único (apelido gerado
+automaticamente do nome, coluna `professionals.slug`, backfill no boot). O login pode ser escopado
+a uma empresa via a URL `https://www.agendasmart.com.br/{slug}/login`:
+
+- `GET /public/company/:slug` → nome + branding da empresa (público, para a tela de login).
+- `POST /auth/login` aceita `companySlug`: resolve a empresa e **escopa** a busca do profissional
+  (`findTeamMemberByEmail(email, professionalId)`), então o mesmo e-mail pode existir em empresas
+  diferentes sem conflito. Login de dono também é validado contra a empresa do slug.
+- Página `app/[slug]/login/page.tsx`; `/auth/me` do dono retorna `slug` (gera se faltar).
+- A aba **Serviços → Equipe** mostra o **"Link de acesso da sua equipe"** (`/{slug}/login`) para o
+  dono copiar e enviar. O `/login` global continua funcionando.
+
+> Observação: mesmo sem a URL por empresa, os dados **nunca** se misturam após o login — a sessão
+> é ligada a `{professionalId, teamMemberId}`. O slug resolve a ambiguidade de e-mail no momento do
+> login e organiza o acesso por empresa.
+
 ## Fora de escopo (próximos passos)
 
 - Recuperação de senha (esqueci a senha).

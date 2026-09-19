@@ -1,7 +1,7 @@
 "use client";
 
-import { Copy, Edit3, KeyRound, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { Copy, Edit3, KeyRound, Link2, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import type { Service, TeamMember, TeamMemberAvailabilityRule } from "../lib/types";
 
@@ -39,13 +39,22 @@ function toTimeInput(value?: string | null) {
 
 export function EquipeClient({
   services,
-  initialTeamMembers
+  initialTeamMembers,
+  companySlug
 }: {
   services: Service[];
   initialTeamMembers: TeamMember[];
+  companySlug?: string;
 }) {
   const activeServices = services.filter((service) => service.active);
   const [members, setMembers] = useState(initialTeamMembers);
+  const [companyLoginUrl, setCompanyLoginUrl] = useState("");
+
+  useEffect(() => {
+    if (companySlug) {
+      setCompanyLoginUrl(`${window.location.origin}/${companySlug}/login`);
+    }
+  }, [companySlug]);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -261,6 +270,37 @@ export function EquipeClient({
       ) : null}
       {error ? (
         <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
+      ) : null}
+
+      {companyLoginUrl ? (
+        <Card className="p-5">
+          <SectionTitle
+            subtitle="Cada profissional entra com o proprio e-mail e senha e ve so a agenda dele."
+            title="Link de acesso da sua equipe"
+          />
+          <div className="mt-4 flex items-center gap-2">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+              <Link2 size={18} />
+            </span>
+            <input
+              className="min-h-11 w-full rounded-2xl border border-slate-100 bg-slate-50 px-3 text-sm text-slate-700 outline-none"
+              readOnly
+              value={companyLoginUrl}
+            />
+            <button
+              className="inline-flex min-h-11 items-center gap-1 rounded-2xl bg-violet-600 px-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(companyLoginUrl)
+                  .then(() => setMessage("Link de acesso da empresa copiado."));
+              }}
+              type="button"
+            >
+              <Copy size={14} />
+              Copiar
+            </button>
+          </div>
+        </Card>
       ) : null}
 
       <Card className="p-5">

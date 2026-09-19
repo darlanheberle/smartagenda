@@ -55,6 +55,7 @@ export type ProfessionalRecord = {
   whatsapp_status: string;
   whatsapp_connected_at?: string | null;
   onboarding_completed_at?: string | null;
+  slug?: string | null;
   logo_url?: string | null;
   theme_primary?: string | null;
   theme_primary_dark?: string | null;

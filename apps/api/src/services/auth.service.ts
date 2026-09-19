@@ -71,8 +71,9 @@ export class AuthService {
   }
 
   // Login do profissional da equipe (team_member) por e-mail + senha.
-  async authenticateTeamMember(email: string, password: string) {
-    const member = await this.database.findTeamMemberByEmail(email);
+  // professionalId escopa a busca a uma empresa (login por /{slug}/login).
+  async authenticateTeamMember(email: string, password: string, professionalId?: string) {
+    const member = await this.database.findTeamMemberByEmail(email, professionalId);
     const passwordValid = await this.verifyPassword(password, member?.password_hash);
 
     if (!member || !passwordValid) {

@@ -31,11 +31,13 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.b
 export function ServicosClient({
   initialServices,
   initialTeamMode,
-  initialTeamMembers
+  initialTeamMembers,
+  companySlug
 }: {
   initialServices: Service[];
   initialTeamMode: boolean;
   initialTeamMembers: TeamMember[];
+  companySlug?: string;
 }) {
   const [services, setServices] = useState(initialServices);
   const [teamMode, setTeamMode] = useState(initialTeamMode);
@@ -245,7 +247,11 @@ export function ServicosClient({
       ) : null}
 
       {teamMode && tab === "equipe" ? (
-        <EquipeClient services={services} initialTeamMembers={initialTeamMembers} />
+        <EquipeClient
+          services={services}
+          initialTeamMembers={initialTeamMembers}
+          companySlug={companySlug}
+        />
       ) : (
         <>
           <section className="grid grid-cols-2 gap-3">

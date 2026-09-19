@@ -113,6 +113,7 @@ export type AccountProfessional = {
   id: string;
   role?: "owner" | "team_member";
   teamMemberId?: string;
+  slug?: string | null;
   name: string;
   specialty?: string;
   gmail: string;

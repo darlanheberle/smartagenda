@@ -12,7 +12,8 @@ import {
   Put,
   Query,
   Req,
-  Res
+  Res,
+  UnauthorizedException
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { randomBytes, randomUUID } from "crypto";
@@ -50,15 +51,29 @@ export class AppController {
 
   @Post("auth/login")
   async login(
-    @Body() input: { email?: string; password?: string },
+    @Body() input: { email?: string; password?: string; companySlug?: string },
     @Res({ passthrough: true }) response: Response
   ) {
     if (!input.email?.trim() || !input.password) {
       throw new BadRequestException("Email e senha sao obrigatorios.");
     }
 
+    // Login por empresa (/{slug}/login): escopa a busca aquela empresa.
+    let scopedProfessionalId: string | undefined;
+    if (input.companySlug?.trim()) {
+      const company = await this.database.findProfessionalBySlug(input.companySlug);
+      if (!company) {
+        throw new NotFoundException("Empresa nao encontrada.");
+      }
+      scopedProfessionalId = company.id;
+    }
+
     // Tenta primeiro como profissional da equipe (team_member); depois como empresa.
-    const member = await this.auth.authenticateTeamMember(input.email, input.password);
+    const member = await this.auth.authenticateTeamMember(
+      input.email,
+      input.password,
+      scopedProfessionalId
+    );
     if (member) {
       this.auth.createSession(response, member.professional_id, member.id);
       return {
@@ -68,11 +83,28 @@ export class AppController {
     }
 
     const professional = await this.auth.authenticate(input.email, input.password);
+    if (scopedProfessionalId && professional.id !== scopedProfessionalId) {
+      throw new UnauthorizedException("Esta conta nao pertence a esta empresa.");
+    }
     this.auth.createSession(response, professional.id);
 
     return {
       status: "authenticated",
       professional: this.toAccountProfessional(professional)
+    };
+  }
+
+  // Dados publicos da empresa para a tela de login por URL (/{slug}/login).
+  @Get("public/company/:slug")
+  async publicCompany(@Param("slug") slug: string) {
+    const company = await this.database.findProfessionalBySlug(slug);
+    if (!company) {
+      throw new NotFoundException("Empresa nao encontrada.");
+    }
+    return {
+      slug: company.slug,
+      name: company.name,
+      branding: this.toProfessionalBranding(company)
     };
   }
 
@@ -165,6 +197,11 @@ export class AppController {
     const professional = await this.database.getProfessional(session.professionalId);
     if (!professional) {
       throw new BadRequestException("Profissional da sessao nao encontrado.");
+    }
+
+    // Garante o slug (empresas antigas podem nao ter) para montar a URL de login.
+    if (!professional.slug) {
+      professional.slug = await this.database.ensureProfessionalSlug(professional);
     }
 
     return {
@@ -1300,6 +1337,7 @@ export class AppController {
     return {
       id: professional.id,
       role: "owner" as const,
+      slug: professional.slug || null,
       name: professional.name,
       specialty: professional.specialty,
       gmail: professional.gmail,

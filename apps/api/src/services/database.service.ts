@@ -231,6 +231,16 @@ export class DatabaseService implements OnModuleInit {
       add column if not exists theme_text text,
       add column if not exists theme_success text
     `);
+    // Slug (apelido) por empresa para login por URL: /{slug}/login (feat/login-por-empresa).
+    await this.pool.query(`
+      alter table professionals
+      add column if not exists slug text
+    `);
+    await this.pool.query(`
+      create unique index if not exists professionals_slug_unique
+      on professionals (slug)
+      where slug is not null
+    `);
     await this.pool.query(`
       create table if not exists google_calendar_connections (
         professional_id text primary key,
@@ -390,6 +400,7 @@ export class DatabaseService implements OnModuleInit {
     `);
     this.ready = true;
     await this.ensureDefaultSchedulingData();
+    await this.backfillProfessionalSlugs();
   }
 
   async upsertProfessional(input: CreateProfessionalInput & { id: string }) {
@@ -500,6 +511,87 @@ export class DatabaseService implements OnModuleInit {
     );
 
     return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  // --- Slug (apelido) por empresa: login por URL /{slug}/login ---
+
+  private slugify(value: string): string {
+    const base = value
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+    return base || "empresa";
+  }
+
+  async findProfessionalBySlug(slug: string): Promise<ProfessionalRecord | undefined> {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query("select * from professionals where slug = $1 limit 1", [
+      slug.trim().toLowerCase()
+    ]);
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async generateUniqueSlug(name: string): Promise<string> {
+    const base = this.slugify(name);
+    if (!this.pool || !this.ready) {
+      return base;
+    }
+
+    const result = await this.pool.query(
+      "select slug from professionals where slug = $1 or slug like $2",
+      [base, `${base}-%`]
+    );
+    const taken = new Set(result.rows.map((row) => row.slug as string));
+
+    if (!taken.has(base)) {
+      return base;
+    }
+    for (let i = 2; i < 1000; i += 1) {
+      const candidate = `${base}-${i}`;
+      if (!taken.has(candidate)) {
+        return candidate;
+      }
+    }
+    return `${base}-${randomUUID().slice(0, 6)}`;
+  }
+
+  async setProfessionalSlug(professionalId: string, slug: string) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+
+    const result = await this.pool.query(
+      "update professionals set slug = $2, updated_at = now() where id = $1 returning *",
+      [professionalId, slug]
+    );
+    return result.rows[0] as ProfessionalRecord | undefined;
+  }
+
+  async ensureProfessionalSlug(professional: ProfessionalRecord): Promise<string> {
+    if (professional.slug) {
+      return professional.slug;
+    }
+    const slug = await this.generateUniqueSlug(professional.name);
+    await this.setProfessionalSlug(professional.id, slug);
+    return slug;
+  }
+
+  private async backfillProfessionalSlugs() {
+    if (!this.pool || !this.ready) {
+      return;
+    }
+    const result = await this.pool.query("select id, name from professionals where slug is null");
+    for (const row of result.rows) {
+      const slug = await this.generateUniqueSlug(row.name);
+      await this.setProfessionalSlug(row.id, slug);
+    }
   }
 
   async findProfessionalByGoogleSubject(subject: string): Promise<ProfessionalRecord | undefined> {
@@ -1709,7 +1801,10 @@ export class DatabaseService implements OnModuleInit {
 
   // --- Login proprio por profissional ---
 
-  async findTeamMemberByEmail(email: string): Promise<TeamMemberRecord | undefined> {
+  async findTeamMemberByEmail(
+    email: string,
+    professionalId?: string
+  ): Promise<TeamMemberRecord | undefined> {
     if (!this.pool || !this.ready) {
       return undefined;
     }
@@ -1721,10 +1816,11 @@ export class DatabaseService implements OnModuleInit {
         where lower(email) = lower($1)
           and active = true
           and password_hash is not null
+          and ($2::text is null or professional_id = $2)
         order by updated_at desc
         limit 1
       `,
-      [email.trim()]
+      [email.trim(), professionalId ?? null]
     );
 
     return result.rows[0] as TeamMemberRecord | undefined;
