@@ -122,7 +122,7 @@ describe.each([
     const askService = (await service.handleIncomingWhatsAppMessage(
       incoming("Maria Silva")
     )) as { reply?: string };
-    expect(askService.reply?.toLowerCase()).toContain("servico");
+    expect(askService.reply?.toLowerCase()).toContain("serviço");
 
     const askDay = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
       reply?: string;
@@ -132,7 +132,7 @@ describe.each([
     const askSlot = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
       reply?: string;
     };
-    expect(askSlot.reply?.toLowerCase()).toContain("horario");
+    expect(askSlot.reply?.toLowerCase()).toContain("horário");
 
     const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
       reply?: string;
@@ -228,7 +228,7 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     const askService = (await service.handleIncomingWhatsAppMessage(
       incoming("Carlos Souza")
     )) as { reply?: string };
-    expect(askService.reply?.toLowerCase()).toContain("servico");
+    expect(askService.reply?.toLowerCase()).toContain("serviço");
     expect(askService.reply).toContain("Corte");
     expect(askService.reply).toContain("Barba");
 
@@ -250,7 +250,7 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     const askSlot = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
       reply?: string;
     };
-    expect(askSlot.reply?.toLowerCase()).toContain("horario");
+    expect(askSlot.reply?.toLowerCase()).toContain("horário");
 
     // confirma
     const confirmed = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
@@ -292,7 +292,7 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     const invalid = (await service.handleIncomingWhatsAppMessage(incoming("9"))) as {
       reply?: string;
     };
-    expect(invalid.reply?.toLowerCase()).toContain("nao encontrei");
+    expect(invalid.reply?.toLowerCase()).toContain("não encontrei");
     expect(invalid.reply).toContain("Maria");
   });
 
@@ -307,13 +307,13 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
       reply?: string;
     };
     expect(confirmed.reply?.toLowerCase()).toContain("confirmado");
-    expect(confirmed.reply?.toLowerCase()).toContain("mais algum servico");
+    expect(confirmed.reply?.toLowerCase()).toContain("mais algum serviço");
 
     // Responde "1" (sim) -> volta para a escolha de servico, sem pedir nome de novo
     const again = (await service.handleIncomingWhatsAppMessage(incoming("1"))) as {
       reply?: string;
     };
-    expect(again.reply?.toLowerCase()).toContain("servico");
+    expect(again.reply?.toLowerCase()).toContain("serviço");
     expect(again.reply).toContain("Corte");
     expect(again.reply?.toLowerCase()).not.toContain("nome completo");
   });
@@ -326,7 +326,7 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     const back = (await service.handleIncomingWhatsAppMessage(incoming("voltar"))) as {
       reply?: string;
     };
-    expect(back.reply?.toLowerCase()).toContain("servico");
+    expect(back.reply?.toLowerCase()).toContain("serviço");
     expect(back.reply).toContain("Corte");
     expect(back.reply).toContain("Barba");
   });
@@ -365,7 +365,7 @@ describe("AiSchedulingService - Modo Equipes ligado", () => {
     const done = (await service.handleIncomingWhatsAppMessage(incoming("2"))) as {
       reply?: string;
     };
-    expect(done.reply?.toLowerCase()).toContain("ate breve");
+    expect(done.reply?.toLowerCase()).toContain("até breve");
   });
 });
 
@@ -411,7 +411,7 @@ describe("AiSchedulingService - etapa de categoria", () => {
     const r = (await service.handleIncomingWhatsAppMessage(incoming("Cliente Teste"))) as {
       reply?: string;
     };
-    expect(r.reply?.toLowerCase()).toContain("servico");
+    expect(r.reply?.toLowerCase()).toContain("serviço");
     expect(r.reply?.toLowerCase()).not.toContain("categoria");
     expect(r.reply).toContain("Corte");
     expect(r.reply).toContain("Unha mao");

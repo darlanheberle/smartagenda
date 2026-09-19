@@ -159,7 +159,7 @@ export class AiSchedulingService {
         received: true,
         status: "professional_not_found",
         instanceName: incoming.instanceName,
-        message: "Cadastre este numero/instancia de WhatsApp antes de atender clientes."
+        message: "Cadastre este número/instância de WhatsApp antes de atender clientes."
       };
     }
 
@@ -265,7 +265,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: "Ola! Para comecar seu atendimento, qual e o seu nome completo?"
+        body: "Olá! Para começar seu atendimento, qual é o seu nome completo?"
       });
     }
 
@@ -332,9 +332,9 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `${input.client.name}, com qual profissional voce quer fazer ${input.service.name}?\n\n${this.formatTeamMemberOptions(
+      body: `${input.client.name}, com qual profissional você quer fazer ${input.service.name}?\n\n${this.formatTeamMemberOptions(
         members
-      )}\n\nResponda com o numero ou o nome.`,
+      )}\n\nResponda com o número ou o nome.`,
       nav: true
     });
   }
@@ -352,7 +352,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei essa opcao. Escolha um dos profissionais abaixo:\n\n${this.formatTeamMemberOptions(
+        body: `Não encontrei essa opção. Escolha um dos profissionais abaixo:\n\n${this.formatTeamMemberOptions(
           input.pending.members
         )}`
       });
@@ -392,7 +392,7 @@ export class AiSchedulingService {
     const dayOptions = this.buildDayOptions(slots, searchPeriod.startDate);
     const announce =
       input.announceTeam && input.team
-        ? `Perfeito! Voce escolheu ${input.team.teamMemberName}.\n\n`
+        ? `Perfeito! Você escolheu ${input.team.teamMemberName}.\n\n`
         : "";
 
     if (dayOptions.length === 0) {
@@ -400,7 +400,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `${announce}Nao encontrei horarios livres para ${input.service.name} nesse periodo. Voce pode pedir outro dia, por exemplo: "semana que vem" ou "proxima terca".`
+        body: `${announce}Não encontrei horários livres para ${input.service.name} nesse período. Você pode pedir outro dia, por exemplo: "semana que vem" ou "próxima terça".`
       });
     }
 
@@ -416,7 +416,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `${announce}${input.client.name}, em qual dia voce prefere fazer ${input.service.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`,
+      body: `${announce}${input.client.name}, em qual dia você prefere fazer ${input.service.name}?\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o número do dia.`,
       nav: true
     });
   }
@@ -444,7 +444,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: "Nao consegui identificar seu nome. Por favor, envie seu nome completo para continuar."
+        body: "Não consegui identificar seu nome. Por favor, envie seu nome completo para continuar."
       });
     }
 
@@ -459,7 +459,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: "Nao consegui salvar seu cadastro agora. Vou pedir para o profissional conferir manualmente."
+        body: "Não consegui salvar seu cadastro agora. Vou pedir para o profissional conferir manualmente."
       });
     }
 
@@ -489,7 +489,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: "Ainda nao ha servicos cadastrados para agendamento. Vou pedir para o profissional configurar."
+        body: "Ainda não há serviços cadastrados para agendamento. Vou pedir para o profissional configurar."
       });
     }
 
@@ -511,7 +511,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: `${input.client.name}, qual categoria voce deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o numero da opcao.`,
+        body: `${input.client.name}, qual categoria você deseja?\n\n${this.formatCategoryOptions(categories)}\n\nResponda com o número da opção.`,
         nav: true
       });
     }
@@ -526,7 +526,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${input.client.name}, qual servico voce deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`,
+      body: `${input.client.name}, qual serviço você deseja agendar?\n\n${this.formatServiceOptions(services)}\n\nResponda com o número da opção.`,
       nav: true
     });
   }
@@ -548,7 +548,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei essa categoria. Escolha uma das opcoes:\n\n${this.formatCategoryOptions(categories)}`
+        body: `Não encontrei essa categoria. Escolha uma das opções:\n\n${this.formatCategoryOptions(categories)}`
       });
     }
 
@@ -565,7 +565,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `Certo, ${input.pending.client.name}. Qual servico de ${selectedCategory} voce deseja?\n\n${this.formatServiceOptions(services)}\n\nResponda com o numero da opcao.`
+      body: `Certo, ${input.pending.client.name}. Qual serviço de ${selectedCategory} você deseja?\n\n${this.formatServiceOptions(services)}\n\nResponda com o número da opção.`
     });
   }
 
@@ -582,7 +582,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei esse servico. Escolha uma das opcoes:\n\n${this.formatServiceOptions(services)}`
+        body: `Não encontrei esse serviço. Escolha uma das opções:\n\n${this.formatServiceOptions(services)}`
       });
     }
 
@@ -636,7 +636,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei esse dia. Escolha uma das opcoes ou diga outro dia, como "quinta" ou "semana que vem":\n\n${this.formatDayOptions(input.pending.dayOptions)}`
+        body: `Não encontrei esse dia. Escolha uma das opções ou diga outro dia, como "quinta" ou "semana que vem":\n\n${this.formatDayOptions(input.pending.dayOptions)}`
       });
     }
 
@@ -646,7 +646,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `${selectedDay.label} esta fechado ou sem horarios livres para esse servico.\n\nEscolha outro dia:\n\n${this.formatDayOptions(input.pending.dayOptions)}`
+        body: `${selectedDay.label} está fechado ou sem horários livres para esse serviço.\n\nEscolha outro dia:\n\n${this.formatDayOptions(input.pending.dayOptions)}`
       });
     }
 
@@ -661,7 +661,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `Perfeito. Qual horario de ${selectedDay.label} voce prefere?\n\n${this.formatSlotOptions(offeredSlots, "time")}\n\nResponda com o numero do horario.`,
+      body: `Perfeito. Qual horário de ${selectedDay.label} você prefere?\n\n${this.formatSlotOptions(offeredSlots, "time")}\n\nResponda com o número do horário.`,
       nav: true
     });
   }
@@ -695,7 +695,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: `Nao encontrei esse horario. Escolha uma das opcoes ou peça outro periodo, como "semana que vem":\n\n${this.formatSlotOptions(input.pending.slots)}`
+        body: `Não encontrei esse horário. Escolha uma das opções ou peça outro período, como "semana que vem":\n\n${this.formatSlotOptions(input.pending.slots)}`
       });
     }
 
@@ -726,10 +726,10 @@ export class AiSchedulingService {
     const professionalLine = input.pending.team
       ? `\nProfissional: ${input.pending.team.teamMemberName}`
       : "";
-    const followUp = "\n\nDeseja agendar mais algum servico?\n1 - Sim\n2 - Nao";
+    const followUp = "\n\nDeseja agendar mais algum serviço?\n1 - Sim\n2 - Não";
     const body = created
-      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.${professionalLine}\nServico: ${input.pending.service.name}\nHorario: ${selectedSlot.label}${price}${link}${followUp}`
-      : "Nao consegui criar o evento na agenda agora. Vou pedir para o profissional confirmar manualmente.";
+      ? `Perfeito, ${input.pending.client.name}. Agendamento confirmado.${professionalLine}\nServiço: ${input.pending.service.name}\nHorário: ${selectedSlot.label}${price}${link}${followUp}`
+      : "Não consegui criar o evento na agenda agora. Vou pedir para o profissional confirmar manualmente.";
 
     return this.reply({
       incoming: input.incoming,
@@ -773,14 +773,14 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.professional.evolutionInstanceName,
-        body: `Perfeito, ${input.pending.client.name}! Seu agendamento esta confirmado. Ate breve. 😊`
+        body: `Perfeito, ${input.pending.client.name}! Seu agendamento está confirmado. Até breve. 😊`
       });
     }
 
     return this.reply({
       incoming: input.incoming,
       instanceName: input.professional.evolutionInstanceName,
-      body: "Deseja agendar mais algum servico?\n1 - Sim\n2 - Nao"
+      body: "Deseja agendar mais algum serviço?\n1 - Sim\n2 - Não"
     });
   }
 
@@ -855,7 +855,7 @@ export class AiSchedulingService {
   }) {
     // Rodape de navegacao: opcao de voltar uma etapa ou recomecar do inicio.
     const body = input.nav
-      ? `${input.body}\n\n_Responda *voltar* para a etapa anterior ou *menu* para recomecar._`
+      ? `${input.body}\n\n_Responda *voltar* para a etapa anterior ou *menu* para recomeçar._`
       : input.body;
 
     const whatsapp = await this.evolution.sendTextMessage({
@@ -896,7 +896,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.instanceName,
-        body: `Nao encontrei horarios livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro periodo?`
+        body: `Não encontrei horários livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro período?`
       });
     }
 
@@ -912,7 +912,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.instanceName,
-      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o número do dia.`
     });
   }
 
@@ -938,7 +938,7 @@ export class AiSchedulingService {
       return this.reply({
         incoming: input.incoming,
         instanceName: input.incoming.instanceName,
-        body: `Nao encontrei dias livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro periodo?`
+        body: `Não encontrei dias livres para ${input.pending.service.name} em ${input.requestedPeriod.label}. Pode tentar outro período?`
       });
     }
 
@@ -954,7 +954,7 @@ export class AiSchedulingService {
     return this.reply({
       incoming: input.incoming,
       instanceName: input.incoming.instanceName,
-      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o numero do dia.`
+      body: `${input.pending.client.name}, encontrei estes dias para ${input.requestedPeriod.label}:\n\n${this.formatDayOptions(dayOptions)}\n\nResponda com o número do dia.`
     });
   }
 
@@ -1077,7 +1077,7 @@ export class AiSchedulingService {
       return {
         startDate: start.toISOString(),
         daysAhead: 1,
-        label: "amanha"
+        label: "amanhã"
       };
     }
 
@@ -1137,7 +1137,7 @@ export class AiSchedulingService {
   }
 
   private weekdayName(weekday: number) {
-    return ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"][weekday];
+    return ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"][weekday];
   }
 
   private normalizeText(text: string) {
@@ -1296,7 +1296,7 @@ export class AiSchedulingService {
       .map((day, index) => {
         const count = day.slots.length;
         const availabilityLabel =
-          count > 0 ? `${count} horario${count === 1 ? "" : "s"}` : "fechado";
+          count > 0 ? `${count} horário${count === 1 ? "" : "s"}` : "fechado";
         return `${index + 1}. ${day.label} (${availabilityLabel})`;
       })
       .join("\n");
