@@ -4,7 +4,8 @@ import { getPanelData } from "../lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
-  const { appointments, availabilityRules, services, teamMode, teamMembers } = await getPanelData();
+  const { account, appointments, availabilityRules, services, teamMode, teamMembers } =
+    await getPanelData();
 
   return (
     <AgendaClient
@@ -13,6 +14,7 @@ export default async function AgendaPage() {
       services={services}
       teamMode={teamMode}
       teamMembers={teamMembers}
+      isTeamMember={account.role === "team_member"}
     />
   );
 }

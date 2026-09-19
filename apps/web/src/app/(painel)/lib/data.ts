@@ -49,7 +49,7 @@ export async function getPanelData(): Promise<PanelData> {
   // Profissional da equipe: acesso restrito (so a propria agenda/clientes).
   // Nao carrega dados de administracao (onboarding, equipe, modo equipes).
   if (account.professional.role === "team_member") {
-    const [dashboard, clients, appointments, services] = await Promise.all([
+    const [dashboard, clients, appointments, services, availabilityRules] = await Promise.all([
       fetchJson<Dashboard>(
         "/dashboard/today",
         { appointments: 0, pending: 0, completed: 0, cancellations: 0, expectedRevenue: 0, pendingRevenue: 0 },
@@ -57,7 +57,8 @@ export async function getPanelData(): Promise<PanelData> {
       ),
       fetchJson<Client[]>("/clients", [], cookieHeader),
       fetchJson<Appointment[]>("/appointments/upcoming?limit=100", [], cookieHeader),
-      fetchJson<Service[]>("/services", [], cookieHeader)
+      fetchJson<Service[]>("/services", [], cookieHeader),
+      fetchJson<AvailabilityRule[]>("/availability-rules", [], cookieHeader)
     ]);
 
     return {
@@ -73,11 +74,11 @@ export async function getPanelData(): Promise<PanelData> {
         servicesConfigured: true,
         availabilityConfigured: true,
         servicesCount: services.length,
-        availabilityRulesCount: 0,
+        availabilityRulesCount: availabilityRules.length,
         ready: true
       },
       services,
-      availabilityRules: [],
+      availabilityRules,
       teamMode: false,
       teamMembers: []
     };

@@ -703,8 +703,13 @@ export class AppController {
       teamMemberId?: string | null;
     }
   ) {
-    const professionalId = this.auth.requireOwner(request);
-    const payload = await this.buildManualAppointmentPayload(professionalId, input);
+    // Profissional cria agendamento para SI (team_member_id forcado ao da sessao);
+    // o dono pode criar para qualquer profissional.
+    const session = this.requireScopedSession(request, input.professionalId);
+    const payload = await this.buildManualAppointmentPayload(session.professionalId, {
+      ...input,
+      teamMemberId: session.teamMemberId ?? input.teamMemberId ?? null
+    });
     return this.database.createManualAppointment(payload);
   }
 
@@ -728,14 +733,19 @@ export class AppController {
       teamMemberId?: string | null;
     }
   ) {
-    const professionalId = this.auth.requireOwner(request);
-    const current = await this.database.getAppointment(professionalId, id);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+    const current = await this.database.getAppointment(session.professionalId, id);
 
     if (!current) {
       throw new NotFoundException("Atendimento nao encontrado.");
     }
 
-    const payload = await this.buildManualAppointmentPayload(professionalId, {
+    // Profissional so mexe nos proprios agendamentos.
+    if (session.teamMemberId && current.team_member_id !== session.teamMemberId) {
+      throw new NotFoundException("Atendimento nao encontrado.");
+    }
+
+    const payload = await this.buildManualAppointmentPayload(session.professionalId, {
       clientName: input.clientName || current.client_name || "Cliente",
       clientPhone: input.clientPhone ?? current.client_phone ?? undefined,
       clientEmail: input.clientEmail ?? current.client_email ?? undefined,
@@ -745,10 +755,14 @@ export class AppController {
       durationMinutes:
         input.durationMinutes || this.minutesBetween(current.starts_at, current.ends_at),
       valueCents: input.valueCents ?? current.value_cents,
-      teamMemberId: input.teamMemberId === undefined ? current.team_member_id : input.teamMemberId
+      teamMemberId: session.teamMemberId
+        ? session.teamMemberId
+        : input.teamMemberId === undefined
+          ? current.team_member_id
+          : input.teamMemberId
     });
 
-    return this.database.updateAppointment(professionalId, id, {
+    return this.database.updateAppointment(session.professionalId, id, {
       ...payload,
       status: input.status,
       paymentStatus: input.paymentStatus
@@ -756,13 +770,21 @@ export class AppController {
   }
 
   @Delete("appointments/:id")
-  deleteAppointment(
+  async deleteAppointment(
     @Req() request: Request,
     @Param("id") id: string,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwner(request);
-    return this.database.deleteAppointment(professionalId, id);
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+
+    if (session.teamMemberId) {
+      const current = await this.database.getAppointment(session.professionalId, id);
+      if (!current || current.team_member_id !== session.teamMemberId) {
+        throw new NotFoundException("Atendimento nao encontrado.");
+      }
+    }
+
+    return this.database.deleteAppointment(session.professionalId, id);
   }
 
   @Get("services")
@@ -1095,8 +1117,9 @@ export class AppController {
     @Req() request: Request,
     @Query("professionalId") requestedProfessionalId?: string
   ) {
-    const professionalId = this.auth.requireOwner(request);
-    return this.database.listAvailabilityRules(professionalId);
+    // Leitura: a equipe le os horarios para montar a agenda (nao edita).
+    const session = this.requireScopedSession(request, requestedProfessionalId);
+    return this.database.listAvailabilityRules(session.professionalId);
   }
 
   @Post("availability-rules")

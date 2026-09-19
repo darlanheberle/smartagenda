@@ -73,13 +73,15 @@ export function AgendaClient({
   availabilityRules,
   services,
   teamMode = false,
-  teamMembers = []
+  teamMembers = [],
+  isTeamMember = false
 }: {
   appointments: Appointment[];
   availabilityRules: AvailabilityRule[];
   services: Service[];
   teamMode?: boolean;
   teamMembers?: TeamMember[];
+  isTeamMember?: boolean;
 }) {
   const days = useMemo(() => buildDays(21), []);
   const todayKey = dateKey(new Date());
@@ -535,7 +537,7 @@ export function AgendaClient({
         </div>
       </Card>
 
-      <AvailabilitySettings initialRules={availabilityRules} />
+      {isTeamMember ? null : <AvailabilitySettings initialRules={availabilityRules} />}
 
       {editor ? (
         <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-3 backdrop-blur-sm md:items-center md:justify-center">
