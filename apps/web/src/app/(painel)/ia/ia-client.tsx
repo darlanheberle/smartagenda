@@ -86,7 +86,7 @@ export function IAClient({
       </header>
 
       <Card className="p-5">
-        <SectionTitle subtitle="O numero que o robo usa para atender no WhatsApp." title="WhatsApp conectado ao robo" />
+        <SectionTitle subtitle="O número que o robo usa para atender no WhatsApp." title="WhatsApp conectado ao robo" />
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="flex items-center gap-3 rounded-3xl bg-slate-50 p-4">
             <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-violet-600 shadow-sm">
@@ -102,7 +102,7 @@ export function IAClient({
               <Phone size={20} />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase text-slate-400">Numero do WhatsApp</p>
+              <p className="text-xs font-semibold uppercase text-slate-400">Número do WhatsApp</p>
               <p className="mt-0.5 truncate font-semibold text-slate-950">
                 {formatWhatsapp(whatsappNumber)}
               </p>
@@ -134,12 +134,12 @@ export function IAClient({
             <p className="mt-1">
               O robo atende pelo seu WhatsApp como um &quot;aparelho conectado&quot; (igual ao WhatsApp
               Web). Se o celular deste numero ficar <strong>muitos dias sem internet</strong> (cerca de
-              14 dias) ou o aparelho for <strong>desconectado</strong> nas configuracoes do WhatsApp, essa
-              ligacao cai e o robo <strong>para de responder</strong> ate voce reconectar.
+              14 dias) ou o aparelho for <strong>desconectado</strong> nas configurações do WhatsApp, essa
+              ligacao cai e o robo <strong>para de responder</strong> até você reconectar.
             </p>
             <p className="mt-1">
-              Se isso acontecer, e so tocar em <strong>Reconectar WhatsApp</strong> aqui nesta pagina e
-              ler o QR Code com o celular deste numero. Leva menos de um minuto.
+              Se isso acontecer, e so tocar em <strong>Reconectar WhatsApp</strong> aqui nesta página e
+              ler o QR Code com o celular deste número. Leva menos de um minuto.
             </p>
           </div>
         </div>
@@ -152,10 +152,10 @@ export function IAClient({
               <MessageCircle size={23} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase text-emerald-700">Configuracao necessaria</p>
+              <p className="text-xs font-semibold uppercase text-emerald-700">Configuração necessaria</p>
               <h2 className="mt-2 font-display text-xl font-bold text-slate-950">Conecte seu WhatsApp</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Para a IA atender seus clientes, vincule o numero profissional usando um codigo no celular ou QR Code.
+                Para a IA atender seus clientes, vincule o número profissional usando um código no celular ou QR Code.
               </p>
               <Link
                 className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto"
@@ -246,11 +246,11 @@ export function IAClient({
       <Card className="p-5">
         <SectionTitle subtitle="Simulacao do tom usado no WhatsApp." title="Exemplo de atendimento" />
         <div className="mt-5 space-y-2.5 rounded-3xl bg-slate-50 p-4">
-          <Bubble side="left">Oi, quero marcar um horario para semana que vem.</Bubble>
-          <Bubble side="right">Claro. Qual servico voce deseja agendar?</Bubble>
+          <Bubble side="left">Oi, quero marcar um horário para semana que vem.</Bubble>
+          <Bubble side="right">Claro. Qual serviço você deseja agendar?</Bubble>
           <Bubble side="left">{appointments[0]?.service_name || "Consulta inicial"}</Bubble>
           <Bubble side="right">
-            Tenho quinta as 14h e sexta as 09h. Qual fica melhor para voce?
+            Tenho quinta as 14h e sexta as 09h. Qual fica melhor para você?
           </Bubble>
         </div>
       </Card>

@@ -60,11 +60,11 @@ type AvailabilityForm = {
 
 const weekdays = [
   { value: 1, label: "Segunda" },
-  { value: 2, label: "Terca" },
+  { value: 2, label: "Terça" },
   { value: 3, label: "Quarta" },
   { value: 4, label: "Quinta" },
   { value: 5, label: "Sexta" },
-  { value: 6, label: "Sabado" },
+  { value: 6, label: "Sábado" },
   { value: 0, label: "Domingo" }
 ];
 
@@ -256,7 +256,7 @@ export function AgendaClient({
       }
 
       if (!editor.serviceId && !editor.serviceName.trim()) {
-        throw new Error("Informe o servico.");
+        throw new Error("Informe o serviço.");
       }
 
       const payload = {
@@ -330,7 +330,7 @@ export function AgendaClient({
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">
             {selectedDay.key === todayKey ? "Hoje" : formatHeaderDay(selectedDay.date)}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">Escolha o servico para a agenda abrir os encaixes na duracao certa.</p>
+          <p className="mt-1 text-sm text-slate-500">Escolha o serviço para a agenda abrir os encaixes na duração certa.</p>
         </div>
         <button
           aria-label="Novo agendamento"
@@ -392,7 +392,7 @@ export function AgendaClient({
           </div>
         </div>
         <button
-          aria-label="Proximo dia"
+          aria-label="Próximo dia"
           className="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-white text-slate-500 shadow-sm disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
           disabled={selectedDay.key === days[days.length - 1].key}
           onClick={() => moveDay(1)}
@@ -432,7 +432,7 @@ export function AgendaClient({
         ) : null}
         {serviceOptions.length > 0 ? (
           <label className="mt-4 block">
-            <span className="text-sm font-semibold text-slate-700">Servico para calcular horarios livres</span>
+            <span className="text-sm font-semibold text-slate-700">Serviço para calcular horários livres</span>
             <select
               className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
               onChange={(event) => setSelectedServiceId(event.target.value)}
@@ -450,7 +450,7 @@ export function AgendaClient({
         <div className="mt-5 space-y-3">
           {slots.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-              Este dia esta fechado ou sem horario de atendimento cadastrado para a duracao escolhida.
+              Este dia esta fechado ou sem horário de atendimento cadastrado para a duração escolhida.
             </div>
           ) : null}
           {slots.map((slot) => {
@@ -614,13 +614,13 @@ export function AgendaClient({
 
               {serviceOptions.length > 0 ? (
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">Servico</span>
+                  <span className="text-sm font-semibold text-slate-700">Serviço</span>
                   <select
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
                     onChange={(event) => selectService(event.target.value)}
                     value={editor.serviceId}
                   >
-                    <option value="">Escolher servico</option>
+                    <option value="">Escolher serviço</option>
                     {serviceOptions.map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.category ? `${service.category} - ` : ""}
@@ -631,7 +631,7 @@ export function AgendaClient({
                 </label>
               ) : (
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">Servico</span>
+                  <span className="text-sm font-semibold text-slate-700">Serviço</span>
                   <input
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
                     onChange={(event) => setEditor({ ...editor, serviceName: event.target.value })}
@@ -643,7 +643,7 @@ export function AgendaClient({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase text-slate-400">Duracao</p>
+                  <p className="text-xs font-semibold uppercase text-slate-400">Duração</p>
                   <p className="mt-1 font-display text-xl font-bold text-slate-950">{editor.durationMinutes} min</p>
                 </div>
                 <div className="rounded-3xl bg-slate-50 p-4">
@@ -776,8 +776,8 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
   return (
     <Card className="p-5">
       <SectionTitle
-        subtitle="Escolha um dia, ajuste a regra e salve. Use todos para repetir a configuracao."
-        title="Horarios de atendimento"
+        subtitle="Escolha um dia, ajuste a regra e salve. Use todos para repetir a configuração."
+        title="Horários de atendimento"
       />
 
       <div className="mt-5 rounded-3xl bg-slate-50 p-4">
@@ -837,7 +837,7 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-slate-500">
-            O periodo de almoco nao aparece na agenda nem nas opcoes enviadas pelo WhatsApp.
+            O período de almoco não aparece na agenda nem nas opções enviadas pelo WhatsApp.
           </p>
           <button
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"

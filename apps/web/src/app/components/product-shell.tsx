@@ -27,7 +27,7 @@ const navigation = [
   { label: "Agenda", href: "/agenda", icon: CalendarRange, key: "agenda" },
   { label: "Clientes", href: "/clientes", icon: ContactRound, key: "clientes" },
   { label: "Financeiro", href: "/financeiro", icon: CircleDollarSign, key: "financeiro" },
-  { label: "Configuracoes", href: "/admin", icon: Settings2, key: "settings" }
+  { label: "Configurações", href: "/admin", icon: Settings2, key: "settings" }
 ];
 
 export function ProductShell({ active, name, email, children }: ProductShellProps) {

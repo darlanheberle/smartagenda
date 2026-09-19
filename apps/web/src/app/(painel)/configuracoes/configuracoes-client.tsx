@@ -152,7 +152,7 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
     <div className="space-y-6">
       <header>
         <p className="text-sm font-semibold text-violet-700">Identidade do profissional</p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Configuracoes</h1>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Configurações</h1>
         <p className="mt-1 text-sm text-slate-500">
           Personalize logo e cores para deixar o painel com a cara do profissional.
         </p>
@@ -168,7 +168,7 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
       <Card className="overflow-hidden p-5">
         <SectionTitle
           subtitle="Veja como a marca aparece no topo do sistema antes de salvar."
-          title="Preview da pagina profissional"
+          title="Preview da página profissional"
         />
         <div
           className="mt-5 overflow-hidden rounded-3xl border border-slate-100 shadow-sm"
@@ -196,9 +196,9 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
                 background: `linear-gradient(135deg, ${form.themePrimary}, ${form.themePrimaryDark}, ${form.themeAccent})`
               }}
             >
-              <p className="text-sm font-semibold opacity-80">Proximo atendimento</p>
+              <p className="text-sm font-semibold opacity-80">Próximo atendimento</p>
               <p className="mt-3 font-display text-2xl font-bold">Cliente exemplo</p>
-              <p className="mt-1 text-sm opacity-80">Servico personalizado - 60 min</p>
+              <p className="mt-1 text-sm opacity-80">Serviço personalizado - 60 min</p>
             </div>
             <div className="rounded-3xl p-5 shadow-sm" style={{ background: form.themeSurface }}>
               <p className="text-xs font-bold uppercase opacity-50">Hoje</p>
@@ -210,7 +210,7 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
       </Card>
 
       <Card className="p-5">
-        <SectionTitle subtitle="Use uma URL ou envie um arquivo pequeno para substituir o icone padrao." title="Logo" />
+        <SectionTitle subtitle="Use uma URL ou envie um arquivo pequeno para substituir o icone padrão." title="Logo" />
         <div className="mt-5 space-y-4">
           <div className="flex items-center gap-4">
             <PreviewLogo logoUrl={form.logoUrl} primary={form.themePrimary} />
@@ -248,7 +248,7 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
               type="button"
             >
               <RotateCcw size={17} />
-              Usar icone padrao
+              Usar icone padrão
             </button>
           </div>
         </div>
@@ -335,7 +335,7 @@ function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Nao foi possivel ler a imagem."));
+    reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
     reader.readAsDataURL(file);
   });
 }

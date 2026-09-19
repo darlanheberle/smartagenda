@@ -18,7 +18,7 @@ export default function AtivarProfissionalPage() {
     setToken(current);
 
     if (!current) {
-      setError("Link de ativacao invalido.");
+      setError("Link de ativação invalido.");
       setLoading(false);
       return;
     }
@@ -47,7 +47,7 @@ export default function AtivarProfissionalPage() {
       return;
     }
     if (password !== confirmPassword) {
-      setError("As senhas nao conferem.");
+      setError("As senhas não conferem.");
       return;
     }
 
@@ -91,7 +91,7 @@ export default function AtivarProfissionalPage() {
             </p>
             {info?.email ? (
               <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Seu login sera o e-mail <strong>{info.email}</strong>.
+                Seu login será o e-mail <strong>{info.email}</strong>.
               </p>
             ) : null}
 
@@ -101,7 +101,7 @@ export default function AtivarProfissionalPage() {
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Minimo 8 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   type="password"
                   value={password}
                 />

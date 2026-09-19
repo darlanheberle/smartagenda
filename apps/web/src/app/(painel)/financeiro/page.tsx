@@ -17,13 +17,13 @@ export default async function FinanceiroPage() {
       <header>
         <p className="text-sm font-semibold text-violet-700">Controle financeiro</p>
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Financeiro</h1>
-        <p className="mt-1 text-sm text-slate-500">Recebimentos, pendencias e previsao do mes.</p>
+        <p className="mt-1 text-sm text-slate-500">Recebimentos, pendencias e previsao do mês.</p>
       </header>
 
       <section className="rounded-3xl bg-slate-900 p-5 text-white shadow-xl shadow-slate-200">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-slate-300">Faturamento do mes</p>
+            <p className="text-sm font-semibold text-slate-300">Faturamento do mês</p>
             <p className="mt-3 font-display text-4xl font-bold tabular">{formatCurrency(dashboard.expectedRevenue)}</p>
           </div>
           <span className="grid size-12 place-items-center rounded-2xl bg-white/10">
@@ -47,7 +47,7 @@ export default async function FinanceiroPage() {
       <ProducaoDia />
 
       <Card className="p-5">
-        <SectionTitle subtitle="Ultimos 7 dias" title="Entradas por dia" />
+        <SectionTitle subtitle="Últimos 7 dias" title="Entradas por dia" />
         <div className="mt-6 flex h-44 items-end gap-2">
           {bars.map((bar) => {
             const highest = bar.value === maxBar && bar.value > 0;

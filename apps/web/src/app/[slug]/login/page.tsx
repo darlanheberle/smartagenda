@@ -81,7 +81,7 @@ export default function CompanyLoginPage() {
                   autoComplete="email"
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-semibold text-slate-950 outline-none focus:border-violet-300 focus:ring-4 focus:ring-violet-100"
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="voce@email.com"
+                  placeholder="você@email.com"
                   type="email"
                   value={email}
                 />

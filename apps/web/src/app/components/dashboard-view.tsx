@@ -77,8 +77,8 @@ export function DashboardView({
   const setupSteps = [
     { label: "Google Agenda", done: onboarding.googleConnected },
     { label: "WhatsApp", done: onboarding.whatsappConnected },
-    { label: "Servicos", done: onboarding.servicesConfigured },
-    { label: "Horarios", done: onboarding.availabilityConfigured }
+    { label: "Serviços", done: onboarding.servicesConfigured },
+    { label: "Horários", done: onboarding.availabilityConfigured }
   ];
   const completedSetup = setupSteps.filter((step) => step.done).length;
 
@@ -120,7 +120,7 @@ export function DashboardView({
             <section className="surface overflow-hidden rounded-2xl">
               <div className="grid md:grid-cols-[220px_1fr]">
                 <div className="bg-[var(--warning-soft)] px-5 py-5">
-                  <p className="eyebrow text-[var(--warning)]">Configuracao inicial</p>
+                  <p className="eyebrow text-[var(--warning)]">Configuração inicial</p>
                   <p className="mt-2 text-3xl font-semibold tabular text-[var(--ink)]">
                     {completedSetup}
                     <span className="text-base font-medium text-[var(--ink-muted)]">/4</span>
@@ -131,14 +131,14 @@ export function DashboardView({
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-base font-semibold text-[var(--ink)]">
-                        Prepare o atendimento automatico
+                        Prepare o atendimento automático
                       </h2>
                       <p className="mt-1 text-sm text-[var(--ink-secondary)]">
-                        Complete as conexoes para a IA confirmar horarios pelo WhatsApp.
+                        Complete as conexoes para a IA confirmar horários pelo WhatsApp.
                       </p>
                     </div>
                     <Link className="btn-secondary shrink-0" href="/admin">
-                      Continuar configuracao
+                      Continuar configuração
                       <ArrowUpRight size={15} />
                     </Link>
                   </div>
@@ -201,7 +201,7 @@ export function DashboardView({
                 </Link>
               }
               subtitle="Sua sequencia de atendimentos sincronizada com o Google."
-              title="Proximos horarios"
+              title="Próximos horários"
             />
             {appointments.length === 0 ? (
               <EmptyState
@@ -316,8 +316,8 @@ export function DashboardView({
                     Gerenciar
                   </Link>
                 }
-                subtitle="Opcoes oferecidas pela IA durante a conversa."
-                title="Servicos ativos"
+                subtitle="Opções oferecidas pela IA durante a conversa."
+                title="Serviços ativos"
               />
               <div className="divide-y divide-black/[0.07] px-4 pb-2">
                 {activeServices.slice(0, 5).map((service) => (
@@ -390,7 +390,7 @@ export function DashboardView({
             <div className="relative z-10">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MessageCircle size={17} />
-                Atendimento automatico
+                Atendimento automático
               </div>
               <p className="mt-3 text-sm leading-6 text-white/75">
                 {onboarding.ready
@@ -401,7 +401,7 @@ export function DashboardView({
                 className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl bg-white/10 px-3 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
                 href="/admin"
               >
-                Ver configuracoes
+                Ver configurações
                 <ArrowUpRight size={14} />
               </Link>
             </div>

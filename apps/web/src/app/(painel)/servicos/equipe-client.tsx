@@ -9,11 +9,11 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.b
 
 const WEEKDAYS = [
   { weekday: 1, label: "Segunda" },
-  { weekday: 2, label: "Terca" },
+  { weekday: 2, label: "Terça" },
   { weekday: 3, label: "Quarta" },
   { weekday: 4, label: "Quinta" },
   { weekday: 5, label: "Sexta" },
-  { weekday: 6, label: "Sabado" },
+  { weekday: 6, label: "Sábado" },
   { weekday: 0, label: "Domingo" }
 ];
 
@@ -275,7 +275,7 @@ export function EquipeClient({
       {companyLoginUrl ? (
         <Card className="p-5">
           <SectionTitle
-            subtitle="Cada profissional entra com o proprio e-mail e senha e ve so a agenda dele."
+            subtitle="Cada profissional entra com o próprio e-mail e senha e ve so a agenda dele."
             title="Link de acesso da sua equipe"
           />
           <div className="mt-4 flex items-center gap-2">
@@ -401,7 +401,7 @@ export function EquipeClient({
 
       <Card className="p-5">
         <SectionTitle
-          subtitle="Dados, servicos realizados e horario de atendimento."
+          subtitle="Dados, serviços realizados e horário de atendimento."
           title={editingId ? "Editar profissional" : "Adicionar profissional"}
         />
         <div className="mt-5 space-y-4">
@@ -438,10 +438,10 @@ export function EquipeClient({
           </Field>
 
           <div>
-            <p className="text-sm font-semibold text-slate-700">Servicos realizados</p>
+            <p className="text-sm font-semibold text-slate-700">Serviços realizados</p>
             {activeServices.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">
-                Cadastre servicos na aba Servicos para vincular a este profissional.
+                Cadastre serviços na aba Serviços para vincular a este profissional.
               </p>
             ) : (
               <div className="mt-2 space-y-2">
@@ -466,7 +466,7 @@ export function EquipeClient({
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-slate-700">Horario de atendimento</p>
+            <p className="text-sm font-semibold text-slate-700">Horário de atendimento</p>
             <div className="mt-2 space-y-2">
               {WEEKDAYS.map(({ weekday, label }) => {
                 const row = schedule.find((item) => item.weekday === weekday);

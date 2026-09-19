@@ -43,7 +43,7 @@ export function FinanceiroView({ account, appointments }: FinanceiroViewProps) {
         <section className="grid gap-px overflow-hidden rounded-2xl bg-black/10 md:grid-cols-3">
           <SummaryCard
             icon={<CircleDollarSign size={18} />}
-            label="Total do periodo"
+            label="Total do período"
             value={formatCurrency(totalTotal / 100)}
           />
           <SummaryCard
@@ -63,7 +63,7 @@ export function FinanceiroView({ account, appointments }: FinanceiroViewProps) {
         <section className="surface rounded-2xl">
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <div>
-              <h2 className="text-[15px] font-semibold text-[var(--ink)]">Historico de atendimentos</h2>
+              <h2 className="text-[15px] font-semibold text-[var(--ink)]">Histórico de atendimentos</h2>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">
                 {cancelled.length} cancelado{cancelled.length === 1 ? "" : "s"} nao entram no total.
               </p>
@@ -81,7 +81,7 @@ export function FinanceiroView({ account, appointments }: FinanceiroViewProps) {
                   <tr>
                     <th className="px-3 py-2 font-medium">Data</th>
                     <th className="px-3 py-2 font-medium">Cliente</th>
-                    <th className="px-3 py-2 font-medium">Servico</th>
+                    <th className="px-3 py-2 font-medium">Serviço</th>
                     <th className="px-3 py-2 font-medium">Valor</th>
                     <th className="px-3 py-2 font-medium">Pagamento</th>
                   </tr>

@@ -15,7 +15,7 @@ const navItems = [
   { href: "/clientes", icon: Users, label: "Clientes" },
   { href: "/financeiro", icon: Wallet, label: "Financeiro" },
   { href: "/ia", icon: Bot, label: "IA" },
-  { href: "/servicos", icon: Wrench, label: "Servicos" },
+  { href: "/servicos", icon: Wrench, label: "Serviços" },
   { href: "/configuracoes", icon: Palette, label: "Config." }
 ];
 
@@ -170,7 +170,7 @@ function AccountMenu({ account }: { account: AccountProfessional }) {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label="Abrir informacoes da conta"
+        aria-label="Abrir informações da conta"
         className="grid size-11 place-items-center rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
         onClick={() => setOpen((current) => !current)}
         type="button"
@@ -180,7 +180,7 @@ function AccountMenu({ account }: { account: AccountProfessional }) {
 
       {open ? (
         <div
-          aria-label="Informacoes da conta"
+          aria-label="Informações da conta"
           className="absolute right-0 top-[calc(100%+0.625rem)] z-50 w-72 max-w-[calc(100vw-2rem)] rounded-3xl border border-slate-100 bg-white p-4 shadow-xl shadow-slate-200/70"
           role="dialog"
         >
@@ -198,7 +198,7 @@ function AccountMenu({ account }: { account: AccountProfessional }) {
             onClick={() => setOpen(false)}
           >
             <Settings2 size={17} />
-            Configuracoes da conta
+            Configurações da conta
           </Link>
         </div>
       ) : null}

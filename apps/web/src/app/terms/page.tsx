@@ -53,7 +53,7 @@ export default function TermsPage() {
           para organizar agendamentos via WhatsApp com integracao ao Google Calendar.
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Ultima atualizacao: 20/06/2026.
+          Última atualizacao: 20/06/2026.
         </p>
 
         <div className="mt-8 space-y-7">
@@ -74,7 +74,7 @@ export default function TermsPage() {
         <section className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-4">
           <h2 className="font-semibold">Contato</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Para duvidas sobre estes termos, entre em contato pelo canal de suporte informado pelo
+            Para dúvidas sobre estes termos, entre em contato pelo canal de suporte informado pelo
             responsavel do SmartAgenda.
           </p>
         </section>

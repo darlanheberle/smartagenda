@@ -66,7 +66,7 @@ export function ProducaoDia() {
     <Card className="p-5">
       <SectionTitle
         subtitle="Serviços do dia por profissional, com a parte de cada um."
-        title="Producao por profissional"
+        title="Produção por profissional"
       />
 
       <div className="mt-4 flex items-center gap-2">

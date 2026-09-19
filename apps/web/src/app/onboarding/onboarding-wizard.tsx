@@ -249,11 +249,11 @@ export function OnboardingWizard() {
         <aside className="hidden border-r border-slate-200/80 bg-white px-5 py-6 md:flex md:flex-col">
           <Brand />
           <div className="mt-12">
-            <p className="text-xs font-semibold uppercase text-violet-700">Configuracao inicial</p>
+            <p className="text-xs font-semibold uppercase text-violet-700">Configuração inicial</p>
             <h1 className="mt-2 font-display text-2xl font-bold text-slate-950">Vamos preparar sua agenda</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">Siga uma etapa por vez. Leva apenas alguns minutos.</p>
           </div>
-          <nav aria-label="Etapas da configuracao" className="mt-8 space-y-2">
+          <nav aria-label="Etapas da configuração" className="mt-8 space-y-2">
             {steps.map((step, index) => (
               <StepNavigationItem
                 active={step.id === currentStep}
@@ -268,7 +268,7 @@ export function OnboardingWizard() {
           <div className="mt-auto rounded-3xl bg-violet-50 p-4">
             <ShieldCheck className="text-violet-700" size={20} />
             <p className="mt-3 text-sm font-semibold text-slate-900">Seus dados ficam protegidos</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Cada profissional possui sua propria agenda, clientes e WhatsApp.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Cada profissional possui sua própria agenda, clientes e WhatsApp.</p>
           </div>
         </aside>
 
@@ -386,7 +386,7 @@ function AccountStep({
 
     try {
       if (!isGoogleAccount && password !== passwordConfirmation) {
-        throw new Error("As senhas nao conferem. Digite novamente.");
+        throw new Error("As senhas não conferem. Digite novamente.");
       }
 
       const response = await fetch(
@@ -447,7 +447,7 @@ function AccountStep({
             Continuar com Google
           </a>
           <p className="mt-3 text-center text-xs leading-5 text-slate-500">
-            Cria sua conta e conecta o Google Agenda em uma unica autorizacao.
+            Cria sua conta e conecta o Google Agenda em uma única autorizacao.
           </p>
           <div className="my-6 flex items-center gap-3" aria-hidden="true">
             <span className="h-px flex-1 bg-slate-200" />
@@ -455,7 +455,7 @@ function AccountStep({
             <span className="h-px flex-1 bg-slate-200" />
           </div>
           <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Use o Gmail que possui a agenda do profissional e o numero de WhatsApp que atendera os clientes.
+            Use o Gmail que possui a agenda do profissional e o número de WhatsApp que atendera os clientes.
           </div>
         </>
       )}
@@ -512,13 +512,13 @@ function GoogleStep({ connected, gmail, googleUrl, loading, onBack, onContinue, 
   onVerify: () => void;
 }) {
   return (
-    <StepCard icon={<CalendarDays size={22} />} step="Etapa 2 de 5" subtitle="Assim os horarios ocupados nunca serao oferecidos aos clientes." title="Conecte seu Google Agenda">
+    <StepCard icon={<CalendarDays size={22} />} step="Etapa 2 de 5" subtitle="Assim os horários ocupados nunca serão oferecidos aos clientes." title="Conecte seu Google Agenda">
       {connected ? (
         <SuccessPanel title="Google Agenda conectado">A conta {gmail} ja pode consultar horarios e criar compromissos.</SuccessPanel>
       ) : (
         <>
           <div className="space-y-3">
-            <Instruction number={1} title="Toque em Conectar Google Agenda">Uma pagina segura do Google sera aberta.</Instruction>
+            <Instruction number={1} title="Toque em Conectar Google Agenda">Uma página segura do Google será aberta.</Instruction>
             <Instruction number={2} title={`Escolha ${gmail}`}>Confirme a conta que possui sua agenda profissional.</Instruction>
             <Instruction number={3} title="Autorize o acesso">O SmartAgenda usa apenas o necessario para consultar e criar eventos.</Instruction>
           </div>
@@ -527,7 +527,7 @@ function GoogleStep({ connected, gmail, googleUrl, loading, onBack, onContinue, 
             Conectar Google Agenda
             <ExternalLink size={16} />
           </a>
-          <p className="mt-3 text-xs leading-5 text-slate-400">Voce voltara automaticamente para esta etapa depois de autorizar.</p>
+          <p className="mt-3 text-xs leading-5 text-slate-400">Você voltara automaticamente para esta etapa depois de autorizar.</p>
         </>
       )}
       <StepActions
@@ -598,7 +598,7 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
       await navigator.clipboard.writeText(pairingCode);
       setCopied(true);
     } catch {
-      setError("Nao foi possivel copiar automaticamente. Digite o codigo mostrado no WhatsApp.");
+      setError("Não foi possível copiar automaticamente. Digite o código mostrado no WhatsApp.");
     }
   }
 
@@ -629,15 +629,15 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
   }
 
   return (
-    <StepCard icon={<MessageCircle size={22} />} step="Etapa 3 de 5" subtitle="A conexao e opcional e pode ser feita depois pelo seu painel." title="Como deseja usar o WhatsApp?">
+    <StepCard icon={<MessageCircle size={22} />} step="Etapa 3 de 5" subtitle="A conexão e opcional e pode ser feita depois pelo seu painel." title="Como deseja usar o WhatsApp?">
       {connected ? (
-        <SuccessPanel title="WhatsApp conectado">O numero esta pronto para receber mensagens e usar o assistente.</SuccessPanel>
+        <SuccessPanel title="WhatsApp conectado">O número esta pronto para receber mensagens e usar o assistente.</SuccessPanel>
       ) : choice === "choose" ? (
         <>
           {skipped ? (
             <div className="mb-5 rounded-3xl bg-violet-50 p-4 text-violet-950">
               <p className="font-semibold">WhatsApp ficou para depois</p>
-              <p className="mt-1 text-sm leading-6 text-violet-800">Seu painel continua funcionando. Quando quiser, conecte o numero pela aba IA.</p>
+              <p className="mt-1 text-sm leading-6 text-violet-800">Seu painel continua funcionando. Quando quiser, conecte o número pela aba IA.</p>
             </div>
           ) : null}
 
@@ -660,19 +660,19 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
             >
               <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-600">{skipping ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}</span>
               <span className="mt-5 block font-display text-lg font-bold text-slate-950">Continuar sem WhatsApp</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-600">Configure servicos e horarios agora. A conexao podera ser feita depois na aba IA.</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-600">Configure serviços e horários agora. A conexão podera ser feita depois na aba IA.</span>
             </button>
           </div>
 
           <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            Sem a conexao, o assistente ainda nao respondera mensagens pelo WhatsApp.
+            Sem a conexão, o assistente ainda não respondera mensagens pelo WhatsApp.
           </div>
         </>
       ) : (
         <>
           <div className="rounded-3xl bg-emerald-50 p-4">
-            <p className="font-semibold text-emerald-900">Voce pode conectar usando apenas este celular</p>
-            <p className="mt-1 text-sm leading-6 text-emerald-800">O codigo de pareamento evita precisar abrir o QR Code em outro aparelho.</p>
+            <p className="font-semibold text-emerald-900">Você pode conectar usando apenas este celular</p>
+            <p className="mt-1 text-sm leading-6 text-emerald-800">O código de pareamento evita precisar abrir o QR Code em outro aparelho.</p>
           </div>
 
           {!result ? (
@@ -684,7 +684,7 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
             <div className="mt-6">
               <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Forma de conectar WhatsApp">
                 <button aria-selected={method === "code"} className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${method === "code" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500"}`} disabled={!pairingCode} onClick={() => setMethod("code")} role="tab" type="button">
-                  <Smartphone className="mr-2 inline" size={17} />Codigo
+                  <Smartphone className="mr-2 inline" size={17} />Código
                 </button>
                 <button aria-selected={method === "qr"} className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${method === "qr" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500"}`} disabled={!qrBase64} onClick={() => setMethod("qr")} role="tab" type="button">
                   <QrCode className="mr-2 inline" size={17} />QR Code
@@ -693,16 +693,16 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
 
               {method === "code" && pairingCode ? (
                 <div className="mt-5 rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-slate-900">Digite este codigo no WhatsApp</p>
+                  <p className="text-sm font-semibold text-slate-900">Digite este código no WhatsApp</p>
                   <p className="mt-3 break-all font-display text-3xl font-bold text-emerald-700 tabular">{formatPairingCode(pairingCode)}</p>
                   <button className="app-button-secondary mt-4" onClick={() => void copyCode()} type="button">
                     {copied ? <Check size={17} /> : <Copy size={17} />}
                     {copied ? "Codigo copiado" : "Copiar codigo"}
                   </button>
                   <div className="mt-6 space-y-3 border-t border-slate-100 pt-5">
-                    <Instruction number={1} title="Abra o WhatsApp">Toque nos tres pontos ou em Configuracoes.</Instruction>
+                    <Instruction number={1} title="Abra o WhatsApp">Toque nos três pontos ou em Configurações.</Instruction>
                     <Instruction number={2} title="Entre em Aparelhos conectados">Depois toque em Conectar um aparelho.</Instruction>
-                    <Instruction number={3} title="Escolha Conectar com numero de telefone">Digite o codigo mostrado acima.</Instruction>
+                    <Instruction number={3} title="Escolha Conectar com número de telefone">Digite o código mostrado acima.</Instruction>
                   </div>
                 </div>
               ) : null}
@@ -717,11 +717,11 @@ function WhatsappStep({ connected, loadingStatus, onBack, onContinue, onStatus, 
                 </div>
               ) : null}
 
-              {!pairingCode && qrBase64 ? <p className="mt-3 text-xs leading-5 text-amber-700">A Evolution nao devolveu um codigo desta vez. Use o QR Code ou gere uma nova conexao.</p> : null}
+              {!pairingCode && qrBase64 ? <p className="mt-3 text-xs leading-5 text-amber-700">A Evolution não devolveu um código desta vez. Use o QR Code ou gere uma nova conexão.</p> : null}
 
               <button className="app-button-secondary mt-4" disabled={preparing} onClick={() => void prepareWhatsapp()} type="button">
                 <RefreshCw className={preparing ? "animate-spin" : ""} size={17} />
-                Gerar novo codigo
+                Gerar novo código
               </button>
             </div>
           )}
@@ -767,13 +767,13 @@ function SetupStep({ availabilityConfigured, availabilityCount, loading, onBack,
   const setupReady = servicesConfigured && availabilityConfigured;
 
   return (
-    <StepCard icon={<Settings2 size={22} />} step="Etapa 4 de 5" subtitle="Criamos um modelo inicial para voce comecar sem complicacao." title="Revise servicos e horarios">
+    <StepCard icon={<Settings2 size={22} />} step="Etapa 4 de 5" subtitle="Criamos um modelo inicial para você comecar sem complicacao." title="Revise serviços e horários">
       <div className="grid gap-4 sm:grid-cols-2">
-        <SetupItem count={servicesCount} done={servicesConfigured} href="/servicos" icon={<Wrench size={20} />} label="Servicos cadastrados" text="Defina nome, duracao e preco de cada atendimento." />
+        <SetupItem count={servicesCount} done={servicesConfigured} href="/servicos" icon={<Wrench size={20} />} label="Serviços cadastrados" text="Defina nome, duracao e preco de cada atendimento." />
         <SetupItem count={availabilityCount} done={availabilityConfigured} href="/agenda" icon={<Clock3 size={20} />} label="Dias configurados" text="Escolha os dias e horarios em que deseja atender." />
       </div>
       <div className="mt-5 rounded-3xl bg-violet-50 p-4 text-sm leading-6 text-slate-600">
-        Voce pode concluir agora usando o modelo inicial e alterar servicos ou horarios depois pelo painel.
+        Você pode concluir agora usando o modelo inicial e alterar serviços ou horários depois pelo painel.
       </div>
       <StepActions
         continueDisabled={!setupReady}
@@ -789,7 +789,7 @@ function SetupStep({ availabilityConfigured, availabilityCount, loading, onBack,
 
 function CompleteStep({ name, ready, whatsappSkipped }: { name: string; ready: boolean; whatsappSkipped: boolean }) {
   return (
-    <StepCard icon={<Rocket size={22} />} step="Etapa 5 de 5" subtitle="A partir de agora voce controla tudo pelo seu painel." title={`Tudo pronto, ${firstName(name)}!`}>
+    <StepCard icon={<Rocket size={22} />} step="Etapa 5 de 5" subtitle="A partir de agora você controla tudo pelo seu painel." title={`Tudo pronto, ${firstName(name)}!`}>
       {ready ? (
         <>
           <div className="rounded-3xl bg-emerald-50 p-6 text-center">
@@ -809,7 +809,7 @@ function CompleteStep({ name, ready, whatsappSkipped }: { name: string; ready: b
       ) : (
         <div className="rounded-3xl bg-amber-50 p-5 text-amber-900">
           <p className="font-semibold">Ainda existe uma etapa pendente</p>
-          <p className="mt-1 text-sm leading-6">Volte ao item indicado na barra de progresso e conclua a conexao.</p>
+          <p className="mt-1 text-sm leading-6">Volte ao item indicado na barra de progresso e conclua a conexão.</p>
         </div>
       )}
     </StepCard>
@@ -940,7 +940,7 @@ function ConflictNotice({ conflict }: { conflict: OnboardingConflict }) {
   return (
     <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-semibold">{gmailConflict ? "Este Gmail ja possui uma conta" : "Este WhatsApp ja esta cadastrado"}</p>
-      <p className="mt-1 leading-6">{gmailConflict ? "Entre com sua senha para continuar a configuracao." : <>O numero pertence ao cadastro <strong>{conflict.gmail || "existente"}</strong>.</>}</p>
+      <p className="mt-1 leading-6">{gmailConflict ? "Entre com sua senha para continuar a configuracao." : <>O número pertence ao cadastro <strong>{conflict.gmail || "existente"}</strong>.</>}</p>
       <Link className="app-button-secondary mt-4" href={`/login?email=${encodeURIComponent(conflict.gmail || "")}`}>Entrar na conta</Link>
     </div>
   );
@@ -954,7 +954,7 @@ function Brand() {
   return (
     <Link className="flex min-h-11 items-center gap-3" href="/">
       <span className="grid size-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200"><NotebookTabs size={21} /></span>
-      <span><span className="block font-display text-base font-bold text-slate-950">SmartAgenda</span><span className="block text-xs text-slate-400">Configuracao guiada</span></span>
+      <span><span className="block font-display text-base font-bold text-slate-950">SmartAgenda</span><span className="block text-xs text-slate-400">Configuração guiada</span></span>
     </Link>
   );
 }
@@ -973,7 +973,7 @@ function GoogleMark() {
 function OnboardingLoading() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
-      <div className="text-center"><Loader2 className="mx-auto animate-spin text-violet-600" size={28} /><p className="mt-4 text-sm font-medium text-slate-500">Verificando sua configuracao...</p></div>
+      <div className="text-center"><Loader2 className="mx-auto animate-spin text-violet-600" size={28} /><p className="mt-4 text-sm font-medium text-slate-500">Verificando sua configuração...</p></div>
     </main>
   );
 }

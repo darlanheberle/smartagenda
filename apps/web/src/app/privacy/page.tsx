@@ -52,7 +52,7 @@ export default function PrivacyPage() {
           pessoais para operar o agendamento por WhatsApp integrado ao Google Calendar.
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Ultima atualizacao: 20/06/2026.
+          Última atualizacao: 20/06/2026.
         </p>
 
         <div className="mt-8 space-y-7">
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
         <section className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-4">
           <h2 className="font-semibold">Contato</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Para duvidas, solicitacoes de privacidade ou remocao de dados, entre em contato pelo
+            Para dúvidas, solicitacoes de privacidade ou remocao de dados, entre em contato pelo
             email de suporte configurado pelo responsavel do SmartAgenda.
           </p>
         </section>

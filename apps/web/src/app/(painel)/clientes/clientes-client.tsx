@@ -60,7 +60,7 @@ export function ClientesClient({ clients }: { clients: Client[] }) {
             <ChevronRight size={20} />
           </IconBox>
           <p className="mt-4 font-display text-2xl font-bold tabular">{recentClients(clients)}</p>
-          <p className="text-sm text-slate-500">novos no mes</p>
+          <p className="text-sm text-slate-500">novos no mês</p>
         </Card>
       </section>
 

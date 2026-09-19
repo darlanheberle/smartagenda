@@ -106,11 +106,11 @@ type WhatsappConnectionResult = {
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
 const weekdays = [
   { value: 1, label: "Segunda" },
-  { value: 2, label: "Terca" },
+  { value: 2, label: "Terça" },
   { value: 3, label: "Quarta" },
   { value: 4, label: "Quinta" },
   { value: 5, label: "Sexta" },
-  { value: 6, label: "Sabado" },
+  { value: 6, label: "Sábado" },
   { value: 0, label: "Domingo" }
 ];
 
@@ -231,11 +231,11 @@ function AdminSettings() {
       };
 
       if (!payload.name) {
-        throw new Error("Informe o nome do servico.");
+        throw new Error("Informe o nome do serviço.");
       }
 
       if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes <= 0) {
-        throw new Error("Informe uma duracao valida.");
+        throw new Error("Informe uma duração válida.");
       }
 
       const response = await fetch(
@@ -408,9 +408,9 @@ function AdminSettings() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="eyebrow">Preferencias do atendimento</p>
-              <h1 className="mt-1 text-2xl font-semibold text-[var(--ink)]">Configuracoes da agenda</h1>
+              <h1 className="mt-1 text-2xl font-semibold text-[var(--ink)]">Configurações da agenda</h1>
               <p className="mt-1 text-sm text-[var(--ink-secondary)]">
-                Servicos, precos e horarios usados pela IA durante o agendamento.
+                Serviços, preços e horários usados pela IA durante o agendamento.
               </p>
             </div>
           </div>
@@ -437,7 +437,7 @@ function AdminSettings() {
             label="Profissional"
             value={status?.professional?.name || professionalId}
           />
-          <Metric icon={<CheckCircle2 size={18} />} label="Servicos ativos" value={`${activeServices.length}`} />
+          <Metric icon={<CheckCircle2 size={18} />} label="Serviços ativos" value={`${activeServices.length}`} />
           <Metric icon={<Clock3 size={18} />} label="Dias ativos" value={`${activeRules.length}`} />
           <Metric
             icon={<BadgeDollarSign size={18} />}
@@ -460,7 +460,7 @@ function AdminSettings() {
 
         <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
-            <Panel title="Novo servico" subtitle="Nome, duracao, preco e disponibilidade para agendamento.">
+            <Panel title="Novo serviço" subtitle="Nome, duração, preço e disponibilidade para agendamento.">
               <div className="space-y-4">
                 <Field label="Categoria opcional" htmlFor="service-category">
                   <input
@@ -471,7 +471,7 @@ function AdminSettings() {
                     value={serviceForm.category}
                   />
                 </Field>
-                <Field label="Nome do servico" htmlFor="service-name">
+                <Field label="Nome do serviço" htmlFor="service-name">
                   <input
                     className="input"
                     id="service-name"
@@ -481,7 +481,7 @@ function AdminSettings() {
                   />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Duracao" htmlFor="service-duration">
+                  <Field label="Duração" htmlFor="service-duration">
                     <input
                       className="input"
                       id="service-duration"
@@ -492,7 +492,7 @@ function AdminSettings() {
                       value={serviceForm.durationMinutes}
                     />
                   </Field>
-                  <Field label="Preco" htmlFor="service-price">
+                  <Field label="Preço" htmlFor="service-price">
                     <input
                       className="input"
                       id="service-price"
@@ -538,12 +538,12 @@ function AdminSettings() {
               </div>
             </Panel>
 
-            <Panel title="Status da conta" subtitle="Conexoes que liberam o atendimento automatico.">
+            <Panel title="Status da conta" subtitle="Conexoes que liberam o atendimento automático.">
               <div className="space-y-3 text-sm">
                 <StatusRow label="Google Agenda" done={Boolean(status?.googleConnected)} />
                 <StatusRow label="WhatsApp Evolution" done={Boolean(status?.whatsappConnected)} />
-                <StatusRow label="Servicos configurados" done={Boolean(status?.servicesConfigured)} />
-                <StatusRow label="Horarios configurados" done={Boolean(status?.availabilityConfigured)} />
+                <StatusRow label="Serviços configurados" done={Boolean(status?.servicesConfigured)} />
+                <StatusRow label="Horários configurados" done={Boolean(status?.availabilityConfigured)} />
               </div>
               <button
                 className="btn-secondary mt-4 w-full"
@@ -558,15 +558,15 @@ function AdminSettings() {
             </Panel>
           </div>
 
-          <Panel title="Servicos cadastrados" subtitle="A IA oferece essas opcoes durante a conversa no WhatsApp.">
+          <Panel title="Serviços cadastrados" subtitle="A IA oferece essas opções durante a conversa no WhatsApp.">
             <div className="max-w-full overflow-x-auto">
               <table className="w-full min-w-[640px] border-separate border-spacing-y-1 text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-[var(--ink-muted)]">
                   <tr>
                     <th className="px-3 py-2 font-medium">Categoria</th>
-                    <th className="px-3 py-2 font-medium">Servico</th>
-                    <th className="px-3 py-2 font-medium">Duracao</th>
-                    <th className="px-3 py-2 font-medium">Preco</th>
+                    <th className="px-3 py-2 font-medium">Serviço</th>
+                    <th className="px-3 py-2 font-medium">Duração</th>
+                    <th className="px-3 py-2 font-medium">Preço</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Acoes</th>
                   </tr>
@@ -575,13 +575,13 @@ function AdminSettings() {
                   {loading ? (
                     <tr>
                       <td className="px-3 py-8 text-center text-[var(--ink-muted)]" colSpan={6}>
-                        Carregando servicos...
+                        Carregando serviços...
                       </td>
                     </tr>
                   ) : services.length === 0 ? (
                     <tr>
                       <td className="px-3 py-8 text-center text-[var(--ink-muted)]" colSpan={6}>
-                        Nenhum servico cadastrado ainda.
+                        Nenhum serviço cadastrado ainda.
                       </td>
                     </tr>
                   ) : (
@@ -638,7 +638,7 @@ function AdminSettings() {
           </Panel>
         </section>
 
-        <Panel title="Horarios de atendimento" subtitle="Escolha um dia, ajuste a regra e salve. Use Todos para repetir a configuracao.">
+        <Panel title="Horários de atendimento" subtitle="Escolha um dia, ajuste a regra e salve. Use Todos para repetir a configuração.">
           <div className="rounded-xl bg-[var(--surface-subtle)] p-4">
             <div className="grid gap-3 md:grid-cols-[minmax(220px,320px)_auto] md:items-end md:justify-between">
               <Field label="Dia da semana" htmlFor="availability-day">
@@ -728,14 +728,14 @@ function AdminSettings() {
                   }
                   value={selectedAvailability.slotIntervalMinutes}
                 >
-                  <option value="auto">Automatico</option>
+                  <option value="auto">Automático</option>
                   <option value="15">15 min</option>
                   <option value="30">30 min</option>
                   <option value="45">45 min</option>
                   <option value="60">60 min</option>
                 </select>
               </CompactField>
-              <CompactField label="Pausa apos atendimento">
+              <CompactField label="Pausa após atendimento">
                 <input
                   className="input"
                   inputMode="numeric"
@@ -761,7 +761,7 @@ function AdminSettings() {
 
             <div className="mt-4 flex flex-col gap-3 border-t border-black/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-[var(--ink-muted)]">
-                Automatico usa a duracao do servico escolhido no WhatsApp mais a pausa apos o atendimento.
+                Automático usa a duração do serviço escolhido no WhatsApp mais a pausa após o atendimento.
               </p>
               <button
                 className="btn-primary justify-center"
@@ -891,7 +891,7 @@ function WhatsappQr({ result }: { result: WhatsappConnectionResult }) {
   if (!qrBase64 && !pairingCode) {
     return (
       <p className="mt-3 rounded-xl bg-[var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[var(--warning)]">
-        A Evolution ainda nao devolveu um QR. Aguarde alguns segundos e tente novamente.
+        A Evolution ainda não devolveu um QR. Aguarde alguns segundos e tente novamente.
       </p>
     );
   }
@@ -907,12 +907,12 @@ function WhatsappQr({ result }: { result: WhatsappConnectionResult }) {
       ) : null}
       {pairingCode ? (
         <div className="mt-3">
-          <p className="eyebrow">Codigo de pareamento</p>
+          <p className="eyebrow">Código de pareamento</p>
           <p className="mt-1 text-xl font-semibold tabular text-[var(--ink)]">{pairingCode}</p>
         </div>
       ) : null}
       <p className="mx-auto mt-3 max-w-xs text-xs leading-5 text-[var(--ink-muted)]">
-        No WhatsApp, abra Aparelhos conectados e leia este codigo.
+        No WhatsApp, abra Aparelhos conectados e leia este código.
       </p>
     </div>
   );

@@ -12,7 +12,7 @@ export default function OnboardingPage() {
 function OnboardingFallback() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
-      <p className="text-sm font-medium text-slate-500">Preparando sua configuracao...</p>
+      <p className="text-sm font-medium text-slate-500">Preparando sua configuração...</p>
     </main>
   );
 }

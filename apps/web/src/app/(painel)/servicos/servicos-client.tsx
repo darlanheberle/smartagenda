@@ -91,7 +91,7 @@ export function ServicosClient({
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      setMessage("Comissao padrao salva.");
+      setMessage("Comissão padrão salva.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel salvar a comissao.");
     } finally {
@@ -164,11 +164,11 @@ export function ServicosClient({
       };
 
       if (!payload.name) {
-        throw new Error("Informe o nome do servico.");
+        throw new Error("Informe o nome do serviço.");
       }
 
       if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes <= 0) {
-        throw new Error("Informe uma duracao valida.");
+        throw new Error("Informe uma duração válida.");
       }
 
       if (
@@ -177,7 +177,7 @@ export function ServicosClient({
           payload.commissionPercent < 0 ||
           payload.commissionPercent > 100)
       ) {
-        throw new Error("A comissao deve estar entre 0 e 100.");
+        throw new Error("A comissão deve estar entre 0 e 100.");
       }
 
       const response = await fetch(
@@ -252,9 +252,9 @@ export function ServicosClient({
     <div className="space-y-6">
       <header>
         <p className="text-sm font-semibold text-violet-700">Catalogo de atendimento</p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Servicos</h1>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Serviços</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Defina o que a IA pode oferecer no WhatsApp, com duracao e preco por servico.
+          Defina o que a IA pode oferecer no WhatsApp, com duração e preço por serviço.
         </p>
       </header>
 
@@ -269,7 +269,7 @@ export function ServicosClient({
             </div>
             <p className="mt-2 text-sm text-slate-500">
               Ative para cadastrar profissionais e fazer o robo do WhatsApp perguntar com quem o
-              cliente quer agendar antes de escolher o servico.
+              cliente quer agendar antes de escolher o serviço.
             </p>
           </div>
           <button
@@ -290,7 +290,7 @@ export function ServicosClient({
 
       {teamMode ? (
         <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-          <TabButton active={tab === "servicos"} label="Servicos" onClick={() => setTab("servicos")} />
+          <TabButton active={tab === "servicos"} label="Serviços" onClick={() => setTab("servicos")} />
           <TabButton active={tab === "equipe"} label="Equipe" onClick={() => setTab("equipe")} />
         </div>
       ) : null}
@@ -317,7 +317,7 @@ export function ServicosClient({
                 <Tag size={20} />
               </IconBox>
               <p className="mt-4 font-display text-2xl font-bold tabular">{services.length}</p>
-              <p className="text-sm text-slate-500">servicos cadastrados</p>
+              <p className="text-sm text-slate-500">serviços cadastrados</p>
             </Card>
             <Card className="p-4">
               <IconBox tone="emerald">
@@ -330,8 +330,8 @@ export function ServicosClient({
 
           <Card className="p-5">
             <SectionTitle
-              subtitle="Parte (%) que fica com o profissional. Vale para todos os servicos, exceto os que tiverem % proprio."
-              title="Comissao do profissional (padrao)"
+              subtitle="Parte (%) que fica com o profissional. Vale para todos os serviços, exceto os que tiverem % próprio."
+              title="Comissão do profissional (padrão)"
             />
             <div className="mt-4 flex items-end gap-3">
               <label className="block flex-1 text-sm font-semibold text-slate-700">
@@ -365,11 +365,11 @@ export function ServicosClient({
           </Card>
 
           <Card className="p-5">
-            <SectionTitle subtitle="Opcoes que aparecem no fluxo de agendamento pelo WhatsApp." title="Servicos cadastrados" />
+            <SectionTitle subtitle="Opções que aparecem no fluxo de agendamento pelo WhatsApp." title="Serviços cadastrados" />
             <div className="mt-5 space-y-3">
               {services.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-                  Nenhum servico cadastrado ainda.
+                  Nenhum serviço cadastrado ainda.
                 </div>
               ) : (
                 services.map((service) => (
@@ -423,7 +423,7 @@ export function ServicosClient({
           </Card>
 
           <Card className="p-5">
-            <SectionTitle subtitle="Nome, duracao, preco e disponibilidade para agendamento." title="Novo servico" />
+            <SectionTitle subtitle="Nome, duração, preço e disponibilidade para agendamento." title="Novo serviço" />
             <div className="mt-5 space-y-4">
               <Field label="Categoria opcional" htmlFor="service-category">
                 <input
@@ -435,7 +435,7 @@ export function ServicosClient({
                 />
               </Field>
 
-              <Field label="Nome do servico" htmlFor="service-name">
+              <Field label="Nome do serviço" htmlFor="service-name">
                 <input
                   className="app-input min-h-14 w-full"
                   id="service-name"
@@ -445,7 +445,7 @@ export function ServicosClient({
                 />
               </Field>
 
-              <Field label="Duracao" htmlFor="service-duration">
+              <Field label="Duração" htmlFor="service-duration">
                 <input
                   className="app-input min-h-14 w-full"
                   id="service-duration"
@@ -455,7 +455,7 @@ export function ServicosClient({
                 />
               </Field>
 
-              <Field label="Preco" htmlFor="service-price">
+              <Field label="Preço" htmlFor="service-price">
                 <input
                   className="app-input min-h-14 w-full"
                   id="service-price"

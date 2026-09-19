@@ -80,11 +80,11 @@ function LoginForm() {
                 Seu dia organizado antes da primeira mensagem.
               </h1>
               <p className="mt-4 max-w-md text-sm leading-6 text-white/65 text-pretty">
-                WhatsApp, horarios, clientes e financeiro no mesmo ritmo da sua Google Agenda.
+                WhatsApp, horários, clientes e financeiro no mesmo ritmo da sua Google Agenda.
               </p>
             </div>
             <div className="mt-10 max-w-sm rounded-md bg-white/[0.055] p-4 ring-1 ring-white/10">
-              <p className="text-[11px] font-semibold uppercase text-white/45">Proximo atendimento</p>
+              <p className="text-[11px] font-semibold uppercase text-white/45">Próximo atendimento</p>
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-2xl font-semibold tabular">09:00</span>
                 <span className="h-8 w-px bg-white/15" />
@@ -194,7 +194,7 @@ function LoginForm() {
             </form>
 
             <div className="mt-6 border-t border-black/10 pt-6 text-center">
-              <p className="text-sm text-[var(--ink-muted)]">Ainda nao possui cadastro?</p>
+              <p className="text-sm text-[var(--ink-muted)]">Ainda não possui cadastro?</p>
               <Link
                 className="btn-secondary mt-3 w-full"
                 href="/onboarding"
