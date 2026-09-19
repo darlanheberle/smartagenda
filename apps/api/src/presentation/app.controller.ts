@@ -76,9 +76,10 @@ export class AppController {
     );
     if (member) {
       this.auth.createSession(response, member.professional_id, member.id);
+      const company = await this.database.getProfessional(member.professional_id);
       return {
         status: "authenticated",
-        professional: this.toAccountMember(member)
+        professional: this.toAccountMember(member, company?.name)
       };
     }
 
@@ -130,10 +131,11 @@ export class AppController {
     const passwordHash = await this.auth.hashPassword(input.password);
     const updated = await this.database.setTeamMemberPassword(member.id, passwordHash);
     this.auth.createSession(response, member.professional_id, member.id);
+    const company = await this.database.getProfessional(member.professional_id);
 
     return {
       status: "activated",
-      professional: this.toAccountMember(updated || member)
+      professional: this.toAccountMember(updated || member, company?.name)
     };
   }
 
@@ -191,7 +193,8 @@ export class AppController {
       if (!member) {
         throw new BadRequestException("Profissional da sessao nao encontrado.");
       }
-      return { professional: this.toAccountMember(member) };
+      const company = await this.database.getProfessional(session.professionalId);
+      return { professional: this.toAccountMember(member, company?.name) };
     }
 
     const professional = await this.database.getProfessional(session.professionalId);
@@ -1497,6 +1500,7 @@ export class AppController {
       role: "owner" as const,
       slug: professional.slug || null,
       name: professional.name,
+      companyName: professional.name,
       specialty: professional.specialty,
       gmail: professional.gmail,
       whatsappNumber: professional.whatsapp_number,
@@ -1510,17 +1514,21 @@ export class AppController {
   // Conta de um profissional da equipe (acesso restrito). O `id` continua sendo
   // o da empresa (tenant) para chamadas por professionalId; o papel e o vinculo
   // vao em `role` e `teamMemberId`.
-  private toAccountMember(member: {
-    id: string;
-    professional_id: string;
-    name: string;
-    email?: string | null;
-  }) {
+  private toAccountMember(
+    member: {
+      id: string;
+      professional_id: string;
+      name: string;
+      email?: string | null;
+    },
+    companyName?: string
+  ) {
     return {
       id: member.professional_id,
       role: "team_member" as const,
       teamMemberId: member.id,
       name: member.name,
+      companyName: companyName || member.name,
       gmail: member.email || "",
       whatsappNumber: "",
       aiEnabled: true

@@ -30,6 +30,7 @@ export function PanelShell({
 }) {
   const pathname = usePathname();
   const themeStyle = buildThemeStyle(account.branding);
+  const companyName = account.companyName?.trim() || account.name;
 
   // Profissional da equipe: Hoje, Agenda, Clientes e Financeiro (a propria produção).
   const teamMemberHrefs = ["/home", "/agenda", "/clientes", "/financeiro"];
@@ -47,7 +48,7 @@ export function PanelShell({
           <Link className="flex min-h-11 items-center gap-3" href="/home">
             <BrandMark account={account} size="sm" />
             <span>
-              <span className="block font-display text-base font-bold text-slate-900">SmartAgenda</span>
+              <span className="block font-display text-base font-bold text-slate-900">{companyName}</span>
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -68,7 +69,7 @@ export function PanelShell({
         <Link className="flex min-h-12 items-center gap-3 rounded-3xl px-2" href="/home">
           <BrandMark account={account} />
           <span>
-            <span className="block font-display text-lg font-bold">SmartAgenda</span>
+            <span className="block font-display text-lg font-bold">{companyName}</span>
             <span className="block text-xs text-slate-500">Atendimento inteligente</span>
           </span>
         </Link>

@@ -162,8 +162,8 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
             <div className="flex items-center gap-3">
               <PreviewLogo logoUrl={form.logoUrl} primary={form.themePrimary} />
               <div>
-                <p className="font-display text-base font-bold">SmartAgenda</p>
-                <p className="text-xs opacity-65">{account.name}</p>
+                <p className="font-display text-base font-bold">{account.companyName?.trim() || account.name}</p>
+                <p className="text-xs opacity-65">Atendimento inteligente</p>
               </div>
             </div>
             <span

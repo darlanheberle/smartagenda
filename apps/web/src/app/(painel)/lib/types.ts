@@ -116,6 +116,7 @@ export type AccountProfessional = {
   teamMemberId?: string;
   slug?: string | null;
   name: string;
+  companyName?: string;
   specialty?: string;
   gmail: string;
   whatsappNumber: string;
