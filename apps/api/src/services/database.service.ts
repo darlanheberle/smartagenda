@@ -534,13 +534,13 @@ export class DatabaseService implements OnModuleInit {
   // --- Slug (apelido) por empresa: login por URL /{slug}/login ---
 
   private slugify(value: string): string {
+    // Junta tudo sem separador: "studio aguiar" -> "studioaguiar".
     const base = value
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
+      .replace(/[^a-z0-9]+/g, "")
       .slice(0, 40);
     return base || "empresa";
   }
@@ -564,20 +564,21 @@ export class DatabaseService implements OnModuleInit {
 
     const result = await this.pool.query(
       "select slug from professionals where slug = $1 or slug like $2",
-      [base, `${base}-%`]
+      [base, `${base}%`]
     );
     const taken = new Set(result.rows.map((row) => row.slug as string));
 
     if (!taken.has(base)) {
       return base;
     }
+    // Sufixo numerico sem separador: "salaodamari" -> "salaodamari2".
     for (let i = 2; i < 1000; i += 1) {
-      const candidate = `${base}-${i}`;
+      const candidate = `${base}${i}`;
       if (!taken.has(candidate)) {
         return candidate;
       }
     }
-    return `${base}-${randomUUID().slice(0, 6)}`;
+    return `${base}${randomUUID().slice(0, 6)}`;
   }
 
   async setProfessionalSlug(professionalId: string, slug: string) {
