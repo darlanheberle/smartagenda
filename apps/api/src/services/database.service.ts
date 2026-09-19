@@ -18,6 +18,7 @@ type SaveAppointmentInput = {
   valueCents?: number;
   source?: string;
   teamMemberId?: string | null;
+  commissionPercent?: number | null;
 };
 
 type UpsertClientInput = {
@@ -39,6 +40,7 @@ type ManualAppointmentInput = {
   status?: string;
   paymentStatus?: string;
   teamMemberId?: string | null;
+  commissionPercent?: number | null;
 };
 
 type UpdateAppointmentInput = Partial<ManualAppointmentInput>;
@@ -62,6 +64,7 @@ export type ServiceRecord = {
   duration_minutes: number;
   price_cents: number;
   active: boolean;
+  commission_percent: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -135,6 +138,7 @@ export type CreateServiceInput = {
   durationMinutes: number;
   priceCents?: number;
   active?: boolean;
+  commissionPercent?: number | null;
 };
 
 export type UpdateServiceInput = Partial<Omit<CreateServiceInput, "professionalId">>;
@@ -324,6 +328,20 @@ export class DatabaseService implements OnModuleInit {
     await this.pool.query(`
       alter table services
       add column if not exists category text
+    `);
+    // --- Comissao do profissional (feat/comissao-profissional) ---
+    // commission_percent = parte (%) que fica com o PROFISSIONAL.
+    await this.pool.query(`
+      alter table services
+      add column if not exists commission_percent integer
+    `);
+    await this.pool.query(`
+      alter table professionals
+      add column if not exists default_commission_percent integer not null default 50
+    `);
+    await this.pool.query(`
+      alter table appointments
+      add column if not exists commission_percent integer
     `);
     // --- Modo Equipes (feat/modo-equipes) ---
     await this.pool.query(`
@@ -592,6 +610,31 @@ export class DatabaseService implements OnModuleInit {
       const slug = await this.generateUniqueSlug(row.name);
       await this.setProfessionalSlug(row.id, slug);
     }
+  }
+
+  // --- Comissao padrao da empresa (aplicada quando o servico nao tem % proprio) ---
+
+  async getDefaultCommission(professionalId: string): Promise<number> {
+    if (!this.pool || !this.ready) {
+      return 50;
+    }
+    const result = await this.pool.query(
+      "select default_commission_percent from professionals where id = $1",
+      [professionalId]
+    );
+    const value = result.rows[0]?.default_commission_percent;
+    return typeof value === "number" ? value : 50;
+  }
+
+  async setDefaultCommission(professionalId: string, percent: number) {
+    if (!this.pool || !this.ready) {
+      return undefined;
+    }
+    const result = await this.pool.query(
+      "update professionals set default_commission_percent = $2, updated_at = now() where id = $1 returning default_commission_percent",
+      [professionalId, this.normalizePercent(percent) ?? 50]
+    );
+    return result.rows[0]?.default_commission_percent as number | undefined;
   }
 
   async findProfessionalByGoogleSubject(subject: string): Promise<ProfessionalRecord | undefined> {
@@ -973,9 +1016,10 @@ export class DatabaseService implements OnModuleInit {
           value_cents,
           source,
           team_member_id,
+          commission_percent,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
         on conflict (professional_id, google_event_id)
         do update set
           client_id = excluded.client_id,
@@ -985,6 +1029,7 @@ export class DatabaseService implements OnModuleInit {
           ends_at = excluded.ends_at,
           value_cents = excluded.value_cents,
           team_member_id = excluded.team_member_id,
+          commission_percent = excluded.commission_percent,
           updated_at = now()
         returning *
       `,
@@ -999,7 +1044,8 @@ export class DatabaseService implements OnModuleInit {
         input.endsAt,
         input.valueCents || 0,
         input.source || "whatsapp",
-        input.teamMemberId || null
+        input.teamMemberId || null,
+        this.normalizePercent(input.commissionPercent)
       ]
     );
 
@@ -1076,10 +1122,11 @@ export class DatabaseService implements OnModuleInit {
           value_cents,
           payment_status,
           team_member_id,
+          commission_percent,
           source,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'manual', now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'manual', now())
         returning id
       `,
       [
@@ -1093,7 +1140,8 @@ export class DatabaseService implements OnModuleInit {
         input.status || "scheduled",
         input.valueCents ?? 0,
         input.paymentStatus || "pending",
-        input.teamMemberId || null
+        input.teamMemberId || null,
+        this.normalizePercent(input.commissionPercent)
       ]
     );
 
@@ -1311,6 +1359,48 @@ export class DatabaseService implements OnModuleInit {
     };
   }
 
+  // Producao do dia: agendamentos (nao cancelados) com a comissao efetiva
+  // (do servico, senao o padrao da empresa). O controller agrupa por profissional.
+  async getProductionByDay(professionalId: string, dateStr: string, timezone: string) {
+    if (!this.pool || !this.ready) {
+      return [];
+    }
+
+    const result = await this.pool.query(
+      `
+        select
+          a.id,
+          a.team_member_id,
+          tm.name as team_member_name,
+          a.service_name,
+          a.starts_at,
+          a.value_cents,
+          coalesce(a.commission_percent, p.default_commission_percent, 50)::int as commission_percent,
+          c.name as client_name
+        from appointments a
+        join professionals p on p.id = a.professional_id
+        left join team_members tm on tm.id = a.team_member_id
+        left join clients c on c.id = a.client_id
+        where a.professional_id = $1
+          and a.status <> 'cancelled'
+          and (a.starts_at at time zone $3)::date = $2::date
+        order by tm.name asc nulls last, a.starts_at asc
+      `,
+      [professionalId, dateStr, timezone]
+    );
+
+    return result.rows as Array<{
+      id: string;
+      team_member_id: string | null;
+      team_member_name: string | null;
+      service_name: string;
+      starts_at: string;
+      value_cents: number;
+      commission_percent: number;
+      client_name: string | null;
+    }>;
+  }
+
   async listServices(professionalId: string, onlyActive = false): Promise<ServiceRecord[]> {
     if (!this.pool || !this.ready) {
       return [];
@@ -1362,9 +1452,10 @@ export class DatabaseService implements OnModuleInit {
           duration_minutes,
           price_cents,
           active,
+          commission_percent,
           updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, now())
         returning *
       `,
       [
@@ -1374,7 +1465,8 @@ export class DatabaseService implements OnModuleInit {
         input.name.trim(),
         input.durationMinutes,
         input.priceCents || 0,
-        input.active ?? true
+        input.active ?? true,
+        this.normalizePercent(input.commissionPercent)
       ]
     );
 
@@ -1399,6 +1491,7 @@ export class DatabaseService implements OnModuleInit {
           duration_minutes = $5,
           price_cents = $6,
           active = $7,
+          commission_percent = $8,
           updated_at = now()
         where professional_id = $1 and id = $2
         returning *
@@ -1410,7 +1503,10 @@ export class DatabaseService implements OnModuleInit {
         input.name?.trim() || current.name,
         input.durationMinutes ?? current.duration_minutes,
         input.priceCents ?? current.price_cents,
-        input.active ?? current.active
+        input.active ?? current.active,
+        input.commissionPercent === undefined
+          ? current.commission_percent
+          : this.normalizePercent(input.commissionPercent)
       ]
     );
 
@@ -2165,6 +2261,14 @@ export class DatabaseService implements OnModuleInit {
   private normalizeOptionalText(value?: string | null) {
     const normalized = value?.trim();
     return normalized ? normalized : null;
+  }
+
+  // Percentual valido 0..100 ou null (usa o padrao da empresa).
+  private normalizePercent(value?: number | null): number | null {
+    if (value === undefined || value === null || Number.isNaN(value)) {
+      return null;
+    }
+    return Math.min(100, Math.max(0, Math.round(value)));
   }
 
   private buildInstanceName(phone: string): string {

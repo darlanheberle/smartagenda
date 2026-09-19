@@ -2,6 +2,7 @@ import { ArrowDownLeft, ArrowUpRight, Clock3, Wallet } from "lucide-react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency, formatShortDate } from "../lib/format";
 import { getPanelData } from "../lib/data";
+import { ProducaoDia } from "./producao-dia";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,8 @@ export default async function FinanceiroPage() {
           </div>
         </div>
       </section>
+
+      <ProducaoDia />
 
       <Card className="p-5">
         <SectionTitle subtitle="Ultimos 7 dias" title="Entradas por dia" />

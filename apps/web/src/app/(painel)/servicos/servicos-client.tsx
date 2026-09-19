@@ -4,6 +4,7 @@ import {
   Check,
   Clock3,
   Edit3,
+  Percent,
   Plus,
   Save,
   Tag,
@@ -12,7 +13,7 @@ import {
   Trash2,
   Users
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import type { Service, TeamMember } from "../lib/types";
 import { formatCurrency } from "../lib/format";
@@ -23,6 +24,7 @@ type ServiceForm = {
   name: string;
   durationMinutes: string;
   price: string;
+  commission: string;
   active: boolean;
 };
 
@@ -48,14 +50,54 @@ export function ServicosClient({
     name: "",
     durationMinutes: "60",
     price: "0,00",
+    commission: "",
     active: true
   });
   const [editingServiceId, setEditingServiceId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [defaultCommission, setDefaultCommission] = useState("50");
+  const [commissionSaving, setCommissionSaving] = useState(false);
 
   const activeServices = useMemo(() => services.filter((service) => service.active), [services]);
+
+  useEffect(() => {
+    fetch(`${apiUrl}/profile/commission`, { cache: "no-store", credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data && typeof data.defaultPercent === "number") {
+          setDefaultCommission(String(data.defaultPercent));
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function saveDefaultCommission() {
+    setCommissionSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const percent = Number.parseInt(defaultCommission, 10);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        throw new Error("Informe uma porcentagem entre 0 e 100.");
+      }
+      const response = await fetch(`${apiUrl}/profile/commission`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ defaultPercent: percent })
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setMessage("Comissao padrao salva.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar a comissao.");
+    } finally {
+      setCommissionSaving(false);
+    }
+  }
 
   async function reloadServices() {
     const response = await fetch(`${apiUrl}/services`, {
@@ -111,12 +153,14 @@ export function ServicosClient({
     setMessage("");
 
     try {
+      const commissionText = form.commission.trim();
       const payload = {
         category: form.category.trim() || null,
         name: form.name.trim(),
         durationMinutes: Number.parseInt(form.durationMinutes, 10),
         priceCents: currencyToCents(form.price),
-        active: form.active
+        active: form.active,
+        commissionPercent: commissionText === "" ? null : Number.parseInt(commissionText, 10)
       };
 
       if (!payload.name) {
@@ -125,6 +169,15 @@ export function ServicosClient({
 
       if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes <= 0) {
         throw new Error("Informe uma duracao valida.");
+      }
+
+      if (
+        payload.commissionPercent !== null &&
+        (!Number.isFinite(payload.commissionPercent) ||
+          payload.commissionPercent < 0 ||
+          payload.commissionPercent > 100)
+      ) {
+        throw new Error("A comissao deve estar entre 0 e 100.");
       }
 
       const response = await fetch(
@@ -141,7 +194,7 @@ export function ServicosClient({
         throw new Error(await response.text());
       }
 
-      setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", active: true });
+      setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", commission: "", active: true });
       setEditingServiceId(undefined);
       setMessage(editingServiceId ? "Servico atualizado." : "Servico adicionado.");
       await reloadServices();
@@ -182,13 +235,17 @@ export function ServicosClient({
       name: service.name,
       durationMinutes: String(service.duration_minutes),
       price: centsToInput(service.price_cents),
+      commission:
+        service.commission_percent === null || service.commission_percent === undefined
+          ? ""
+          : String(service.commission_percent),
       active: service.active
     });
   }
 
   function resetForm() {
     setEditingServiceId(undefined);
-    setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", active: true });
+    setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", commission: "", active: true });
   }
 
   return (
@@ -272,6 +329,42 @@ export function ServicosClient({
           </section>
 
           <Card className="p-5">
+            <SectionTitle
+              subtitle="Parte (%) que fica com o profissional. Vale para todos os servicos, exceto os que tiverem % proprio."
+              title="Comissao do profissional (padrao)"
+            />
+            <div className="mt-4 flex items-end gap-3">
+              <label className="block flex-1 text-sm font-semibold text-slate-700">
+                % para o profissional
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+                    <Percent size={18} />
+                  </span>
+                  <input
+                    className="app-input min-h-14 w-full"
+                    inputMode="numeric"
+                    onChange={(event) => setDefaultCommission(event.target.value)}
+                    placeholder="Ex: 40"
+                    value={defaultCommission}
+                  />
+                </div>
+              </label>
+              <button
+                className="app-button-primary min-h-14 shrink-0 px-5"
+                disabled={commissionSaving}
+                onClick={() => void saveDefaultCommission()}
+                type="button"
+              >
+                <Save size={16} />
+                {commissionSaving ? "..." : "Salvar"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Ex.: 40% para o profissional significa 60% para a empresa.
+            </p>
+          </Card>
+
+          <Card className="p-5">
             <SectionTitle subtitle="Opcoes que aparecem no fluxo de agendamento pelo WhatsApp." title="Servicos cadastrados" />
             <div className="mt-5 space-y-3">
               {services.length === 0 ? (
@@ -292,6 +385,13 @@ export function ServicosClient({
                         <p className="mt-1 text-sm text-slate-500">
                           {service.category || "Sem categoria"} · {service.duration_minutes} min ·{" "}
                           {formatCurrency(service.price_cents / 100)}
+                        </p>
+                        <p className="mt-0.5 text-xs font-semibold text-violet-700">
+                          Profissional:{" "}
+                          {service.commission_percent ?? (Number.parseInt(defaultCommission, 10) || 0)}%
+                          {service.commission_percent === null || service.commission_percent === undefined
+                            ? " (padrao)"
+                            : ""}
                         </p>
                       </div>
                       <IconBox tone={service.active ? "violet" : "slate"}>
@@ -364,6 +464,17 @@ export function ServicosClient({
                   onChange={(event) => setForm({ ...form, price: event.target.value })}
                   placeholder="0,00"
                   value={form.price}
+                />
+              </Field>
+
+              <Field label="% do profissional (opcional)" htmlFor="service-commission">
+                <input
+                  className="app-input min-h-14 w-full"
+                  id="service-commission"
+                  inputMode="numeric"
+                  onChange={(event) => setForm({ ...form, commission: event.target.value })}
+                  placeholder={`Vazio usa o padrao (${defaultCommission}%)`}
+                  value={form.commission}
                 />
               </Field>
 

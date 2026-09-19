@@ -336,6 +336,9 @@ export class CalendarService {
     const serviceName = service?.name || input.serviceName;
     const valueCents =
       service?.price_cents ?? Number.parseInt(process.env.DEFAULT_APPOINTMENT_VALUE_CENTS || "0", 10);
+    // Comissao efetiva: do servico, senao o padrao da empresa.
+    const commissionPercent =
+      service?.commission_percent ?? (await this.database.getDefaultCommission(professional.id));
     const start = new Date(input.startsAt);
     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
@@ -358,7 +361,8 @@ export class CalendarService {
               endsAt: end.toISOString(),
               valueCents,
               source: "whatsapp",
-              teamMemberId: input.teamMemberId
+              teamMemberId: input.teamMemberId,
+              commissionPercent
             })
           : undefined;
 
@@ -439,7 +443,8 @@ export class CalendarService {
           endsAt: end.toISOString(),
           valueCents,
           source: "whatsapp",
-          teamMemberId: input.teamMemberId
+          teamMemberId: input.teamMemberId,
+          commissionPercent
         })
       : undefined;
 

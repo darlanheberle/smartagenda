@@ -64,6 +64,7 @@ export type Service = {
   duration_minutes: number;
   price_cents: number;
   active: boolean;
+  commission_percent?: number | null;
 };
 
 export type ProfessionalBranding = {

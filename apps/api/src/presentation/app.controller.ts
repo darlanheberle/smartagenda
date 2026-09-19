@@ -812,6 +812,7 @@ export class AppController {
       durationMinutes: number;
       priceCents?: number;
       active?: boolean;
+      commissionPercent?: number | null;
     }
   ) {
     const professionalId = this.auth.requireOwner(request);
@@ -822,7 +823,8 @@ export class AppController {
       name: input.name,
       durationMinutes: input.durationMinutes,
       priceCents: input.priceCents,
-      active: input.active
+      active: input.active,
+      commissionPercent: input.commissionPercent
     });
   }
 
@@ -838,6 +840,7 @@ export class AppController {
       durationMinutes?: number;
       priceCents?: number;
       active?: boolean;
+      commissionPercent?: number | null;
     }
   ) {
     const professionalId = this.auth.requireOwner(request);
@@ -856,6 +859,105 @@ export class AppController {
   ) {
     const professionalId = this.auth.requireOwner(request);
     return this.database.deleteService(professionalId, id);
+  }
+
+  // ------------------------------------------------------------------
+  // Comissao do profissional (feat/comissao-profissional)
+  // ------------------------------------------------------------------
+
+  @Get("profile/commission")
+  async getCommission(@Req() request: Request) {
+    const professionalId = this.auth.requireOwner(request);
+    return { defaultPercent: await this.database.getDefaultCommission(professionalId) };
+  }
+
+  @Patch("profile/commission")
+  async updateCommission(@Req() request: Request, @Body() input: { defaultPercent?: number }) {
+    const professionalId = this.auth.requireOwner(request);
+    if (
+      typeof input.defaultPercent !== "number" ||
+      input.defaultPercent < 0 ||
+      input.defaultPercent > 100
+    ) {
+      throw new BadRequestException("defaultPercent deve estar entre 0 e 100.");
+    }
+    const saved = await this.database.setDefaultCommission(professionalId, input.defaultPercent);
+    return { defaultPercent: saved ?? input.defaultPercent };
+  }
+
+  // Producao do dia por profissional: quantidade, total, parte do profissional e da empresa.
+  @Get("reports/production")
+  async productionReport(@Req() request: Request, @Query("date") date?: string) {
+    const professionalId = this.auth.requireOwner(request);
+    const professional = this.professionals.getById(professionalId);
+    const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : new Intl.DateTimeFormat("en-CA", { timeZone: professional.timezone }).format(new Date());
+
+    const rows = await this.database.getProductionByDay(professionalId, day, professional.timezone);
+
+    type Group = {
+      teamMemberId: string | null;
+      teamMemberName: string;
+      count: number;
+      totalCents: number;
+      professionalCents: number;
+      companyCents: number;
+      items: Array<{
+        serviceName: string;
+        clientName: string | null;
+        startsAt: string;
+        valueCents: number;
+        commissionPercent: number;
+        professionalCents: number;
+      }>;
+    };
+
+    const groups = new Map<string, Group>();
+    for (const row of rows) {
+      const key = row.team_member_id || "__none__";
+      const professionalCents = Math.round((row.value_cents * row.commission_percent) / 100);
+      let group = groups.get(key);
+      if (!group) {
+        group = {
+          teamMemberId: row.team_member_id,
+          teamMemberName: row.team_member_name || "Sem profissional",
+          count: 0,
+          totalCents: 0,
+          professionalCents: 0,
+          companyCents: 0,
+          items: []
+        };
+        groups.set(key, group);
+      }
+      group.count += 1;
+      group.totalCents += row.value_cents;
+      group.professionalCents += professionalCents;
+      group.companyCents += row.value_cents - professionalCents;
+      group.items.push({
+        serviceName: row.service_name,
+        clientName: row.client_name,
+        startsAt: row.starts_at,
+        valueCents: row.value_cents,
+        commissionPercent: row.commission_percent,
+        professionalCents
+      });
+    }
+
+    const professionals = Array.from(groups.values()).sort((a, b) =>
+      a.teamMemberName.localeCompare(b.teamMemberName)
+    );
+
+    return {
+      date: day,
+      totals: {
+        count: professionals.reduce((sum, g) => sum + g.count, 0),
+        totalCents: professionals.reduce((sum, g) => sum + g.totalCents, 0),
+        professionalCents: professionals.reduce((sum, g) => sum + g.professionalCents, 0),
+        companyCents: professionals.reduce((sum, g) => sum + g.companyCents, 0)
+      },
+      professionals
+    };
   }
 
   // ------------------------------------------------------------------
@@ -1318,6 +1420,9 @@ export class AppController {
     }
 
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+    // Snapshot da comissao: do servico, senao o padrao da empresa.
+    const commissionPercent =
+      service?.commission_percent ?? (await this.database.getDefaultCommission(professionalId));
 
     return {
       professionalId,
@@ -1328,7 +1433,8 @@ export class AppController {
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       valueCents: service?.price_cents ?? input.valueCents ?? 0,
-      teamMemberId: input.teamMemberId ?? null
+      teamMemberId: input.teamMemberId ?? null,
+      commissionPercent
     };
   }
 
