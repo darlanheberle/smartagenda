@@ -1,43 +1,60 @@
 import { CalendarCheck } from "lucide-react";
 
+const CONTACT_EMAIL = "contato@agendasmart.com.br";
+
 const sections = [
   {
     title: "Dados que coletamos",
     items: [
-      "Dados do profissional, como nome, especialidade, telefone WhatsApp, email Gmail e configuracoes de agenda.",
-      "Dados de clientes informados durante o atendimento, como nome, telefone, email, observacoes e historico de agendamentos.",
-      "Dados tecnicos de integracao, como identificadores de eventos do Google Calendar, status de conexao e logs operacionais."
+      "Dados do profissional, como nome, especialidade, telefone WhatsApp, e-mail Gmail e configurações de agenda.",
+      "Dados de clientes informados durante o atendimento, como nome, telefone, e-mail, observações e histórico de agendamentos.",
+      "Dados técnicos de integração, como identificadores de eventos do Google Calendar, status de conexão e logs operacionais."
     ]
   },
   {
     title: "Uso do Google Calendar",
     items: [
       "O SmartAgenda solicita acesso ao Google Calendar para consultar disponibilidade e criar, alterar ou cancelar eventos conforme comandos do profissional ou de seus clientes.",
-      "Os tokens OAuth sao armazenados para manter a integracao ativa e podem ser revogados pelo usuario a qualquer momento na conta Google.",
-      "O SmartAgenda nao vende dados do Google Calendar e nao usa esses dados para publicidade."
+      "Os escopos solicitados limitam-se a eventos de agenda (calendar.events) e à consulta de horários livres/ocupados (calendar.freebusy). Não acessamos outros dados da sua Conta Google.",
+      "Os tokens OAuth são armazenados de forma protegida apenas para manter a integração ativa e podem ser revogados pelo usuário a qualquer momento na Conta Google.",
+      "O SmartAgenda não vende dados do Google Calendar e não os utiliza para publicidade ou para treinar modelos de inteligência artificial."
+    ]
+  },
+  {
+    title: "Uso limitado dos dados do Google (Limited Use)",
+    items: [
+      "O uso e a transferência, pelo SmartAgenda, de informações recebidas das APIs do Google obedecem à Política de Dados do Usuário dos Serviços de API do Google, incluindo os requisitos de Uso Limitado (Limited Use).",
+      "Os dados obtidos das APIs do Google são usados exclusivamente para prestar e melhorar as funcionalidades de agendamento visíveis ao usuário, e não são transferidos a terceiros, exceto quando necessário para operar o serviço, por exigência legal ou com o consentimento do usuário."
     ]
   },
   {
     title: "Uso do WhatsApp",
     items: [
-      "Mensagens recebidas via WhatsApp podem ser processadas para identificar clientes, entender pedidos de agendamento e enviar confirmacoes.",
-      "A conexao do WhatsApp depende da Evolution API configurada para cada instancia profissional.",
-      "O profissional e responsavel por informar seus clientes sobre o uso do atendimento automatizado quando aplicavel."
+      "Mensagens recebidas via WhatsApp podem ser processadas para identificar clientes, entender pedidos de agendamento e enviar confirmações.",
+      "A conexão do WhatsApp depende da Evolution API configurada para cada instância profissional.",
+      "O profissional é responsável por informar seus clientes sobre o uso do atendimento automatizado quando aplicável."
     ]
   },
   {
     title: "Compartilhamento",
     items: [
-      "Dados podem ser compartilhados apenas com provedores necessarios para operar o servico, como Google Calendar, Evolution API, infraestrutura de hospedagem e banco de dados.",
-      "Nao comercializamos informacoes pessoais de profissionais ou clientes."
+      "Dados podem ser compartilhados apenas com provedores necessários para operar o serviço, como Google Calendar, Evolution API, infraestrutura de hospedagem e banco de dados.",
+      "Não comercializamos informações pessoais de profissionais ou clientes."
     ]
   },
   {
-    title: "Seguranca e retencao",
+    title: "Segurança e retenção",
     items: [
-      "Aplicamos controles tecnicos razoaveis para proteger credenciais, tokens e dados operacionais.",
-      "Os dados sao mantidos enquanto a conta estiver ativa ou enquanto forem necessarios para cumprir obrigacoes legais e operacionais.",
-      "Solicitacoes de exclusao ou correcao podem ser enviadas pelo canal de suporte informado nesta pagina."
+      "Aplicamos controles técnicos razoáveis para proteger credenciais, tokens e dados operacionais.",
+      "Os dados são mantidos enquanto a conta estiver ativa ou enquanto forem necessários para cumprir obrigações legais e operacionais.",
+      "Solicitações de exclusão ou correção podem ser enviadas pelo e-mail de contato informado nesta página."
+    ]
+  },
+  {
+    title: "Exclusão de dados",
+    items: [
+      "Você pode revogar o acesso do SmartAgenda à sua Conta Google a qualquer momento em myaccount.google.com/permissions.",
+      `Para solicitar a exclusão dos seus dados armazenados no SmartAgenda, envie um pedido para ${CONTACT_EMAIL}. As informações associadas à conta são removidas em até 30 dias, salvo registros que precisem ser mantidos por obrigação legal.`
     ]
   }
 ];
@@ -46,14 +63,12 @@ export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-ink md:px-8">
       <article className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 md:p-8">
-        <Header title="Politica de Privacidade" />
+        <Header title="Política de Privacidade" />
         <p className="mt-6 text-sm leading-6 text-slate-600">
-          Esta Politica de Privacidade descreve como o SmartAgenda coleta, usa e protege dados
+          Esta Política de Privacidade descreve como o SmartAgenda coleta, usa e protege dados
           pessoais para operar o agendamento por WhatsApp integrado ao Google Calendar.
         </p>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          Última atualizacao: 20/06/2026.
-        </p>
+        <p className="mt-3 text-sm leading-6 text-slate-600">Última atualização: 19/09/2026.</p>
 
         <div className="mt-8 space-y-7">
           {sections.map((section) => (
@@ -73,8 +88,12 @@ export default function PrivacyPage() {
         <section className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-4">
           <h2 className="font-semibold">Contato</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Para dúvidas, solicitacoes de privacidade ou remocao de dados, entre em contato pelo
-            email de suporte configurado pelo responsavel do SmartAgenda.
+            Para dúvidas, solicitações de privacidade ou remoção de dados, entre em contato pelo
+            e-mail{" "}
+            <a className="font-medium text-brand-600 underline" href={`mailto:${CONTACT_EMAIL}`}>
+              {CONTACT_EMAIL}
+            </a>
+            .
           </p>
         </section>
       </article>
