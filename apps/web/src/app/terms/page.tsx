@@ -6,7 +6,7 @@ const sections = [
   {
     title: "Uso da plataforma",
     items: [
-      "O SmartAgenda centraliza atendimentos recebidos por WhatsApp, consulta disponibilidade no Google Calendar e cria agendamentos quando autorizado.",
+      "O AgendaSmart centraliza atendimentos recebidos por WhatsApp, consulta disponibilidade no Google Calendar e cria agendamentos quando autorizado.",
       "O profissional é responsável por manter seus dados, serviços, horários e integrações corretos.",
       "O uso da plataforma deve respeitar leis aplicáveis, políticas do WhatsApp, políticas do Google e direitos dos clientes atendidos."
     ]
@@ -16,7 +16,7 @@ const sections = [
     items: [
       "Cada profissional deve conectar uma conta Google própria para uso do Google Calendar.",
       "Cada número de WhatsApp deve ser conectado por QR Code ou outro método autorizado pela Evolution API.",
-      "A indisponibilidade de Google, WhatsApp, Evolution API ou infraestrutura externa pode afetar o funcionamento do SmartAgenda."
+      "A indisponibilidade de Google, WhatsApp, Evolution API ou infraestrutura externa pode afetar o funcionamento do AgendaSmart."
     ]
   },
   {
@@ -30,7 +30,7 @@ const sections = [
   {
     title: "Limitações",
     items: [
-      "O SmartAgenda busca automatizar agendamentos, mas não substitui revisão humana em casos sensíveis ou urgentes.",
+      "O AgendaSmart busca automatizar agendamentos, mas não substitui revisão humana em casos sensíveis ou urgentes.",
       "Podem ocorrer falhas temporárias por indisponibilidade de APIs externas, erros de conexão, configurações incorretas ou limites de uso.",
       "Novas funcionalidades podem ser alteradas, pausadas ou removidas durante a evolução do produto."
     ]
@@ -51,7 +51,7 @@ export default function TermsPage() {
       <article className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 md:p-8">
         <Header title="Termos de Uso" />
         <p className="mt-6 text-sm leading-6 text-slate-600">
-          Estes Termos de Uso definem as condições gerais para uso do SmartAgenda, uma plataforma
+          Estes Termos de Uso definem as condições gerais para uso do AgendaSmart, uma plataforma
           para organizar agendamentos via WhatsApp com integração ao Google Calendar.
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-600">Última atualização: 19/09/2026.</p>
@@ -94,7 +94,7 @@ function Header({ title }: { title: string }) {
           <CalendarCheck size={21} />
         </span>
         <span>
-          <span className="block text-lg font-semibold">SmartAgenda</span>
+          <span className="block text-lg font-semibold">AgendaSmart</span>
           <span className="block text-xs text-slate-500">WhatsApp + Google Calendar</span>
         </span>
       </a>

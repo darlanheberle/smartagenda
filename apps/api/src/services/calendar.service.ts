@@ -403,7 +403,7 @@ export class CalendarService {
           summary: `${serviceName} - ${input.clientName}`,
           description: input.clientPhone
             ? `Agendamento recebido via WhatsApp: ${input.clientPhone}`
-            : "Agendamento recebido via SmartAgenda",
+            : "Agendamento recebido via AgendaSmart",
           start: { dateTime: input.startsAt, timeZone: professional.timezone },
           end: { dateTime: end.toISOString(), timeZone: professional.timezone },
           reminders: {

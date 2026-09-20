@@ -2215,7 +2215,7 @@ export class DatabaseService implements OnModuleInit {
     const professionalId = process.env.DEMO_PROFESSIONAL_ID || "demo-professional";
     await this.upsertProfessional({
       id: professionalId,
-      name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao SmartAgenda",
+      name: process.env.DEMO_PROFESSIONAL_NAME || "Demonstracao AgendaSmart",
       specialty: process.env.DEMO_PROFESSIONAL_SPECIALTY || "Clinica modelo",
       whatsappNumber: process.env.DEMO_PROFESSIONAL_WHATSAPP || "+554896807805",
       evolutionInstanceName: process.env.EVOLUTION_INSTANCE_NAME || "smartagenda-demo",

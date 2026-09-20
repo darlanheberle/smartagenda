@@ -102,7 +102,7 @@ const steps: Array<{
     id: "google",
     title: "Conecte o Google Agenda",
     shortTitle: "Agenda",
-    description: "O SmartAgenda consulta e cria horarios na sua agenda.",
+    description: "O AgendaSmart consulta e cria horarios na sua agenda.",
     icon: CalendarDays
   },
   {
@@ -520,7 +520,7 @@ function GoogleStep({ connected, gmail, googleUrl, loading, onBack, onContinue, 
           <div className="space-y-3">
             <Instruction number={1} title="Toque em Conectar Google Agenda">Uma página segura do Google será aberta.</Instruction>
             <Instruction number={2} title={`Escolha ${gmail}`}>Confirme a conta que possui sua agenda profissional.</Instruction>
-            <Instruction number={3} title="Autorize o acesso">O SmartAgenda usa apenas o necessario para consultar e criar eventos.</Instruction>
+            <Instruction number={3} title="Autorize o acesso">O AgendaSmart usa apenas o necessario para consultar e criar eventos.</Instruction>
           </div>
           <a className="app-button-primary mt-6 w-full sm:w-auto" href={googleUrl}>
             <CalendarDays size={18} />
@@ -794,7 +794,7 @@ function CompleteStep({ name, ready, whatsappSkipped }: { name: string; ready: b
         <>
           <div className="rounded-3xl bg-emerald-50 p-6 text-center">
             <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-emerald-600 text-white shadow-lg shadow-emerald-200"><CheckCircle2 size={32} /></span>
-            <h3 className="mt-5 font-display text-xl font-bold text-slate-950">Seu SmartAgenda esta ativo</h3>
+            <h3 className="mt-5 font-display text-xl font-bold text-slate-950">Seu AgendaSmart esta ativo</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
               {whatsappSkipped
                 ? "Seu painel, servicos e Google Agenda estao prontos. Quando quiser, conecte o WhatsApp pela aba IA."
@@ -954,7 +954,7 @@ function Brand() {
   return (
     <Link className="flex min-h-11 items-center gap-3" href="/">
       <span className="grid size-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200"><NotebookTabs size={21} /></span>
-      <span><span className="block font-display text-base font-bold text-slate-950">SmartAgenda</span><span className="block text-xs text-slate-400">Configuração guiada</span></span>
+      <span><span className="block font-display text-base font-bold text-slate-950">AgendaSmart</span><span className="block text-xs text-slate-400">Configuração guiada</span></span>
     </Link>
   );
 }

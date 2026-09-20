@@ -401,7 +401,7 @@ function AdminSettings() {
     <ProductShell
       active="settings"
       email={professional?.gmail || "Carregando conta..."}
-      name={professional?.name || "SmartAgenda"}
+      name={professional?.name || "AgendaSmart"}
     >
       <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 py-5 md:px-7">
         <header className="flex flex-col gap-4 border-b border-black/10 pb-5 lg:flex-row lg:items-end lg:justify-between">

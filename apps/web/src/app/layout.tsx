@@ -15,7 +15,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "SmartAgenda",
+  title: "AgendaSmart",
   description: "SaaS para atendimento por WhatsApp, Google Agenda e IA."
 };
 

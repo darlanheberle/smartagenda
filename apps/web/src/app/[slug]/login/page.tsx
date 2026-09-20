@@ -59,7 +59,7 @@ export default function CompanyLoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/60">
-        <p className="text-sm font-semibold text-violet-700">SmartAgenda</p>
+        <p className="text-sm font-semibold text-violet-700">AgendaSmart</p>
         <h1 className="mt-2 font-display text-2xl font-bold text-slate-950">
           {notFound ? "Empresa nao encontrada" : company ? company.name : "Entrar"}
         </h1>

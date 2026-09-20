@@ -70,7 +70,7 @@ function LoginForm() {
                 <CalendarCheck size={22} />
               </div>
               <div>
-                <p className="text-lg font-semibold">SmartAgenda</p>
+                <p className="text-lg font-semibold">AgendaSmart</p>
                 <p className="text-xs text-white/55">Painel do profissional</p>
               </div>
             </div>
@@ -110,7 +110,7 @@ function LoginForm() {
                 <CalendarCheck size={21} />
               </div>
               <div>
-                <p className="text-lg font-semibold">SmartAgenda</p>
+                <p className="text-lg font-semibold">AgendaSmart</p>
                 <p className="text-xs text-[var(--ink-muted)]">Painel do profissional</p>
               </div>
             </div>
@@ -119,7 +119,7 @@ function LoginForm() {
               <p className="eyebrow">Acesso seguro</p>
               <h2 className="mt-1 text-2xl font-semibold text-balance">Entrar na sua conta</h2>
               <p className="mt-2 text-sm text-[var(--ink-secondary)]">
-                Acesse com sua conta Google ou use a senha cadastrada no SmartAgenda.
+                Acesse com sua conta Google ou use a senha cadastrada no AgendaSmart.
               </p>
             </div>
 

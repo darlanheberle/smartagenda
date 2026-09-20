@@ -14,16 +14,16 @@ const sections = [
   {
     title: "Uso do Google Calendar",
     items: [
-      "O SmartAgenda solicita acesso ao Google Calendar para consultar disponibilidade e criar, alterar ou cancelar eventos conforme comandos do profissional ou de seus clientes.",
+      "O AgendaSmart solicita acesso ao Google Calendar para consultar disponibilidade e criar, alterar ou cancelar eventos conforme comandos do profissional ou de seus clientes.",
       "Os escopos solicitados limitam-se a eventos de agenda (calendar.events) e à consulta de horários livres/ocupados (calendar.freebusy). Não acessamos outros dados da sua Conta Google.",
       "Os tokens OAuth são armazenados de forma protegida apenas para manter a integração ativa e podem ser revogados pelo usuário a qualquer momento na Conta Google.",
-      "O SmartAgenda não vende dados do Google Calendar e não os utiliza para publicidade ou para treinar modelos de inteligência artificial."
+      "O AgendaSmart não vende dados do Google Calendar e não os utiliza para publicidade ou para treinar modelos de inteligência artificial."
     ]
   },
   {
     title: "Uso limitado dos dados do Google (Limited Use)",
     items: [
-      "O uso e a transferência, pelo SmartAgenda, de informações recebidas das APIs do Google obedecem à Política de Dados do Usuário dos Serviços de API do Google, incluindo os requisitos de Uso Limitado (Limited Use).",
+      "O uso e a transferência, pelo AgendaSmart, de informações recebidas das APIs do Google obedecem à Política de Dados do Usuário dos Serviços de API do Google, incluindo os requisitos de Uso Limitado (Limited Use).",
       "Os dados obtidos das APIs do Google são usados exclusivamente para prestar e melhorar as funcionalidades de agendamento visíveis ao usuário, e não são transferidos a terceiros, exceto quando necessário para operar o serviço, por exigência legal ou com o consentimento do usuário."
     ]
   },
@@ -53,8 +53,8 @@ const sections = [
   {
     title: "Exclusão de dados",
     items: [
-      "Você pode revogar o acesso do SmartAgenda à sua Conta Google a qualquer momento em myaccount.google.com/permissions.",
-      `Para solicitar a exclusão dos seus dados armazenados no SmartAgenda, envie um pedido para ${CONTACT_EMAIL}. As informações associadas à conta são removidas em até 30 dias, salvo registros que precisem ser mantidos por obrigação legal.`
+      "Você pode revogar o acesso do AgendaSmart à sua Conta Google a qualquer momento em myaccount.google.com/permissions.",
+      `Para solicitar a exclusão dos seus dados armazenados no AgendaSmart, envie um pedido para ${CONTACT_EMAIL}. As informações associadas à conta são removidas em até 30 dias, salvo registros que precisem ser mantidos por obrigação legal.`
     ]
   }
 ];
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 md:p-8">
         <Header title="Política de Privacidade" />
         <p className="mt-6 text-sm leading-6 text-slate-600">
-          Esta Política de Privacidade descreve como o SmartAgenda coleta, usa e protege dados
+          Esta Política de Privacidade descreve como o AgendaSmart coleta, usa e protege dados
           pessoais para operar o agendamento por WhatsApp integrado ao Google Calendar.
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-600">Última atualização: 19/09/2026.</p>
@@ -109,7 +109,7 @@ function Header({ title }: { title: string }) {
           <CalendarCheck size={21} />
         </span>
         <span>
-          <span className="block text-lg font-semibold">SmartAgenda</span>
+          <span className="block text-lg font-semibold">AgendaSmart</span>
           <span className="block text-xs text-slate-500">WhatsApp + Google Calendar</span>
         </span>
       </a>

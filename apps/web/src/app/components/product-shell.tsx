@@ -150,11 +150,11 @@ function Brand({ compact = false }: { compact?: boolean }) {
       </span>
       {!compact ? (
         <span>
-          <span className="block text-[15px] font-semibold leading-5 text-[var(--ink)]">SmartAgenda</span>
+          <span className="block text-[15px] font-semibold leading-5 text-[var(--ink)]">AgendaSmart</span>
           <span className="block text-[11px] text-[var(--ink-muted)]">Atendimento inteligente</span>
         </span>
       ) : (
-        <span className="text-[15px] font-semibold text-[var(--ink)]">SmartAgenda</span>
+        <span className="text-[15px] font-semibold text-[var(--ink)]">AgendaSmart</span>
       )}
     </Link>
   );
