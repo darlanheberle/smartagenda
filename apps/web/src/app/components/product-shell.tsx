@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CalendarDays,
   CalendarRange,
   CircleDollarSign,
   ContactRound,
@@ -142,11 +141,8 @@ export function ProductShell({ active, name, email, children }: ProductShellProp
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link className="flex items-center gap-3" href="/">
-      <span
-        className="grid size-9 place-items-center rounded-xl text-white shadow-[0_4px_12px_-2px_rgba(20,122,95,0.5)]"
-        style={{ background: "var(--brand-gradient)" }}
-      >
-        <CalendarDays size={19} />
+      <span className="grid size-9 place-items-center overflow-hidden rounded-xl shadow-[0_4px_12px_-2px_rgba(20,122,95,0.5)]">
+        <img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" />
       </span>
       {!compact ? (
         <span>

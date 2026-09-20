@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bot, Calendar, Home, NotebookTabs, Palette, Settings2, Users, Wallet, Wrench } from "lucide-react";
+import { Bell, Bot, Calendar, Home, Palette, Settings2, Users, Wallet, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -210,7 +210,6 @@ function AccountMenu({ account }: { account: AccountProfessional }) {
 function BrandMark({ account, size = "md" }: { account: AccountProfessional; size?: "sm" | "md" }) {
   const logoUrl = account.branding?.logoUrl;
   const sizeClass = size === "sm" ? "size-10" : "size-12";
-  const iconSize = size === "sm" ? 20 : 22;
 
   if (logoUrl) {
     return (
@@ -221,8 +220,8 @@ function BrandMark({ account, size = "md" }: { account: AccountProfessional; siz
   }
 
   return (
-    <span className={`grid ${sizeClass} place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200`}>
-      <NotebookTabs size={iconSize} />
+    <span className={`grid ${sizeClass} place-items-center overflow-hidden rounded-2xl shadow-lg shadow-violet-200`}>
+      <img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" />
     </span>
   );
 }

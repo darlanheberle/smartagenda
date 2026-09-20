@@ -1,5 +1,3 @@
-import { CalendarCheck } from "lucide-react";
-
 const CONTACT_EMAIL = "contato@agendasmart.com.br";
 
 const sections = [
@@ -105,8 +103,8 @@ function Header({ title }: { title: string }) {
   return (
     <header className="border-b border-slate-200 pb-5">
       <a className="inline-flex items-center gap-3 text-slate-900" href="/">
-        <span className="grid size-10 place-items-center rounded-lg bg-brand-600 text-white">
-          <CalendarCheck size={21} />
+        <span className="grid size-10 place-items-center overflow-hidden rounded-lg">
+          <img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" />
         </span>
         <span>
           <span className="block text-lg font-semibold">AgendaSmart</span>

@@ -13,7 +13,6 @@ import {
   ExternalLink,
   Loader2,
   MessageCircle,
-  NotebookTabs,
   QrCode,
   RefreshCw,
   Rocket,
@@ -953,7 +952,7 @@ function ErrorNotice({ children }: { children: ReactNode }) {
 function Brand() {
   return (
     <Link className="flex min-h-11 items-center gap-3" href="/">
-      <span className="grid size-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-200"><NotebookTabs size={21} /></span>
+      <span className="grid size-11 place-items-center overflow-hidden rounded-2xl shadow-lg shadow-violet-200"><img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" /></span>
       <span><span className="block font-display text-base font-bold text-slate-950">AgendaSmart</span><span className="block text-xs text-slate-400">Configuração guiada</span></span>
     </Link>
   );

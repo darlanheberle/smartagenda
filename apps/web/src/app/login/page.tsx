@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CalendarCheck,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -66,8 +65,8 @@ function LoginForm() {
         <aside className="hidden bg-[var(--ink)] p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-md bg-[var(--brand)]">
-                <CalendarCheck size={22} />
+              <div className="grid size-10 place-items-center overflow-hidden rounded-md">
+                <img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" />
               </div>
               <div>
                 <p className="text-lg font-semibold">AgendaSmart</p>
@@ -106,8 +105,8 @@ function LoginForm() {
         <section className="flex items-center px-5 py-8 sm:px-10">
           <div className="w-full">
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <div className="grid size-10 place-items-center rounded-md bg-[var(--brand)] text-white">
-                <CalendarCheck size={21} />
+              <div className="grid size-10 place-items-center overflow-hidden rounded-md">
+                <img alt="AgendaSmart" className="h-full w-full object-contain" src="/logo-agendasmart.png" />
               </div>
               <div>
                 <p className="text-lg font-semibold">AgendaSmart</p>
