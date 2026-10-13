@@ -2,6 +2,8 @@
 
 import {
   CalendarPlus,
+  Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Edit3,
@@ -318,6 +320,26 @@ export function AgendaClient({
     }
   }
 
+  async function completeAppointment(appointment: Appointment) {
+    try {
+      const response = await fetch(`${apiUrl}/appointments/${appointment.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "completed" })
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      toast.success("Atendimento concluído.");
+      await reloadAppointments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível concluir o atendimento.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
@@ -475,10 +497,28 @@ export function AgendaClient({
                       </Pill>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-semibold tabular text-violet-700">
-                        {formatCurrency(appointment.value_cents / 100)}
-                      </p>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold tabular text-violet-700">
+                          {formatCurrency(appointment.value_cents / 100)}
+                        </p>
+                        {appointment.status === "completed" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                            <CheckCircle2 size={13} />
+                            Concluído
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {appointment.status !== "completed" ? (
+                          <button
+                            className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-3 text-sm font-semibold text-white shadow-sm shadow-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                            onClick={() => completeAppointment(appointment)}
+                            type="button"
+                          >
+                            <Check size={16} />
+                            Concluir
+                          </button>
+                        ) : null}
                         <button
                           className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-white px-3 text-sm font-semibold text-violet-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                           onClick={() => openEdit(appointment)}
