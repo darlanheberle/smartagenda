@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
+import { useToast } from "../components/toast";
 import type { Service, TeamMember } from "../lib/types";
 import { formatCurrency } from "../lib/format";
 import { EquipeClient } from "./equipe-client";
@@ -41,6 +42,7 @@ export function ServicosClient({
   initialTeamMembers: TeamMember[];
   companySlug?: string;
 }) {
+  const toast = useToast();
   const [services, setServices] = useState(initialServices);
   const [teamMode, setTeamMode] = useState(initialTeamMode);
   const [tab, setTab] = useState<"servicos" | "equipe">("servicos");
@@ -55,8 +57,6 @@ export function ServicosClient({
   });
   const [editingServiceId, setEditingServiceId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [defaultCommission, setDefaultCommission] = useState("50");
   const [commissionSaving, setCommissionSaving] = useState(false);
 
@@ -75,8 +75,6 @@ export function ServicosClient({
 
   async function saveDefaultCommission() {
     setCommissionSaving(true);
-    setError("");
-    setMessage("");
     try {
       const percent = Number.parseInt(defaultCommission, 10);
       if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
@@ -91,9 +89,9 @@ export function ServicosClient({
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      setMessage("Comissão padrão salva.");
+      toast.saved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar a comissao.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar a comissão.");
     } finally {
       setCommissionSaving(false);
     }
@@ -114,8 +112,6 @@ export function ServicosClient({
 
   async function toggleTeamMode() {
     setTeamModeSaving(true);
-    setError("");
-    setMessage("");
 
     try {
       const next = !teamMode;
@@ -132,16 +128,12 @@ export function ServicosClient({
 
       const data = (await response.json()) as { enabled: boolean };
       setTeamMode(data.enabled);
-      setMessage(
-        data.enabled
-          ? "Modo Equipes ativado. Cadastre os profissionais na aba Equipe."
-          : "Modo Equipes desativado. O robo volta ao fluxo padrao."
-      );
+      toast.saved();
       if (!data.enabled) {
         setTab("servicos");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel alterar o Modo Equipes.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o Modo Equipes.");
     } finally {
       setTeamModeSaving(false);
     }
@@ -149,8 +141,6 @@ export function ServicosClient({
 
   async function saveService() {
     setSaving(true);
-    setError("");
-    setMessage("");
 
     try {
       const commissionText = form.commission.trim();
@@ -180,6 +170,7 @@ export function ServicosClient({
         throw new Error("A comissão deve estar entre 0 e 100.");
       }
 
+      const isEditing = Boolean(editingServiceId);
       const response = await fetch(
         editingServiceId ? `${apiUrl}/services/${editingServiceId}` : `${apiUrl}/services`,
         {
@@ -196,19 +187,20 @@ export function ServicosClient({
 
       setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", commission: "", active: true });
       setEditingServiceId(undefined);
-      setMessage(editingServiceId ? "Servico atualizado." : "Servico adicionado.");
+      if (isEditing) {
+        toast.saved();
+      } else {
+        toast.created();
+      }
       await reloadServices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar o servico.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o serviço.");
     } finally {
       setSaving(false);
     }
   }
 
   async function toggleService(service: Service) {
-    setError("");
-    setMessage("");
-
     try {
       const response = await fetch(`${apiUrl}/services/${service.id}`, {
         method: "PATCH",
@@ -221,10 +213,10 @@ export function ServicosClient({
         throw new Error(await response.text());
       }
 
-      setMessage(service.active ? "Servico inativado." : "Servico ativado.");
+      toast.saved();
       await reloadServices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel alterar o servico.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o serviço.");
     }
   }
 
@@ -293,14 +285,6 @@ export function ServicosClient({
           <TabButton active={tab === "servicos"} label="Serviços" onClick={() => setTab("servicos")} />
           <TabButton active={tab === "equipe"} label="Equipe" onClick={() => setTab("equipe")} />
         </div>
-      ) : null}
-
-      {message ? (
-        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-      ) : null}
-
-      {error ? (
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
       ) : null}
 
       {teamMode && tab === "equipe" ? (

@@ -14,6 +14,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Avatar, Card, Pill, SectionTitle } from "../components/ui";
+import { useToast } from "../components/toast";
 import { formatTime } from "../lib/format";
 import type { Appointment, Client, Dashboard } from "../lib/types";
 
@@ -38,16 +39,15 @@ export function IAClient({
   ready: boolean;
   whatsappConnected: boolean;
 }) {
+  const toast = useToast();
   const [active, setActive] = useState(initialEnabled);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ tone: "error" | "success"; text: string }>();
   const completed = appointments.filter((appointment) => appointment.status === "completed").length;
   const operational = active && ready;
 
   async function toggleAssistant() {
     const nextActive = !active;
     setSaving(true);
-    setFeedback(undefined);
 
     try {
       const response = await fetch(`${apiUrl}/profile/assistant`, {
@@ -63,15 +63,9 @@ export function IAClient({
 
       const result = (await response.json()) as { enabled: boolean };
       setActive(result.enabled);
-      setFeedback({
-        tone: "success",
-        text: result.enabled ? "Assistente ativado com sucesso." : "Assistente pausado com sucesso."
-      });
+      toast.saved();
     } catch (error) {
-      setFeedback({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Nao foi possivel alterar o assistente."
-      });
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o assistente.");
     } finally {
       setSaving(false);
     }
@@ -211,22 +205,12 @@ export function IAClient({
           </button>
         </div>
         <p className="mt-2 text-sm text-white/75" aria-live="polite">
-          {feedback?.tone === "success"
-            ? feedback.text
-            : operational
-              ? "Novas mensagens do WhatsApp serao atendidas automaticamente."
-              : active
-                ? "Conclua as integracoes pendentes para iniciar o atendimento."
-                : "Novas mensagens nao receberao resposta automatica."}
+          {operational
+            ? "Novas mensagens do WhatsApp serao atendidas automaticamente."
+            : active
+              ? "Conclua as integracoes pendentes para iniciar o atendimento."
+              : "Novas mensagens nao receberao resposta automatica."}
         </p>
-        {feedback?.tone === "error" ? (
-          <p
-            className="mt-2 rounded-2xl bg-rose-950/35 px-3 py-2 text-sm font-medium text-white"
-            role="alert"
-          >
-            {feedback.text}
-          </p>
-        ) : null}
         <div className="mt-5 flex items-center gap-3">
           <span className="grid size-12 place-items-center rounded-2xl bg-white/20">
             <Sparkles size={24} />

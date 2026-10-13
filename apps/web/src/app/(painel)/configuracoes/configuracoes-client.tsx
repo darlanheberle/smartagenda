@@ -3,6 +3,7 @@
 import { ImagePlus, NotebookTabs, RotateCcw, Save } from "lucide-react";
 import { useState } from "react";
 import { Card, SectionTitle } from "../components/ui";
+import { useToast } from "../components/toast";
 import type { AccountProfessional, ProfessionalBranding } from "../lib/types";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
@@ -82,20 +83,15 @@ const presets: Array<{ name: string; colors: Omit<BrandingForm, "logoUrl"> }> = 
 ];
 
 export function ConfiguracoesClient({ account }: { account: AccountProfessional }) {
+  const toast = useToast();
   const [form, setForm] = useState<BrandingForm>({ ...defaultBranding, ...account.branding });
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
   function updateColor(key: keyof BrandingForm, value: string) {
-    setMessage("");
-    setError("");
     setForm((current) => ({ ...current, [key]: value }));
   }
 
   function applyPreset(colors: Omit<BrandingForm, "logoUrl">) {
-    setMessage("");
-    setError("");
     setForm((current) => ({ ...current, ...colors }));
   }
 
@@ -104,16 +100,13 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
       return;
     }
 
-    setError("");
-    setMessage("");
-
     if (!file.type.startsWith("image/")) {
-      setError("Escolha um arquivo de imagem.");
+      toast.error("Escolha um arquivo de imagem.");
       return;
     }
 
     if (file.size > 200 * 1024) {
-      setError("Use uma imagem menor que 200 KB para este prototipo.");
+      toast.error("Use uma imagem menor que 200 KB para este protótipo.");
       return;
     }
 
@@ -123,8 +116,6 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
 
   async function saveBranding() {
     setSaving(true);
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`${apiUrl}/profile/branding`, {
@@ -140,9 +131,9 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
 
       const saved = (await response.json()) as BrandingForm;
       setForm({ ...defaultBranding, ...saved });
-      setMessage("Identidade visual salva. Recarregue o painel para aplicar em todas as abas abertas.");
+      toast.saved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar a identidade visual.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar a identidade visual.");
     } finally {
       setSaving(false);
     }
@@ -157,13 +148,6 @@ export function ConfiguracoesClient({ account }: { account: AccountProfessional 
           Personalize logo e cores para deixar o painel com a cara do profissional.
         </p>
       </header>
-
-      {message ? (
-        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-      ) : null}
-      {error ? (
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
-      ) : null}
 
       <Card className="overflow-hidden p-5">
         <SectionTitle

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PanelShell } from "./components/panel-shell";
+import { ToastProvider } from "./components/toast";
 import { getPanelData } from "./lib/data";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default async function PainelLayout({ children }: { children: ReactNode }
 
   return (
     <PanelShell account={data.account} onboarding={data.onboarding}>
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </PanelShell>
   );
 }

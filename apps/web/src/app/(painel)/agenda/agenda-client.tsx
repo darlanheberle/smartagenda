@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Pill, SectionTitle } from "../components/ui";
+import { useToast } from "../components/toast";
 import { formatCurrency, formatTime } from "../lib/format";
 import type { Appointment, AvailabilityRule, Service, TeamMember } from "../lib/types";
 
@@ -97,8 +98,7 @@ export function AgendaClient({
   );
   const [editor, setEditor] = useState<AgendaEditor | undefined>();
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const toast = useToast();
 
   const teamActive = teamMode && activeMembers.length > 0;
   const selectedMember = activeMembers.find((member) => member.id === selectedTeamMemberId);
@@ -172,8 +172,6 @@ export function AgendaClient({
 
   function openCreate(slot: AgendaSlot) {
     const service = selectedService || serviceOptions[0];
-    setMessage("");
-    setError("");
     setEditor({
       mode: "create",
       hour: slot.hour,
@@ -193,8 +191,6 @@ export function AgendaClient({
   function openEdit(appointment: Appointment) {
     const service = serviceOptions.find((item) => item.name === appointment.service_name);
     const startTime = timePartsInSaoPaulo(appointment.starts_at);
-    setMessage("");
-    setError("");
     setEditor({
       mode: "edit",
       appointmentId: appointment.id,
@@ -247,8 +243,6 @@ export function AgendaClient({
     }
 
     setSaving(true);
-    setMessage("");
-    setError("");
 
     try {
       if (!editor.clientName.trim()) {
@@ -285,11 +279,16 @@ export function AgendaClient({
         throw new Error(await response.text());
       }
 
+      const wasEditing = editor.mode === "edit";
       await reloadAppointments();
       setEditor(undefined);
-      setMessage(editor.mode === "edit" ? "Atendimento atualizado." : "Atendimento criado.");
+      if (wasEditing) {
+        toast.saved();
+      } else {
+        toast.created();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar o atendimento.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o atendimento.");
     } finally {
       setSaving(false);
     }
@@ -300,9 +299,6 @@ export function AgendaClient({
     if (!confirmed) {
       return;
     }
-
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`${apiUrl}/appointments/${appointment.id}`, {
@@ -316,9 +312,9 @@ export function AgendaClient({
 
       setAppointmentsState((current) => current.filter((item) => item.id !== appointment.id));
       setEditor(undefined);
-      setMessage("Atendimento apagado.");
+      toast.deleted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel apagar o atendimento.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível apagar o atendimento.");
     }
   }
 
@@ -401,13 +397,6 @@ export function AgendaClient({
           <ChevronRight size={18} />
         </button>
       </div>
-
-      {message ? (
-        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-      ) : null}
-      {error ? (
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
-      ) : null}
 
       <Card className="p-5">
         <SectionTitle
@@ -685,17 +674,13 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
   const [selectedDay, setSelectedDay] = useState("all");
   const [allRule, setAllRule] = useState<AvailabilityForm>(() => defaultAllAvailabilityForm());
   const [savingWeekday, setSavingWeekday] = useState<number | undefined>();
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const toast = useToast();
   const selectedRule =
     selectedDay === "all"
       ? allRule
       : rules.find((rule) => String(rule.weekday) === selectedDay) || rules[0];
 
   function updateRule(weekday: number, patch: Partial<AvailabilityForm>) {
-    setMessage("");
-    setError("");
-
     if (weekday === -1) {
       setAllRule((current) => ({ ...current, ...patch }));
       return;
@@ -721,8 +706,6 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
 
   async function saveRule(rule: AvailabilityForm) {
     setSavingWeekday(rule.weekday);
-    setMessage("");
-    setError("");
 
     try {
       const rulesToSave =
@@ -765,9 +748,9 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
       }
 
       await reloadRules();
-      setMessage(rule.weekday === -1 ? "Horarios aplicados para todos os dias." : "Horario salvo.");
+      toast.saved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar os horarios.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar os horários.");
     } finally {
       setSavingWeekday(undefined);
     }
@@ -850,12 +833,6 @@ function AvailabilitySettings({ initialRules }: { initialRules: AvailabilityRule
           </button>
         </div>
 
-        {message ? (
-          <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-        ) : null}
-        {error ? (
-          <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
-        ) : null}
       </div>
     </Card>
   );

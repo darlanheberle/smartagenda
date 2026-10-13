@@ -3,6 +3,7 @@
 import { Copy, Edit3, KeyRound, Link2, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
+import { useToast } from "../components/toast";
 import type { Service, TeamMember, TeamMemberAvailabilityRule } from "../lib/types";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.agendasmart.com.br";
@@ -63,17 +64,13 @@ export function EquipeClient({
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [schedule, setSchedule] = useState<ScheduleRow[]>(defaultSchedule());
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const toast = useToast();
   const [inviteUrls, setInviteUrls] = useState<Record<string, string>>({});
   const [invitingId, setInvitingId] = useState<string | undefined>();
 
   async function generateInvite(member: TeamMember) {
-    setError("");
-    setMessage("");
-
     if (!member.email) {
-      setError("Cadastre um e-mail para este profissional antes de gerar o acesso.");
+      toast.error("Cadastre um e-mail para este profissional antes de gerar o acesso.");
       return;
     }
 
@@ -90,10 +87,10 @@ export function EquipeClient({
 
       const data = (await response.json()) as { activationUrl: string };
       setInviteUrls((current) => ({ ...current, [member.id]: data.activationUrl }));
-      setMessage("Link de acesso gerado. Copie e envie ao profissional.");
+      toast.success("Link de acesso gerado. Copie e envie ao profissional.");
       await reloadMembers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel gerar o link de acesso.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível gerar o link de acesso.");
     } finally {
       setInvitingId(undefined);
     }
@@ -135,8 +132,6 @@ export function EquipeClient({
   }
 
   async function editMember(member: TeamMember) {
-    setError("");
-    setMessage("");
     setEditingId(member.id);
     setName(member.name);
     setPhone(member.phone || "");
@@ -174,8 +169,6 @@ export function EquipeClient({
 
   async function saveMember() {
     setSaving(true);
-    setError("");
-    setMessage("");
 
     try {
       if (!name.trim()) {
@@ -220,20 +213,22 @@ export function EquipeClient({
         body: JSON.stringify({ rules: availabilityRules })
       });
 
-      setMessage(editingId ? "Profissional atualizado." : "Profissional adicionado.");
+      const wasEditing = Boolean(editingId);
       resetForm();
       await reloadMembers();
+      if (wasEditing) {
+        toast.saved();
+      } else {
+        toast.created();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar o profissional.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o profissional.");
     } finally {
       setSaving(false);
     }
   }
 
   async function toggleMemberActive(member: TeamMember) {
-    setError("");
-    setMessage("");
-
     try {
       const response = await fetch(`${apiUrl}/team-members/${member.id}`, {
         method: "PATCH",
@@ -246,10 +241,10 @@ export function EquipeClient({
         throw new Error(await response.text());
       }
 
-      setMessage(member.active ? "Profissional inativado." : "Profissional ativado.");
+      toast.saved();
       await reloadMembers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel alterar o profissional.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o profissional.");
     }
   }
 
@@ -265,13 +260,6 @@ export function EquipeClient({
 
   return (
     <div className="space-y-6">
-      {message ? (
-        <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-      ) : null}
-      {error ? (
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>
-      ) : null}
-
       {companyLoginUrl ? (
         <Card className="p-5">
           <SectionTitle
@@ -292,7 +280,7 @@ export function EquipeClient({
               onClick={() => {
                 void navigator.clipboard
                   .writeText(companyLoginUrl)
-                  .then(() => setMessage("Link de acesso da empresa copiado."));
+                  .then(() => toast.success("Link de acesso da empresa copiado."));
               }}
               type="button"
             >
@@ -383,7 +371,7 @@ export function EquipeClient({
                         onClick={() => {
                           void navigator.clipboard
                             .writeText(inviteUrls[member.id])
-                            .then(() => setMessage("Link copiado."));
+                            .then(() => toast.success("Link copiado."));
                         }}
                         type="button"
                       >
