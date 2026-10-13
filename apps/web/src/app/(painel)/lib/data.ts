@@ -33,13 +33,32 @@ async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Pr
 
 export async function getPanelData(): Promise<PanelData> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
-  const cookieHeader = (await cookies()).toString();
-  const sessionResponse = await fetch(`${apiUrl}/auth/me`, {
-    cache: "no-store",
-    headers: { cookie: cookieHeader }
-  }).catch(() => undefined);
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+
+  let sessionResponse: Response | undefined;
+  try {
+    sessionResponse = await fetch(`${apiUrl}/auth/me`, {
+      cache: "no-store",
+      headers: { cookie: cookieHeader }
+    });
+  } catch (error) {
+    console.error(
+      "[getPanelData] /auth/me erro de rede:",
+      error instanceof Error ? error.message : error
+    );
+  }
 
   if (!sessionResponse?.ok) {
+    console.error(
+      "[getPanelData] sessao invalida: status=%s cookieLen=%d cookies=%s",
+      sessionResponse?.status,
+      cookieHeader.length,
+      cookieStore.getAll().map((cookie) => cookie.name).join(",")
+    );
     redirect("/login");
   }
 
