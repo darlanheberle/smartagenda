@@ -1361,9 +1361,24 @@ export class DatabaseService implements OnModuleInit {
 
   // Producao do dia: agendamentos (nao cancelados) com a comissao efetiva
   // (do servico, senao o padrao da empresa). O controller agrupa por profissional.
-  async getProductionByDay(professionalId: string, dateStr: string, timezone: string) {
+  // Producao concluida (status = completed) num intervalo de datas, opcionalmente
+  // escopada a um profissional da equipe (para a visao do proprio profissional).
+  async getProductionReport(
+    professionalId: string,
+    fromDate: string,
+    toDate: string,
+    timezone: string,
+    teamMemberId?: string
+  ) {
     if (!this.pool || !this.ready) {
       return [];
+    }
+
+    const params: Array<string> = [professionalId, fromDate, toDate, timezone];
+    let memberFilter = "";
+    if (teamMemberId) {
+      params.push(teamMemberId);
+      memberFilter = `and a.team_member_id = $${params.length}`;
     }
 
     const result = await this.pool.query(
@@ -1382,11 +1397,12 @@ export class DatabaseService implements OnModuleInit {
         left join team_members tm on tm.id = a.team_member_id
         left join clients c on c.id = a.client_id
         where a.professional_id = $1
-          and a.status <> 'cancelled'
-          and (a.starts_at at time zone $3)::date = $2::date
+          and a.status = 'completed'
+          and (a.starts_at at time zone $4)::date between $2::date and $3::date
+          ${memberFilter}
         order by tm.name asc nulls last, a.starts_at asc
       `,
-      [professionalId, dateStr, timezone]
+      params
     );
 
     return result.rows as Array<{

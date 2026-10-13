@@ -31,8 +31,8 @@ export function PanelShell({
   const pathname = usePathname();
   const themeStyle = buildThemeStyle(account.branding);
 
-  // Profissional da equipe tem acesso restrito: so Hoje, Agenda e Clientes.
-  const teamMemberHrefs = ["/home", "/agenda", "/clientes"];
+  // Profissional da equipe: Hoje, Agenda, Clientes e Financeiro (a propria produção).
+  const teamMemberHrefs = ["/home", "/agenda", "/clientes", "/financeiro"];
   const visibleNavItems =
     account.role === "team_member"
       ? navItems.filter((item) => teamMemberHrefs.includes(item.href))

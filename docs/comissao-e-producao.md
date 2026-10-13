@@ -17,12 +17,15 @@ Permite ao dono definir quanto (%) do valor de cada serviço fica com o **profis
 - `GET/PATCH /profile/commission` → `{ defaultPercent }` (só o dono).
 - `POST/PATCH /services` aceitam `commissionPercent` (null = usa o padrão).
 
-## Produção por profissional (por dia)
+## Produção por profissional (por período)
 
-- `GET /reports/production?date=YYYY-MM-DD` (só o dono) → agrupa os agendamentos do dia (não
-  cancelados) por profissional, com: quantidade, total, parte do profissional e parte da empresa,
-  além da lista de serviços (valor, %, parte do profissional). Sem `date`, usa hoje (fuso da empresa).
-- Painel: aba **Financeiro** → seção **"Produção por profissional"** com seletor de data.
+- `GET /reports/production?from=YYYY-MM-DD&to=YYYY-MM-DD` → agrupa os atendimentos **concluídos**
+  (`status = completed`) do intervalo por profissional, com: quantidade, total, parte do profissional
+  e parte da empresa, além da lista de serviços. Sem `from`/`to` usa o mês atual; `date=` força um dia.
+- **Role-aware**: o dono vê todos os profissionais; o profissional da equipe vê só a própria produção
+  (escopado pelo `team_member` da sessão).
+- Painel: aba **Financeiro** com seletor de intervalo (de–até). O dono vê o total a receber da empresa
+  + a quebra por profissional; o profissional vê a própria produção e o total que tem a receber.
 
 ## Frontend
 - `servicos-client.tsx`: card "Comissão do profissional (padrão)" + campo "% do profissional" por

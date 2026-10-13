@@ -885,16 +885,41 @@ export class AppController {
     return { defaultPercent: saved ?? input.defaultPercent };
   }
 
-  // Producao do dia por profissional: quantidade, total, parte do profissional e da empresa.
+  // Producao concluida por profissional num intervalo: total, parte do profissional e da empresa.
+  // Role-aware: dono ve todos os profissionais; profissional da equipe ve so a propria producao.
   @Get("reports/production")
-  async productionReport(@Req() request: Request, @Query("date") date?: string) {
-    const professionalId = this.auth.requireOwner(request);
-    const professional = this.professionals.getById(professionalId);
-    const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date)
-      ? date
-      : new Intl.DateTimeFormat("en-CA", { timeZone: professional.timezone }).format(new Date());
+  async productionReport(
+    @Req() request: Request,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("date") date?: string
+  ) {
+    const session = this.auth.requireSession(request);
+    const professional = this.professionals.getById(session.professionalId);
+    const tz = professional.timezone;
+    const isDate = (value?: string) => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 
-    const rows = await this.database.getProductionByDay(professionalId, day, professional.timezone);
+    let fromDate: string;
+    let toDate: string;
+    if (isDate(date)) {
+      fromDate = date as string;
+      toDate = date as string;
+    } else {
+      toDate = isDate(to) ? (to as string) : today;
+      fromDate = isDate(from) ? (from as string) : `${today.slice(0, 8)}01`;
+    }
+    if (fromDate > toDate) {
+      [fromDate, toDate] = [toDate, fromDate];
+    }
+
+    const rows = await this.database.getProductionReport(
+      session.professionalId,
+      fromDate,
+      toDate,
+      tz,
+      session.teamMemberId
+    );
 
     type Group = {
       teamMemberId: string | null;
@@ -949,7 +974,8 @@ export class AppController {
     );
 
     return {
-      date: day,
+      from: fromDate,
+      to: toDate,
       totals: {
         count: professionals.reduce((sum, g) => sum + g.count, 0),
         totalCents: professionals.reduce((sum, g) => sum + g.totalCents, 0),

@@ -2,12 +2,31 @@ import { ArrowDownLeft, ArrowUpRight, Clock3, Wallet } from "lucide-react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency, formatShortDate } from "../lib/format";
 import { getPanelData } from "../lib/data";
-import { ProducaoDia } from "./producao-dia";
+import { Producao } from "./producao-dia";
 
 export const dynamic = "force-dynamic";
 
 export default async function FinanceiroPage() {
-  const { appointments, dashboard } = await getPanelData();
+  const { account, appointments, dashboard } = await getPanelData();
+  const isOwner = account.role !== "team_member";
+
+  // Visao do profissional da equipe: so a propria producao e o que tem a receber.
+  if (!isOwner) {
+    return (
+      <div className="space-y-6">
+        <header>
+          <p className="text-sm font-semibold text-violet-700">Comissão e produção</p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Financeiro</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Acompanhe seus serviços concluídos e quanto você tem a receber.
+          </p>
+        </header>
+
+        <Producao role="team_member" />
+      </div>
+    );
+  }
+
   const received = Math.max(0, dashboard.expectedRevenue - dashboard.pendingRevenue);
   const bars = buildBars(appointments);
   const maxBar = Math.max(...bars.map((bar) => bar.value), 1);
@@ -17,7 +36,7 @@ export default async function FinanceiroPage() {
       <header>
         <p className="text-sm font-semibold text-violet-700">Controle financeiro</p>
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Financeiro</h1>
-        <p className="mt-1 text-sm text-slate-500">Recebimentos, pendencias e previsao do mês.</p>
+        <p className="mt-1 text-sm text-slate-500">Recebimentos, pendencias e distribuição por profissional.</p>
       </header>
 
       <section className="rounded-3xl bg-slate-900 p-5 text-white shadow-xl shadow-slate-200">
@@ -44,7 +63,7 @@ export default async function FinanceiroPage() {
         </div>
       </section>
 
-      <ProducaoDia />
+      <Producao role="owner" />
 
       <Card className="p-5">
         <SectionTitle subtitle="Últimos 7 dias" title="Entradas por dia" />

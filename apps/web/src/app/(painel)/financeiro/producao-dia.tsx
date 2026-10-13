@@ -26,7 +26,8 @@ type Group = {
 };
 
 type Report = {
-  date: string;
+  from: string;
+  to: string;
   totals: { count: number; totalCents: number; professionalCents: number; companyCents: number };
   professionals: Group[];
 };
@@ -35,15 +36,21 @@ function todayKey() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
 
-export function ProducaoDia() {
-  const [date, setDate] = useState(todayKey());
+function firstDayOfMonth() {
+  return `${todayKey().slice(0, 8)}01`;
+}
+
+export function Producao({ role }: { role: "owner" | "team_member" }) {
+  const isOwner = role === "owner";
+  const [from, setFrom] = useState(firstDayOfMonth());
+  const [to, setTo] = useState(todayKey());
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async (day: string) => {
+  const load = useCallback(async (start: string, end: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/reports/production?date=${day}`, {
+      const response = await fetch(`${apiUrl}/reports/production?from=${start}&to=${end}`, {
         cache: "no-store",
         credentials: "include"
       });
@@ -59,36 +66,74 @@ export function ProducaoDia() {
   }, []);
 
   useEffect(() => {
-    void load(date);
-  }, [date, load]);
+    void load(from, to);
+  }, [from, to, load]);
+
+  const totals = report?.totals;
+  const headlineCents = (isOwner ? totals?.companyCents : totals?.professionalCents) ?? 0;
+  const hasData = report && report.professionals.length > 0;
 
   return (
     <Card className="p-5">
       <SectionTitle
-        subtitle="Serviços do dia por profissional, com a parte de cada um."
-        title="Produção por profissional"
+        subtitle={
+          isOwner
+            ? "Serviços concluídos no período, com a parte de cada profissional e da empresa."
+            : "Seus serviços concluídos no período e quanto você tem a receber."
+        }
+        title={isOwner ? "Produção por profissional" : "Minha produção"}
       />
 
-      <div className="mt-4 flex items-center gap-2">
-        <input
-          className="app-input min-h-12"
-          onChange={(event) => setDate(event.target.value)}
-          type="date"
-          value={date}
-        />
-        {loading ? <span className="text-sm text-slate-400">Carregando...</span> : null}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="block text-xs font-semibold text-slate-500">
+          De
+          <input
+            className="app-input mt-1 min-h-12"
+            max={to}
+            onChange={(event) => setFrom(event.target.value)}
+            type="date"
+            value={from}
+          />
+        </label>
+        <label className="block text-xs font-semibold text-slate-500">
+          Até
+          <input
+            className="app-input mt-1 min-h-12"
+            min={from}
+            onChange={(event) => setTo(event.target.value)}
+            type="date"
+            value={to}
+          />
+        </label>
       </div>
 
-      {report && report.professionals.length > 0 ? (
-        <>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <Total label="Total do dia" value={report.totals.totalCents} tone="slate" />
-            <Total label="Profissionais" value={report.totals.professionalCents} tone="violet" />
-            <Total label="Empresa" value={report.totals.companyCents} tone="emerald" />
-          </div>
+      <div
+        className="mt-4 rounded-3xl p-5 text-white shadow-lg"
+        style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9, #4f46e5)" }}
+      >
+        <p className="text-sm font-semibold text-white/80">
+          {isOwner ? "A receber (empresa)" : "A receber no período"}
+        </p>
+        <p className="mt-2 font-display text-4xl font-bold tabular">{formatCurrency(headlineCents / 100)}</p>
+        <p className="mt-1 text-sm text-white/70">
+          {loading
+            ? "Carregando..."
+            : `${totals?.count ?? 0} serviço${(totals?.count ?? 0) === 1 ? "" : "s"} concluído${(totals?.count ?? 0) === 1 ? "" : "s"}`}
+        </p>
+      </div>
 
+      {isOwner && hasData ? (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Total label="Total do período" value={totals?.totalCents ?? 0} tone="slate" />
+          <Total label="Profissionais" value={totals?.professionalCents ?? 0} tone="violet" />
+          <Total label="Empresa" value={totals?.companyCents ?? 0} tone="emerald" />
+        </div>
+      ) : null}
+
+      {hasData ? (
+        isOwner ? (
           <div className="mt-5 space-y-3">
-            {report.professionals.map((group) => (
+            {report!.professionals.map((group) => (
               <div className="rounded-3xl bg-slate-50 p-4" key={group.teamMemberId || "none"}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-slate-950">{group.teamMemberName}</p>
@@ -103,38 +148,46 @@ export function ProducaoDia() {
                 </div>
                 <div className="mt-3 space-y-1.5">
                   {group.items.map((item, index) => (
-                    <div
-                      className="flex items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-sm"
-                      key={index}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-800">{item.serviceName}</p>
-                        <p className="truncate text-xs text-slate-400">
-                          {formatTime(item.startsAt)}
-                          {item.clientName ? ` · ${item.clientName}` : ""} · {item.commissionPercent}%
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold tabular text-slate-800">
-                          {formatCurrency(item.valueCents / 100)}
-                        </p>
-                        <p className="text-xs font-semibold text-violet-700">
-                          {formatCurrency(item.professionalCents / 100)}
-                        </p>
-                      </div>
-                    </div>
+                    <ItemRow item={item} key={index} />
                   ))}
                 </div>
               </div>
             ))}
           </div>
-        </>
+        ) : (
+          <div className="mt-5 space-y-1.5">
+            {report!.professionals.flatMap((group) => group.items).map((item, index) => (
+              <ItemRow item={item} key={index} showShare />
+            ))}
+          </div>
+        )
       ) : (
         <div className="mt-4 rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-          {loading ? "Carregando..." : "Nenhum servico neste dia."}
+          {loading ? "Carregando..." : "Nenhum serviço concluído neste período."}
         </div>
       )}
     </Card>
+  );
+}
+
+function ItemRow({ item, showShare = false }: { item: Item; showShare?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-sm">
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-slate-800">{item.serviceName}</p>
+        <p className="truncate text-xs text-slate-400">
+          {formatDate(item.startsAt)}
+          {item.clientName ? ` · ${item.clientName}` : ""} · {item.commissionPercent}%
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="font-semibold tabular text-slate-800">{formatCurrency(item.valueCents / 100)}</p>
+        <p className="text-xs font-semibold text-violet-700">
+          {showShare ? "você: " : ""}
+          {formatCurrency(item.professionalCents / 100)}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -160,8 +213,10 @@ function MiniTotal({ label, value, highlight }: { label: string; value: number; 
   );
 }
 
-function formatTime(value: string) {
+function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Sao_Paulo"
