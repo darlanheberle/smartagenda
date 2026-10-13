@@ -73,6 +73,7 @@ services:
     environment:
       NEXT_PUBLIC_APP_URL: https://www.agendasmart.com.br
       NEXT_PUBLIC_API_URL: https://api.agendasmart.com.br
+      API_INTERNAL_URL: http://smartagenda_api:3333
     deploy:
       mode: replicated
       replicas: 1
