@@ -48,6 +48,7 @@ services:
       WORK_END_HOUR: ${WORK_END_HOUR:-18}
       MAX_AVAILABILITY_SLOTS: ${MAX_AVAILABILITY_SLOTS:-80}
       JWT_SECRET: ${JWT_SECRET:-change-me-before-production}
+      AUTH_SECRET: ${AUTH_SECRET:?defina AUTH_SECRET (segredo forte) antes do deploy}
     deploy:
       mode: replicated
       replicas: 1
