@@ -12,11 +12,24 @@ import type {
   TeamMember
 } from "./types";
 
-async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Promise<T> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+// URL interna (rede Docker) para chamadas servidor->servidor. Evita sair pela
+// internet/Traefik (que pode falhar com "fetch failed" no runtime do Next).
+// O lado cliente continua usando NEXT_PUBLIC_API_URL (URL publica).
+function serverApiUrl() {
+  return (
+    process.env.API_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:3333"
+  );
+}
 
+function publicApiUrl() {
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+}
+
+async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Promise<T> {
   try {
-    const response = await fetch(`${apiUrl}${path}`, {
+    const response = await fetch(`${serverApiUrl()}${path}`, {
       cache: "no-store",
       headers: { cookie: cookieHeader }
     });
@@ -32,7 +45,7 @@ async function fetchJson<T>(path: string, fallback: T, cookieHeader: string): Pr
 }
 
 export async function getPanelData(): Promise<PanelData> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333";
+  const apiUrl = publicApiUrl();
   const cookieStore = await cookies();
   const cookieHeader = cookieStore
     .getAll()
@@ -41,7 +54,7 @@ export async function getPanelData(): Promise<PanelData> {
 
   let sessionResponse: Response | undefined;
   try {
-    sessionResponse = await fetch(`${apiUrl}/auth/me`, {
+    sessionResponse = await fetch(`${serverApiUrl()}/auth/me`, {
       cache: "no-store",
       headers: { cookie: cookieHeader }
     });
@@ -53,12 +66,9 @@ export async function getPanelData(): Promise<PanelData> {
   }
 
   if (!sessionResponse?.ok) {
-    console.error(
-      "[getPanelData] sessao invalida: status=%s cookieLen=%d cookies=%s",
-      sessionResponse?.status,
-      cookieHeader.length,
-      cookieStore.getAll().map((cookie) => cookie.name).join(",")
-    );
+    if (sessionResponse && sessionResponse.status !== 401) {
+      console.error("[getPanelData] /auth/me status inesperado:", sessionResponse.status);
+    }
     redirect("/login");
   }
 
