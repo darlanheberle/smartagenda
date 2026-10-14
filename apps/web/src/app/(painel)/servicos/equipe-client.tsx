@@ -1,6 +1,18 @@
 "use client";
 
-import { Copy, Edit3, KeyRound, Link2, Plus, Save, ToggleLeft, ToggleRight, Trash2, UserPlus } from "lucide-react";
+import {
+  Copy,
+  Edit3,
+  KeyRound,
+  Link2,
+  Plus,
+  Save,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  UserPlus,
+  X
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
 import { useToast } from "../components/toast";
@@ -56,6 +68,7 @@ export function EquipeClient({
       setCompanyLoginUrl(`${window.location.origin}/${companySlug}/login`);
     }
   }, [companySlug]);
+  const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -67,6 +80,26 @@ export function EquipeClient({
   const toast = useToast();
   const [inviteUrls, setInviteUrls] = useState<Record<string, string>>({});
   const [invitingId, setInvitingId] = useState<string | undefined>();
+
+  // Trava a rolagem do fundo e fecha no Esc enquanto o modal estiver aberto.
+  useEffect(() => {
+    if (!formOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeForm();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formOpen]);
 
   async function generateInvite(member: TeamMember) {
     if (!member.email) {
@@ -119,6 +152,16 @@ export function EquipeClient({
     setSchedule(defaultSchedule());
   }
 
+  function openForNew() {
+    resetForm();
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    resetForm();
+  }
+
   function toggleServiceId(id: string) {
     setServiceIds((current) =>
       current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
@@ -139,6 +182,7 @@ export function EquipeClient({
     setActive(member.active);
     setServiceIds(member.serviceIds || []);
     setSchedule(defaultSchedule());
+    setFormOpen(true);
 
     try {
       const response = await fetch(`${apiUrl}/team-members/${member.id}/availability`, {
@@ -214,6 +258,7 @@ export function EquipeClient({
       });
 
       const wasEditing = Boolean(editingId);
+      setFormOpen(false);
       resetForm();
       await reloadMembers();
       if (wasEditing) {
@@ -292,7 +337,17 @@ export function EquipeClient({
       ) : null}
 
       <Card className="p-5">
-        <SectionTitle subtitle="Quem o cliente pode escolher no WhatsApp." title="Profissionais" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-slate-950">Profissionais</h2>
+            <p className="mt-1 text-sm text-slate-500">Quem o cliente pode escolher no WhatsApp.</p>
+          </div>
+          <button className="app-button-primary shrink-0" onClick={openForNew} type="button">
+            <Plus size={17} />
+            Cadastro de profissional
+          </button>
+        </div>
+
         <div className="mt-5 space-y-3">
           {members.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
@@ -387,148 +442,194 @@ export function EquipeClient({
         </div>
       </Card>
 
-      <Card className="p-5">
-        <SectionTitle
-          subtitle="Dados, serviços realizados e horário de atendimento."
-          title={editingId ? "Editar profissional" : "Adicionar profissional"}
-        />
-        <div className="mt-5 space-y-4">
-          <Field htmlFor="member-name" label="Nome">
-            <input
-              className="app-input min-h-14 w-full"
-              id="member-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Ex: Maria"
-              value={name}
-            />
-          </Field>
-
-          <Field htmlFor="member-phone" label="Telefone (opcional)">
-            <input
-              className="app-input min-h-14 w-full"
-              id="member-phone"
-              inputMode="tel"
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="(00) 00000-0000"
-              value={phone}
-            />
-          </Field>
-
-          <Field htmlFor="member-email" label="E-mail (opcional)">
-            <input
-              className="app-input min-h-14 w-full"
-              id="member-email"
-              inputMode="email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="profissional@email.com"
-              value={email}
-            />
-          </Field>
-
-          <div>
-            <p className="text-sm font-semibold text-slate-700">Serviços realizados</p>
-            {activeServices.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">
-                Cadastre serviços na aba Serviços para vincular a este profissional.
-              </p>
-            ) : (
-              <div className="mt-2 space-y-2">
-                {activeServices.map((service) => {
-                  const checked = serviceIds.includes(service.id);
-                  return (
-                    <button
-                      className={`flex min-h-12 w-full items-center justify-between rounded-2xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                        checked ? "bg-violet-50 text-violet-700" : "bg-slate-50 text-slate-600"
-                      }`}
-                      key={service.id}
-                      onClick={() => toggleServiceId(service.id)}
-                      type="button"
-                    >
-                      <span>{service.name}</span>
-                      {checked ? <ToggleRight className="text-violet-600" size={20} /> : <ToggleLeft size={20} />}
-                    </button>
-                  );
-                })}
+      {formOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 backdrop-blur-sm sm:p-5"
+          onClick={closeForm}
+          role="presentation"
+        >
+          <section
+            aria-labelledby="equipe-form-title"
+            aria-modal="true"
+            className="flex h-[90vh] w-[90vw] flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            {/* Cabeçalho fixo */}
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+              <div>
+                <h2 className="font-display text-xl font-bold text-slate-950" id="equipe-form-title">
+                  {editingId ? "Editar profissional" : "Cadastrar profissional"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Dados, serviços realizados e horário de atendimento.
+                </p>
               </div>
-            )}
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-slate-700">Horário de atendimento</p>
-            <div className="mt-2 space-y-2">
-              {WEEKDAYS.map(({ weekday, label }) => {
-                const row = schedule.find((item) => item.weekday === weekday);
-                if (!row) {
-                  return null;
-                }
-                return (
-                  <div className="rounded-2xl bg-slate-50 p-3" key={weekday}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-slate-700">{label}</span>
-                      <button
-                        aria-pressed={row.active}
-                        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-xl"
-                        onClick={() => updateScheduleRow(weekday, { active: !row.active })}
-                        type="button"
-                      >
-                        {row.active ? (
-                          <ToggleRight className="text-violet-600" size={22} />
-                        ) : (
-                          <ToggleLeft className="text-slate-400" size={22} />
-                        )}
-                      </button>
-                    </div>
-                    {row.active ? (
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          aria-label={`Inicio ${label}`}
-                          className="app-input min-h-11 w-full"
-                          onChange={(event) => updateScheduleRow(weekday, { start_time: event.target.value })}
-                          type="time"
-                          value={row.start_time}
-                        />
-                        <span className="text-slate-400">as</span>
-                        <input
-                          aria-label={`Fim ${label}`}
-                          className="app-input min-h-11 w-full"
-                          onChange={(event) => updateScheduleRow(weekday, { end_time: event.target.value })}
-                          type="time"
-                          value={row.end_time}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+              <button
+                aria-label="Fechar"
+                className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                onClick={closeForm}
+                type="button"
+              >
+                <X size={20} />
+              </button>
             </div>
-          </div>
 
-          <button
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-            onClick={() => setActive((current) => !current)}
-            type="button"
-          >
-            {active ? <ToggleRight className="text-emerald-600" size={20} /> : <ToggleLeft size={20} />}
-            {active ? "Profissional ativo" : "Profissional inativo"}
-          </button>
+            {/* Corpo rolável (só os campos rolam) */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field htmlFor="member-name" label="Nome">
+                  <input
+                    className="app-input min-h-14 w-full"
+                    id="member-name"
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Ex: Maria"
+                    value={name}
+                  />
+                </Field>
 
-          <button
-            className="app-button-primary w-full"
-            disabled={saving}
-            onClick={() => void saveMember()}
-            type="button"
-          >
-            {editingId ? <Save size={17} /> : <Plus size={17} />}
-            {saving ? "Salvando..." : editingId ? "Salvar alteracoes" : "Adicionar profissional"}
-          </button>
+                <Field htmlFor="member-phone" label="Telefone (opcional)">
+                  <input
+                    className="app-input min-h-14 w-full"
+                    id="member-phone"
+                    inputMode="tel"
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                  />
+                </Field>
 
-          {editingId ? (
-            <button className="app-button-secondary w-full" onClick={resetForm} type="button">
-              Cancelar edicao
-            </button>
-          ) : null}
+                <Field htmlFor="member-email" label="E-mail (opcional)">
+                  <input
+                    className="app-input min-h-14 w-full"
+                    id="member-email"
+                    inputMode="email"
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="profissional@email.com"
+                    value={email}
+                  />
+                </Field>
+
+                <div className="block text-sm font-semibold text-slate-700">
+                  Status
+                  <button
+                    className="mt-2 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    onClick={() => setActive((current) => !current)}
+                    type="button"
+                  >
+                    {active ? <ToggleRight className="text-emerald-600" size={20} /> : <ToggleLeft size={20} />}
+                    {active ? "Profissional ativo" : "Profissional inativo"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Serviços realizados</p>
+                  {activeServices.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">
+                      Cadastre serviços na aba Serviços para vincular a este profissional.
+                    </p>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {activeServices.map((service) => {
+                        const checked = serviceIds.includes(service.id);
+                        return (
+                          <button
+                            className={`flex min-h-12 w-full items-center justify-between rounded-2xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                              checked ? "bg-violet-50 text-violet-700" : "bg-slate-50 text-slate-600"
+                            }`}
+                            key={service.id}
+                            onClick={() => toggleServiceId(service.id)}
+                            type="button"
+                          >
+                            <span>{service.name}</span>
+                            {checked ? (
+                              <ToggleRight className="text-violet-600" size={20} />
+                            ) : (
+                              <ToggleLeft size={20} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Horário de atendimento</p>
+                  <div className="mt-2 space-y-2">
+                    {WEEKDAYS.map(({ weekday, label }) => {
+                      const row = schedule.find((item) => item.weekday === weekday);
+                      if (!row) {
+                        return null;
+                      }
+                      return (
+                        <div className="rounded-2xl bg-slate-50 p-3" key={weekday}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-slate-700">{label}</span>
+                            <button
+                              aria-pressed={row.active}
+                              className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                              onClick={() => updateScheduleRow(weekday, { active: !row.active })}
+                              type="button"
+                            >
+                              {row.active ? (
+                                <ToggleRight className="text-violet-600" size={22} />
+                              ) : (
+                                <ToggleLeft className="text-slate-400" size={22} />
+                              )}
+                            </button>
+                          </div>
+                          {row.active ? (
+                            <div className="mt-2 flex items-center gap-2">
+                              <input
+                                aria-label={`Inicio ${label}`}
+                                className="app-input min-h-11 w-full"
+                                onChange={(event) =>
+                                  updateScheduleRow(weekday, { start_time: event.target.value })
+                                }
+                                type="time"
+                                value={row.start_time}
+                              />
+                              <span className="text-slate-400">as</span>
+                              <input
+                                aria-label={`Fim ${label}`}
+                                className="app-input min-h-11 w-full"
+                                onChange={(event) =>
+                                  updateScheduleRow(weekday, { end_time: event.target.value })
+                                }
+                                type="time"
+                                value={row.end_time}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé fixo com as ações */}
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
+              <button className="app-button-secondary" onClick={closeForm} type="button">
+                Cancelar
+              </button>
+              <button
+                className="app-button-primary"
+                disabled={saving}
+                onClick={() => void saveMember()}
+                type="button"
+              >
+                {editingId ? <Save size={17} /> : <Plus size={17} />}
+                {saving ? "Salvando..." : editingId ? "Salvar alteracoes" : "Cadastrar profissional"}
+              </button>
+            </div>
+          </section>
         </div>
-      </Card>
+      ) : null}
     </div>
   );
 }

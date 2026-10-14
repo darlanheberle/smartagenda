@@ -11,7 +11,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Card, IconBox, Pill, SectionTitle } from "../components/ui";
@@ -56,6 +57,7 @@ export function ServicosClient({
     active: true
   });
   const [editingServiceId, setEditingServiceId] = useState<string | undefined>();
+  const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [defaultCommission, setDefaultCommission] = useState("50");
   const [commissionSaving, setCommissionSaving] = useState(false);
@@ -72,6 +74,26 @@ export function ServicosClient({
       })
       .catch(() => undefined);
   }, []);
+
+  // Trava a rolagem do fundo e fecha no Esc enquanto o modal estiver aberto.
+  useEffect(() => {
+    if (!formOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeForm();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formOpen]);
 
   async function saveDefaultCommission() {
     setCommissionSaving(true);
@@ -187,6 +209,7 @@ export function ServicosClient({
 
       setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", commission: "", active: true });
       setEditingServiceId(undefined);
+      setFormOpen(false);
       if (isEditing) {
         toast.saved();
       } else {
@@ -233,11 +256,22 @@ export function ServicosClient({
           : String(service.commission_percent),
       active: service.active
     });
+    setFormOpen(true);
   }
 
   function resetForm() {
     setEditingServiceId(undefined);
     setForm({ category: "", name: "", durationMinutes: "60", price: "0,00", commission: "", active: true });
+  }
+
+  function openForNew() {
+    resetForm();
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    resetForm();
   }
 
   return (
@@ -349,7 +383,18 @@ export function ServicosClient({
           </Card>
 
           <Card className="p-5">
-            <SectionTitle subtitle="Opções que aparecem no fluxo de agendamento pelo WhatsApp." title="Serviços cadastrados" />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-slate-950">Serviços cadastrados</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Opções que aparecem no fluxo de agendamento pelo WhatsApp.
+                </p>
+              </div>
+              <button className="app-button-primary shrink-0" onClick={openForNew} type="button">
+                <Plus size={17} />
+                Cadastro de serviço
+              </button>
+            </div>
             <div className="mt-5 space-y-3">
               {services.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
@@ -406,88 +451,131 @@ export function ServicosClient({
             </div>
           </Card>
 
-          <Card className="p-5">
-            <SectionTitle subtitle="Nome, duração, preço e disponibilidade para agendamento." title="Novo serviço" />
-            <div className="mt-5 space-y-4">
-              <Field label="Categoria opcional" htmlFor="service-category">
-                <input
-                  className="app-input min-h-14 w-full"
-                  id="service-category"
-                  onChange={(event) => setForm({ ...form, category: event.target.value })}
-                  placeholder="Ex: Cabelo, Unhas, Consulta"
-                  value={form.category}
-                />
-              </Field>
-
-              <Field label="Nome do serviço" htmlFor="service-name">
-                <input
-                  className="app-input min-h-14 w-full"
-                  id="service-name"
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  placeholder="Ex: Limpeza odontologica"
-                  value={form.name}
-                />
-              </Field>
-
-              <Field label="Duração" htmlFor="service-duration">
-                <input
-                  className="app-input min-h-14 w-full"
-                  id="service-duration"
-                  inputMode="numeric"
-                  onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })}
-                  value={form.durationMinutes}
-                />
-              </Field>
-
-              <Field label="Preço" htmlFor="service-price">
-                <input
-                  className="app-input min-h-14 w-full"
-                  id="service-price"
-                  inputMode="decimal"
-                  onBlur={() => setForm({ ...form, price: centsToInput(currencyToCents(form.price)) })}
-                  onChange={(event) => setForm({ ...form, price: event.target.value })}
-                  placeholder="0,00"
-                  value={form.price}
-                />
-              </Field>
-
-              <Field label="% do profissional (opcional)" htmlFor="service-commission">
-                <input
-                  className="app-input min-h-14 w-full"
-                  id="service-commission"
-                  inputMode="numeric"
-                  onChange={(event) => setForm({ ...form, commission: event.target.value })}
-                  placeholder={`Vazio usa o padrao (${defaultCommission}%)`}
-                  value={form.commission}
-                />
-              </Field>
-
-              <button
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                onClick={() => setForm({ ...form, active: !form.active })}
-                type="button"
+          {formOpen ? (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 backdrop-blur-sm sm:p-5"
+              onClick={closeForm}
+              role="presentation"
+            >
+              <section
+                aria-labelledby="servico-form-title"
+                aria-modal="true"
+                className="flex max-h-[90vh] w-[90vw] max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
               >
-                {form.active ? <ToggleRight className="text-emerald-600" size={20} /> : <ToggleLeft size={20} />}
-                {form.active ? "Servico ativo" : "Servico inativo"}
-              </button>
+                {/* Cabeçalho fixo */}
+                <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-slate-950" id="servico-form-title">
+                      {editingServiceId ? "Editar serviço" : "Cadastrar serviço"}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Nome, duração, preço e disponibilidade para agendamento.
+                    </p>
+                  </div>
+                  <button
+                    aria-label="Fechar"
+                    className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                    onClick={closeForm}
+                    type="button"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
 
-              <button
-                className="app-button-primary w-full"
-                disabled={saving}
-                onClick={() => void saveService()}
-                type="button"
-              >
-                {editingServiceId ? <Save size={17} /> : <Plus size={17} />}
-                {saving ? "Salvando..." : editingServiceId ? "Salvar alteracoes" : "Adicionar servico"}
-              </button>
+                {/* Corpo rolável (só os campos rolam) */}
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Nome do serviço" htmlFor="service-name">
+                      <input
+                        className="app-input min-h-14 w-full"
+                        id="service-name"
+                        onChange={(event) => setForm({ ...form, name: event.target.value })}
+                        placeholder="Ex: Limpeza odontologica"
+                        value={form.name}
+                      />
+                    </Field>
 
-              {editingServiceId ? (
-                <button className="app-button-secondary w-full" onClick={resetForm} type="button">
-                  Cancelar edicao
-                </button>
-              ) : null}
+                    <Field label="Categoria opcional" htmlFor="service-category">
+                      <input
+                        className="app-input min-h-14 w-full"
+                        id="service-category"
+                        onChange={(event) => setForm({ ...form, category: event.target.value })}
+                        placeholder="Ex: Cabelo, Unhas, Consulta"
+                        value={form.category}
+                      />
+                    </Field>
+
+                    <Field label="Duração (minutos)" htmlFor="service-duration">
+                      <input
+                        className="app-input min-h-14 w-full"
+                        id="service-duration"
+                        inputMode="numeric"
+                        onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })}
+                        value={form.durationMinutes}
+                      />
+                    </Field>
+
+                    <Field label="Preço" htmlFor="service-price">
+                      <input
+                        className="app-input min-h-14 w-full"
+                        id="service-price"
+                        inputMode="decimal"
+                        onBlur={() => setForm({ ...form, price: centsToInput(currencyToCents(form.price)) })}
+                        onChange={(event) => setForm({ ...form, price: event.target.value })}
+                        placeholder="0,00"
+                        value={form.price}
+                      />
+                    </Field>
+
+                    <Field label="% do profissional (opcional)" htmlFor="service-commission">
+                      <input
+                        className="app-input min-h-14 w-full"
+                        id="service-commission"
+                        inputMode="numeric"
+                        onChange={(event) => setForm({ ...form, commission: event.target.value })}
+                        placeholder={`Vazio usa o padrao (${defaultCommission}%)`}
+                        value={form.commission}
+                      />
+                    </Field>
+
+                    <div className="block text-sm font-semibold text-slate-700">
+                      Status
+                      <button
+                        className="mt-2 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        onClick={() => setForm({ ...form, active: !form.active })}
+                        type="button"
+                      >
+                        {form.active ? (
+                          <ToggleRight className="text-emerald-600" size={20} />
+                        ) : (
+                          <ToggleLeft size={20} />
+                        )}
+                        {form.active ? "Servico ativo" : "Servico inativo"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rodapé fixo com as ações */}
+                <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
+                  <button className="app-button-secondary" onClick={closeForm} type="button">
+                    Cancelar
+                  </button>
+                  <button
+                    className="app-button-primary"
+                    disabled={saving}
+                    onClick={() => void saveService()}
+                    type="button"
+                  >
+                    {editingServiceId ? <Save size={17} /> : <Plus size={17} />}
+                    {saving ? "Salvando..." : editingServiceId ? "Salvar alteracoes" : "Cadastrar serviço"}
+                  </button>
+                </div>
+              </section>
             </div>
-          </Card>
+          ) : null}
         </>
       )}
     </div>
