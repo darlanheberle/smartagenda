@@ -276,12 +276,20 @@ export function ServicosClient({
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-violet-700">Catalogo de atendimento</p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Serviços</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Defina o que a IA pode oferecer no WhatsApp, com duração e preço por serviço.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-violet-700">Catalogo de atendimento</p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-slate-950">Serviços</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Defina o que a IA pode oferecer no WhatsApp, com duração e preço por serviço.
+          </p>
+        </div>
+        {!(teamMode && tab === "equipe") ? (
+          <button className="app-button-primary shrink-0" onClick={openForNew} type="button">
+            <Plus size={17} />
+            Cadastro de serviço
+          </button>
+        ) : null}
       </header>
 
       <Card className="p-5">
@@ -383,18 +391,10 @@ export function ServicosClient({
           </Card>
 
           <Card className="p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="font-display text-lg font-semibold text-slate-950">Serviços cadastrados</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Opções que aparecem no fluxo de agendamento pelo WhatsApp.
-                </p>
-              </div>
-              <button className="app-button-primary shrink-0" onClick={openForNew} type="button">
-                <Plus size={17} />
-                Cadastro de serviço
-              </button>
-            </div>
+            <SectionTitle
+              subtitle="Opções que aparecem no fluxo de agendamento pelo WhatsApp."
+              title="Serviços cadastrados"
+            />
             <div className="mt-5 space-y-3">
               {services.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
