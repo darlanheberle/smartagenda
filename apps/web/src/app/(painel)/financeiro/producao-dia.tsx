@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Card, Pill, SectionTitle } from "../components/ui";
 import { formatCurrency } from "../lib/format";
@@ -46,6 +47,10 @@ export function Producao({ role }: { role: "owner" | "team_member" }) {
   const [to, setTo] = useState(todayKey());
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
+  // Por padrao os profissionais ficam recolhidos (so nome + totais).
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) =>
+    setExpanded((current) => ({ ...current, [key]: !current[key] }));
 
   const load = useCallback(async (start: string, end: string) => {
     setLoading(true);
@@ -133,26 +138,44 @@ export function Producao({ role }: { role: "owner" | "team_member" }) {
       {hasData ? (
         isOwner ? (
           <div className="mt-5 space-y-3">
-            {report!.professionals.map((group) => (
-              <div className="rounded-3xl bg-slate-50 p-4" key={group.teamMemberId || "none"}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-slate-950">{group.teamMemberName}</p>
-                  <Pill tone="violet">
-                    {group.count} servico{group.count === 1 ? "" : "s"}
-                  </Pill>
+            {report!.professionals.map((group) => {
+              const key = group.teamMemberId || "none";
+              const isOpen = Boolean(expanded[key]);
+
+              return (
+                <div className="rounded-3xl bg-slate-50 p-4" key={key}>
+                  <button
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-2 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    onClick={() => toggleGroup(key)}
+                    type="button"
+                  >
+                    <p className="font-semibold text-slate-950">{group.teamMemberName}</p>
+                    <span className="flex items-center gap-2">
+                      <Pill tone="violet">
+                        {group.count} servico{group.count === 1 ? "" : "s"}
+                      </Pill>
+                      <ChevronDown
+                        className={`shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        size={20}
+                      />
+                    </span>
+                  </button>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                    <MiniTotal label="Total" value={group.totalCents} />
+                    <MiniTotal label="Profissional" value={group.professionalCents} highlight />
+                    <MiniTotal label="Empresa" value={group.companyCents} />
+                  </div>
+                  {isOpen ? (
+                    <div className="mt-3 space-y-1.5">
+                      {group.items.map((item, index) => (
+                        <ItemRow item={item} key={index} />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                  <MiniTotal label="Total" value={group.totalCents} />
-                  <MiniTotal label="Profissional" value={group.professionalCents} highlight />
-                  <MiniTotal label="Empresa" value={group.companyCents} />
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  {group.items.map((item, index) => (
-                    <ItemRow item={item} key={index} />
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="mt-5 space-y-1.5">
