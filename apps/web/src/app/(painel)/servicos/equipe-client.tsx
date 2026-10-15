@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
   Copy,
   Edit3,
   KeyRound,
@@ -11,6 +12,7 @@ import {
   ToggleRight,
   Trash2,
   UserPlus,
+  Users,
   X
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -303,8 +305,34 @@ export function EquipeClient({
       .join(", ");
   }
 
+  const activeMembers = members.filter((member) => member.active);
+
   return (
     <div className="space-y-6">
+      <div>
+        <button className="app-button-primary" onClick={openForNew} type="button">
+          <Plus size={17} />
+          Cadastro de profissional
+        </button>
+      </div>
+
+      <section className="grid grid-cols-2 gap-3">
+        <Card className="p-4">
+          <IconBox tone="violet">
+            <Users size={20} />
+          </IconBox>
+          <p className="mt-4 font-display text-2xl font-bold tabular">{members.length}</p>
+          <p className="text-sm text-slate-500">profissionais cadastrados</p>
+        </Card>
+        <Card className="p-4">
+          <IconBox tone="emerald">
+            <Check size={20} />
+          </IconBox>
+          <p className="mt-4 font-display text-2xl font-bold tabular">{activeMembers.length}</p>
+          <p className="text-sm text-slate-500">ativos para agenda</p>
+        </Card>
+      </section>
+
       {companyLoginUrl ? (
         <Card className="p-5">
           <SectionTitle
@@ -337,16 +365,10 @@ export function EquipeClient({
       ) : null}
 
       <Card className="p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="font-display text-lg font-semibold text-slate-950">Profissionais</h2>
-            <p className="mt-1 text-sm text-slate-500">Quem o cliente pode escolher no WhatsApp.</p>
-          </div>
-          <button className="app-button-primary shrink-0" onClick={openForNew} type="button">
-            <Plus size={17} />
-            Cadastro de profissional
-          </button>
-        </div>
+        <SectionTitle
+          subtitle="Quem o cliente pode escolher no WhatsApp."
+          title="Profissionais cadastrados"
+        />
 
         <div className="mt-5 space-y-3">
           {members.length === 0 ? (
